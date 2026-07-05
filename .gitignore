@@ -1,0 +1,26 @@
+# Xcode / Swift
+DerivedData/
+build/
+.build/
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+
+# Fastlane / secrets
+fastlane/report.xml
+fastlane/Preview.html
+*.mobileprovision
+*.p12
+.env

@@ -1,0 +1,25 @@
+# Bifrost SwiftLint standard — the Builder-System lint gate for the Swift stack (ADR-0050).
+# Active once Swift sources land (B1, #3023). Kept minimal and opinionated; tighten as the
+# codebase grows rather than starting permissive.
+disabled_rules:
+  - todo
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - explicit_init
+  - first_where
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - redundant_nil_coalescing
+  - unused_import
+line_length:
+  warning: 120
+  error: 160
+  ignores_comments: true
+identifier_name:
+  min_length: 2
+  excluded: [id, x, y, to, up]
+excluded:
+  - .build
+  - DerivedData
+  - "**/*.generated.swift"

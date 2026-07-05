@@ -1,0 +1,89 @@
+---
+name: CI
+on:
+  workflow_dispatch:
+  pull_request:
+permissions: read-all
+
+# Bifrost CI — the Builder-System delivery gate, adapted to the Swift/iOS stack
+# (ADR-0050 §1). Two jobs:
+#   1. governance — always meaningful today: fails loud if the repo's own
+#      governance scaffolding (templates, AGENTS.md, skills routing) regresses.
+#      This keeps CI honest before app sources exist (no false green).
+#   2. swift — build + test + lint. Runs the real Xcode gates the moment an
+#      Xcode project/workspace or a SwiftLint config lands; until then it states
+#      the gap explicitly and does not pretend to have validated app code.
+
+jobs:
+  governance:
+    name: Governance scaffolding gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Required governance files present
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            "AGENTS.md"
+            ".github/pull_request_template.md"
+            ".github/ISSUE_TEMPLATE/task.yml"
+            ".github/ISSUE_TEMPLATE/config.yml"
+            ".codex/skills/README.md"
+            ".codex/skills/_shared/ISSUE_CONTRACT.md"
+            ".codex/skills/_shared/LABEL_TAXONOMY.md"
+            "README.md"
+          )
+          missing=0
+          for f in "${required[@]}"; do
+            if [[ ! -f "$f" ]]; then echo "::error file=$f::required governance file missing"; missing=1; fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Governance scaffolding regressed — see errors above."; exit 1
+          fi
+          echo "All required governance files present."
+      - name: Constituent declaration intact
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -qi "governed constituent" README.md \
+            || { echo "::error::README must declare Bifrost a governed Yggdrasil constituent"; exit 1; }
+          grep -q "ADR-0050" AGENTS.md \
+            || { echo "::error::AGENTS.md must recognize ecosystem ADR-0050 authority"; exit 1; }
+          echo "Constituent declaration + inherited authority present."
+
+  swift:
+    name: Swift build + test + lint
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: SwiftLint (when Swift sources exist)
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift_files="$(find . -name '*.swift' -not -path './.git/*' | head -1 || true)"
+          if [[ -n "$swift_files" && -f ".swiftlint.yml" ]]; then
+            brew list swiftlint >/dev/null 2>&1 || brew install swiftlint
+            swiftlint --strict
+          else
+            echo "No Swift sources yet — lint gate not applicable (.swiftlint.yml standard is defined and ready)."
+          fi
+      - name: Xcode build + test (if project present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          proj="$(ls -d *.xcodeproj *.xcworkspace 2>/dev/null | head -1 || true)"
+          if [[ -z "$proj" ]]; then
+            echo "No Xcode project/workspace yet — build+test gate not applicable (app sources not landed)."
+            echo "This job becomes a hard gate automatically once an .xcodeproj/.xcworkspace lands (B1, #3023)."
+            exit 0
+          fi
+          scheme="$(xcodebuild -list -json 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("project",{}).get("schemes",[""])[0])' || true)"
+          echo "Building + testing scheme: ${scheme:-<default>} in $proj"
+          xcodebuild build test \
+            -scheme "${scheme:-Bifrost}" \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            CODE_SIGNING_ALLOWED=NO | xcpretty || xcodebuild build test \
+            -scheme "${scheme:-Bifrost}" \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            CODE_SIGNING_ALLOWED=NO

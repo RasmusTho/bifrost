@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bifrost builder-agent instructions
+    url: https://github.com/RasmusTho/bifrost/blob/main/AGENTS.md
+    about: Read the Bifrost builder-agent instructions (governance inherited from the Yggdrasil hub) before opening work items.
+  - name: Ecosystem governance (hub repo)
+    url: https://github.com/RasmusTho/agentic-pkm-mvp/blob/main/AGENTS.md
+    about: The Yggdrasil hub repo holds the ecosystem ADR/CES record and Builder-System delivery skills that govern this repo.
