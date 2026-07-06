@@ -690,7 +690,7 @@
 /* Begin XCLocalSwiftPackageReference section */
 		DF76B2AD1AD813B1B506987B /* XCLocalSwiftPackageReference "Packages/YggdrasilCore" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/YggdrasilCore;
+			relativePath = ../Packages/YggdrasilCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 

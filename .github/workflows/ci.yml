@@ -72,12 +72,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          proj="$(ls -d *.xcodeproj *.xcworkspace 2>/dev/null | head -1 || true)"
+          proj="$(find . -maxdepth 2 \( -name '*.xcodeproj' -o -name '*.xcworkspace' \) -not -path './.git/*' | sort | head -1 || true)"
           if [[ -z "$proj" ]]; then
             echo "No Xcode project/workspace yet — build+test gate not applicable (app sources not landed)."
             echo "This job becomes a hard gate automatically once an .xcodeproj/.xcworkspace lands (B1, #3023)."
             exit 0
           fi
+          projDir="$(dirname "$proj")"
+          cd "$projDir"
           scheme="$(xcodebuild -list -json 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("project",{}).get("schemes",[""])[0])' || true)"
           echo "Building + testing scheme: ${scheme:-<default>} in $proj"
           xcodebuild build test \
