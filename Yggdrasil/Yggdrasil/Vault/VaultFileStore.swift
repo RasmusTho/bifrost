@@ -38,7 +38,8 @@ struct VaultFileStore {
     /// access. Each path's outcome is reported independently.
     func readMany(_ relativePaths: [String]) -> [String: Result<String, Error>] {
         guard rootURL.startAccessingSecurityScopedResource() else {
-            let error = VaultFileStoreError.readFailed(relativePaths.joined(separator: ", "), CocoaError(.fileReadNoPermission))
+            let joinedPaths = relativePaths.joined(separator: ", ")
+            let error = VaultFileStoreError.readFailed(joinedPaths, CocoaError(.fileReadNoPermission))
             return Dictionary(uniqueKeysWithValues: relativePaths.map { ($0, .failure(error)) })
         }
         defer { rootURL.stopAccessingSecurityScopedResource() }
