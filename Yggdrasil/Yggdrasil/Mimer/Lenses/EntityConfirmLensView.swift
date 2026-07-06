@@ -58,6 +58,7 @@ struct EntityConfirmLensView: View {
             loadError = nil
         } catch VaultFileStoreError.notFound {
             pending = []
+            loadError = nil
         } catch {
             loadError = error.localizedDescription
         }
@@ -65,7 +66,9 @@ struct EntityConfirmLensView: View {
 
     private func decide(_ entry: EntityReviewEntry, action: String) {
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        let candidate = entry.candidateEntityIDs.first ?? entry.mentionId
+        // Only "merge" has a real target; "reject" has none — falling back to
+        // mentionId there would record a self-merge instead of a dismissal.
+        let intoId = action == "merge" ? (entry.candidateEntityIDs.first ?? entry.mentionId) : ""
         do {
             try fileStore.readModifyWrite(HeimdalPaths.entityReview) { document in
                 var note = EntityReviewNote(document: document)
@@ -73,7 +76,7 @@ struct EntityConfirmLensView: View {
                     queueEntryId: entry.id,
                     action: action,
                     fromId: entry.mentionId,
-                    intoId: candidate,
+                    intoId: intoId,
                     decidedAt: timestamp
                 )
                 document = note.document

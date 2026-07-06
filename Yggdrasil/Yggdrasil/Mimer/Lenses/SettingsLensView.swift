@@ -8,6 +8,9 @@ struct SettingsLensView: View {
 
     @State private var retentionDays: Int = 30
     @State private var loadError: String?
+    // Guards against onChange firing save() for the value load() itself just
+    // set — without this, opening the tab immediately rewrites settings.md.
+    @State private var hasLoaded = false
 
     var body: some View {
         NavigationStack {
@@ -18,6 +21,7 @@ struct SettingsLensView: View {
                 Section("Retention") {
                     Stepper("Retention window: \(retentionDays) days", value: $retentionDays, in: 1...365)
                         .onChange(of: retentionDays) { _, newValue in
+                            guard hasLoaded else { return }
                             save(retentionDays: newValue)
                         }
                 }
@@ -33,6 +37,7 @@ struct SettingsLensView: View {
     }
 
     private func load() {
+        defer { hasLoaded = true }
         do {
             let text = try fileStore.read(HeimdalPaths.settings)
             let note = SettingsNote(document: try FrontmatterDocument.parse(text))

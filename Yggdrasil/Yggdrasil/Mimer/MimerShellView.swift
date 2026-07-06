@@ -23,8 +23,15 @@ struct MimerShellView: View {
             ConsentLensView(fileStore: fileStore)
                 .tabItem { Label("Consent", systemImage: "hand.raised") }
 
-            NoteBrowserView(fileStore: fileStore)
-                .tabItem { Label("Vault", systemImage: "folder") }
+            // NoteBrowserView pushes further instances of itself via
+            // NavigationLink as the user drills into folders, so the
+            // NavigationStack belongs once here at the tab root — not inside
+            // NoteBrowserView itself, which would nest a stack per push and
+            // break back-navigation.
+            NavigationStack {
+                NoteBrowserView(fileStore: fileStore)
+            }
+            .tabItem { Label("Vault", systemImage: "folder") }
 
             SettingsLensView(fileStore: fileStore)
                 .tabItem { Label("Settings", systemImage: "gearshape") }

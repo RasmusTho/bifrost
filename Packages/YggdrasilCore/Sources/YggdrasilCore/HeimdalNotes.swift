@@ -48,10 +48,11 @@ public struct ListNote: HeimdalNote {
 
     public mutating func addEntry(_ entry: String, source: String, target: String, note: String, timestamp: String) {
         var current = document.frontmatter[listKey]?.arrayValue ?? []
-        if !current.contains(where: { $0.stringValue == entry }) {
-            current.append(.string(entry))
-            document.frontmatter[listKey] = .array(current)
-        }
+        let alreadyListed = current.contains(where: { $0.stringValue == entry })
+        guard !alreadyListed else { return }
+        current.append(.string(entry))
+        document.frontmatter[listKey] = .array(current)
+
         let line = "- [\(timestamp)] source=\(source) target='\(target)' | \(note)"
         if !document.body.isEmpty && !document.body.hasSuffix("\n") {
             document.body += "\n"

@@ -24,23 +24,23 @@ struct MarkdownRendererView: View {
     private func render(_ block: MarkdownBlock) -> some View {
         switch block {
         case .heading(let level, let text):
-            Text(LocalizedStringKey(text))
+            Text(inlineStyled(text))
                 .font(headingFont(for: level))
                 .padding(.top, level <= 2 ? YggTheme.Spacing.sm : 0)
         case .paragraph(let text):
-            Text(LocalizedStringKey(text))
+            Text(inlineStyled(text))
                 .font(YggTheme.Typography.body)
         case .bulletItem(let text, let indent):
             HStack(alignment: .top, spacing: YggTheme.Spacing.xs) {
                 Text("•")
-                Text(LocalizedStringKey(text))
+                Text(inlineStyled(text))
                     .font(YggTheme.Typography.body)
             }
             .padding(.leading, CGFloat(indent) * YggTheme.Spacing.md)
         case .numberedItem(let number, let text, let indent):
             HStack(alignment: .top, spacing: YggTheme.Spacing.xs) {
                 Text("\(number).")
-                Text(LocalizedStringKey(text))
+                Text(inlineStyled(text))
                     .font(YggTheme.Typography.body)
             }
             .padding(.leading, CGFloat(indent) * YggTheme.Spacing.md)
@@ -49,7 +49,7 @@ struct MarkdownRendererView: View {
                 Rectangle()
                     .fill(YggTheme.Color.divider)
                     .frame(width: 3)
-                Text(LocalizedStringKey(text))
+                Text(inlineStyled(text))
                     .font(YggTheme.Typography.body.italic())
                     .foregroundStyle(YggTheme.Color.textSecondary)
             }
@@ -63,6 +63,14 @@ struct MarkdownRendererView: View {
         case .horizontalRule:
             Divider()
         }
+    }
+
+    /// Wraps note text for `Text(LocalizedStringKey:)`'s inline markdown
+    /// support, escaping literal `%` first — vault content is arbitrary
+    /// human/agent-authored text, not a format string, but an unescaped `%d`
+    /// or `%@` substring would otherwise be read as one.
+    private func inlineStyled(_ text: String) -> LocalizedStringKey {
+        LocalizedStringKey(text.replacingOccurrences(of: "%", with: "%%"))
     }
 
     private func headingFont(for level: Int) -> Font {

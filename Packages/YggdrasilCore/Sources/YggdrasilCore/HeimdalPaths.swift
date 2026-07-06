@@ -32,7 +32,11 @@ public enum HeimdalPaths {
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .iso8601)
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        // "Today" is a local-day concept for a human-facing daily log — a
+        // UTC-pinned formatter would file the note under the wrong day for
+        // any user west of UTC in the evening (or east of it after midnight
+        // UTC), so this intentionally uses the device's current time zone.
+        formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()

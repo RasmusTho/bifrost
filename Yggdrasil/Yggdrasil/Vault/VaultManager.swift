@@ -32,9 +32,13 @@ final class VaultManager: ObservableObject {
             let reference = VaultReference(
                 displayName: url.lastPathComponent,
                 bookmarkData: bookmark,
-                lastOpenedAt: Date()
+                lastOpenedAt: Date(),
+                resolvedPath: url.standardizedFileURL.path
             )
-            var updated = recentVaults.filter { $0.displayName != reference.displayName }
+            // Dedup by resolved path, not display name — two different
+            // folders can share a leaf name (e.g. two "Notes" folders under
+            // different iCloud locations) without being the same vault.
+            var updated = recentVaults.filter { $0.resolvedPath != reference.resolvedPath }
             updated.insert(reference, at: 0)
             recentVaults = Array(updated.prefix(8))
             persistRecents()
@@ -56,9 +60,36 @@ final class VaultManager: ObservableObject {
             activeVaultURL = url
             activeVaultReference = reference
             lastError = nil
+            if isStale {
+                refreshBookmark(for: reference, resolvedURL: url)
+            }
         } catch {
             lastError = "This vault is no longer reachable. Pick it again from Files."
         }
+    }
+
+    /// Re-mints and re-persists a bookmark that resolved successfully but was
+    /// reported stale (e.g. the vault folder moved under iCloud sync), so the
+    /// app keeps working across launches instead of silently drifting toward
+    /// a bookmark that eventually fails to resolve at all.
+    private func refreshBookmark(for reference: VaultReference, resolvedURL: URL) {
+        guard resolvedURL.startAccessingSecurityScopedResource() else { return }
+        defer { resolvedURL.stopAccessingSecurityScopedResource() }
+        guard let freshBookmark = try? resolvedURL.bookmarkData(
+            options: [], includingResourceValuesForKeys: nil, relativeTo: nil
+        ) else { return }
+        let refreshed = VaultReference(
+            id: reference.id,
+            displayName: resolvedURL.lastPathComponent,
+            bookmarkData: freshBookmark,
+            lastOpenedAt: reference.lastOpenedAt,
+            resolvedPath: resolvedURL.standardizedFileURL.path
+        )
+        if let index = recentVaults.firstIndex(where: { $0.id == reference.id }) {
+            recentVaults[index] = refreshed
+            persistRecents()
+        }
+        activeVaultReference = refreshed
     }
 
     func closeVault() {

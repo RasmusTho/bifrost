@@ -9,12 +9,23 @@ public struct VaultReference: Codable, Equatable, Identifiable {
     public let displayName: String
     public let bookmarkData: Data
     public let lastOpenedAt: Date
+    /// The resolved folder path at the time this reference was minted, used
+    /// only to tell two distinct folders with the same leaf name apart —
+    /// never shown to the user or typed by them.
+    public let resolvedPath: String
 
-    public init(id: UUID = UUID(), displayName: String, bookmarkData: Data, lastOpenedAt: Date) {
+    public init(
+        id: UUID = UUID(),
+        displayName: String,
+        bookmarkData: Data,
+        lastOpenedAt: Date,
+        resolvedPath: String
+    ) {
         self.id = id
         self.displayName = displayName
         self.bookmarkData = bookmarkData
         self.lastOpenedAt = lastOpenedAt
+        self.resolvedPath = resolvedPath
     }
 }
 

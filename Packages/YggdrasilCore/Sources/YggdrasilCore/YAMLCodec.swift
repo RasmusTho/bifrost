@@ -194,9 +194,40 @@ public enum YAMLCodec {
 
     private static func unquote(_ text: String) -> String {
         guard text.count >= 2 else { return text }
-        if (text.hasPrefix("\"") && text.hasSuffix("\"")) || (text.hasPrefix("'") && text.hasSuffix("'")) {
+        if text.hasPrefix("\"") && text.hasSuffix("\"") {
+            return unescapeDoubleQuoted(String(text.dropFirst().dropLast()))
+        }
+        if text.hasPrefix("'") && text.hasSuffix("'") {
             return String(text.dropFirst().dropLast())
         }
         return text
+    }
+
+    /// Decodes the small set of backslash escapes `dumpString` emits, one
+    /// character at a time (not via chained global replacements, which would
+    /// misparse an escaped backslash immediately followed by a literal 'n').
+    private static func unescapeDoubleQuoted(_ text: String) -> String {
+        var result = ""
+        var iterator = text.makeIterator()
+        while let char = iterator.next() {
+            guard char == "\\" else {
+                result.append(char)
+                continue
+            }
+            guard let next = iterator.next() else {
+                result.append(char)
+                break
+            }
+            switch next {
+            case "n": result.append("\n")
+            case "r": result.append("\r")
+            case "\"": result.append("\"")
+            case "\\": result.append("\\")
+            default:
+                result.append(char)
+                result.append(next)
+            }
+        }
+        return result
     }
 }

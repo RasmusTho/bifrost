@@ -83,9 +83,9 @@ jobs:
           scheme="$(xcodebuild -list -json 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("project",{}).get("schemes",[""])[0])' || true)"
           echo "Building + testing scheme: ${scheme:-<default>} in $proj"
           xcodebuild build test \
-            -scheme "${scheme:-Bifrost}" \
+            -scheme "${scheme:-Yggdrasil}" \
             -destination 'platform=iOS Simulator,name=iPhone 15' \
             CODE_SIGNING_ALLOWED=NO | xcpretty || xcodebuild build test \
-            -scheme "${scheme:-Bifrost}" \
+            -scheme "${scheme:-Yggdrasil}" \
             -destination 'platform=iOS Simulator,name=iPhone 15' \
             CODE_SIGNING_ALLOWED=NO

@@ -14,6 +14,21 @@ final class YAMLCodecTests: XCTestCase {
         XCTAssertEqual(map["retention_window_days"]?.intValue, 30)
     }
 
+    func testStringWithEmbeddedNewlineRoundTrips() throws {
+        var map = YAMLMap()
+        map["note"] = .string("line one\nline two")
+        map["backslash_n"] = .string("literal backslash then n: \\n")
+        let serialized = YAMLCodec.serialize(.map(map))
+        let lineCount = serialized.split(separator: "\n", omittingEmptySubsequences: false).count
+        let message = "a raw newline inside a scalar would break this codec's line-based parser: \(serialized)"
+        XCTAssertEqual(lineCount, 3, message)
+
+        let reparsed = try YAMLCodec.parse(serialized)
+        guard case .map(let reparsedMap) = reparsed else { return XCTFail("expected map") }
+        XCTAssertEqual(reparsedMap["note"]?.stringValue, "line one\nline two")
+        XCTAssertEqual(reparsedMap["backslash_n"]?.stringValue, "literal backslash then n: \\n")
+    }
+
     func testBlockSequenceOfScalars() throws {
         let yaml = """
         watched:

@@ -59,17 +59,6 @@ struct VaultFileStore {
         }
     }
 
-    func listFiles(in relativeDirectory: String, withExtension ext: String = "md") throws -> [String] {
-        let url = VaultPath.resolve(relativeDirectory, in: rootURL)
-        guard rootURL.startAccessingSecurityScopedResource() else { return [] }
-        defer { rootURL.stopAccessingSecurityScopedResource() }
-        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: url.path) else { return [] }
-        return entries
-            .filter { $0.hasSuffix(".\(ext)") }
-            .sorted()
-            .map { "\(relativeDirectory)/\($0)" }
-    }
-
     /// Lists both folders and `.md` files directly inside `relativeDirectory`
     /// (empty string = vault root), for the visual vault browser.
     func listEntries(in relativeDirectory: String) throws -> [VaultEntry] {

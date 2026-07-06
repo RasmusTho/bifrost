@@ -42,7 +42,11 @@ struct NoteDetailView: View {
                     Button(isSaving ? "Saving…" : "Save") { save() }
                         .disabled(isSaving)
                 } else {
+                    // Disabled on a failed load: rawText wouldn't reflect the
+                    // real note, and editing it would overwrite the note with
+                    // stale/empty content on save.
                     Button("Edit") { isEditing = true }
+                        .disabled(loadError != nil)
                 }
             }
         }

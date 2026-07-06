@@ -63,8 +63,11 @@ struct ConsentLensView: View {
             note = ConsentNote(document: try FrontmatterDocument.parse(text))
             loadError = nil
         } catch VaultFileStoreError.notFound {
-            note = nil
-            loadError = "No consent.md yet in this vault."
+            // Match the other lenses: an absent note is an empty-state, not
+            // an error — a fresh vault before Heimdal has ever run shouldn't
+            // show a red banner on first open.
+            note = ConsentNote(document: FrontmatterDocument(frontmatter: YAMLMap(), body: ""))
+            loadError = nil
         } catch {
             loadError = error.localizedDescription
         }

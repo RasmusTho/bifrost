@@ -95,14 +95,19 @@ extension YAMLCodec {
 
     private static func dumpString(_ text: String) -> String {
         guard let firstCharacter = text.first else { return "\"\"" }
-        let needsQuoting = text.hasPrefix(" ") || text.hasSuffix(" ")
+        let containsNewline = text.contains("\n") || text.contains("\r")
+        let needsQuoting = containsNewline || text.hasPrefix(" ") || text.hasSuffix(" ")
             || text.contains(": ") || text.hasSuffix(":")
             || "-?:[]{}#&*!|>'\"%@`".contains(firstCharacter)
             || text == "true" || text == "false" || text == "null" || text == "~"
             || Int(text) != nil || Double(text) != nil
         guard needsQuoting else { return text }
+        // Double-quoted scalars must stay single-line for this codec's parser, so embedded
+        // newlines are escaped as literal "\n"/"\r" rather than left as raw line breaks.
         let escaped = text.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\n", with: "\\n")
         return "\"\(escaped)\""
     }
 }
