@@ -41,54 +41,9 @@ public enum MarkdownDocument {
                 continue
             }
 
-            if trimmed.hasPrefix("```") {
+            if let block = matchBlock(lines, &index, line: line, trimmed: trimmed) {
                 flushParagraph()
-                let language = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                var codeLines: [String] = []
-                index += 1
-                while index < lines.count, !lines[index].trimmingCharacters(in: .whitespaces).hasPrefix("```") {
-                    codeLines.append(lines[index])
-                    index += 1
-                }
-                index += 1 // skip closing fence
-                blocks.append(.codeBlock(text: codeLines.joined(separator: "\n"), language: language.isEmpty ? nil : language))
-                continue
-            }
-
-            if trimmed == "---" || trimmed == "***" || trimmed == "___" {
-                flushParagraph()
-                blocks.append(.horizontalRule)
-                index += 1
-                continue
-            }
-
-            if let headingMatch = headingLevel(of: trimmed) {
-                flushParagraph()
-                blocks.append(.heading(level: headingMatch.level, text: headingMatch.text))
-                index += 1
-                continue
-            }
-
-            if trimmed.hasPrefix("> ") || trimmed == ">" {
-                flushParagraph()
-                let quoteText = trimmed == ">" ? "" : String(trimmed.dropFirst(2))
-                blocks.append(.blockquote(text: quoteText))
-                index += 1
-                continue
-            }
-
-            let indent = leadingIndent(of: line)
-            if let bulletText = bulletText(from: trimmed) {
-                flushParagraph()
-                blocks.append(.bulletItem(text: bulletText, indent: indent))
-                index += 1
-                continue
-            }
-
-            if let numbered = numberedItem(from: trimmed) {
-                flushParagraph()
-                blocks.append(.numberedItem(number: numbered.number, text: numbered.text, indent: indent))
-                index += 1
+                blocks.append(block)
                 continue
             }
 
@@ -97,6 +52,55 @@ public enum MarkdownDocument {
         }
         flushParagraph()
         return blocks
+    }
+
+    /// Recognizes one non-paragraph block starting at `index` and advances
+    /// `index` past it. Returns `nil` (leaving `index` untouched) when the
+    /// line is ordinary paragraph text.
+    private static func matchBlock(
+        _ lines: [String],
+        _ index: inout Int,
+        line: String,
+        trimmed: String
+    ) -> MarkdownBlock? {
+        if trimmed.hasPrefix("```") {
+            return parseCodeFence(lines, &index, openingLine: trimmed)
+        }
+        if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+            index += 1
+            return .horizontalRule
+        }
+        if let headingMatch = headingLevel(of: trimmed) {
+            index += 1
+            return .heading(level: headingMatch.level, text: headingMatch.text)
+        }
+        if trimmed.hasPrefix("> ") || trimmed == ">" {
+            index += 1
+            return .blockquote(text: trimmed == ">" ? "" : String(trimmed.dropFirst(2)))
+        }
+        let indent = leadingIndent(of: line)
+        if let bulletText = bulletText(from: trimmed) {
+            index += 1
+            return .bulletItem(text: bulletText, indent: indent)
+        }
+        if let numbered = numberedItem(from: trimmed) {
+            index += 1
+            return .numberedItem(number: numbered.number, text: numbered.text, indent: indent)
+        }
+        return nil
+    }
+
+    private static func parseCodeFence(_ lines: [String], _ index: inout Int, openingLine: String) -> MarkdownBlock {
+        let language = String(openingLine.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+        var codeLines: [String] = []
+        index += 1
+        while index < lines.count, !lines[index].trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+            codeLines.append(lines[index])
+            index += 1
+        }
+        index += 1 // skip closing fence
+        let code = codeLines.joined(separator: "\n")
+        return .codeBlock(text: code, language: language.isEmpty ? nil : language)
     }
 
     private static func headingLevel(of line: String) -> (level: Int, text: String)? {
@@ -112,10 +116,8 @@ public enum MarkdownDocument {
     }
 
     private static func bulletText(from line: String) -> String? {
-        for marker in ["- ", "* ", "+ "] {
-            if line.hasPrefix(marker) {
-                return String(line.dropFirst(marker.count))
-            }
+        for marker in ["- ", "* ", "+ "] where line.hasPrefix(marker) {
+            return String(line.dropFirst(marker.count))
         }
         return nil
     }

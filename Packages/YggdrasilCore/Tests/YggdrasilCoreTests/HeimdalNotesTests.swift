@@ -19,11 +19,16 @@ final class HeimdalNotesTests: XCTestCase {
         XCTAssertEqual(note.pending.count, 1)
         XCTAssertEqual(note.pending[0].surfaceForm, "Alice")
 
-        note.addDecision(queueEntryId: "q1", action: "merge", fromId: "e1", intoId: "e2", decidedAt: "2026-07-06T00:00:00Z")
-        note.addDecision(queueEntryId: "q1", action: "merge", fromId: "e1", intoId: "e2", decidedAt: "2026-07-06T00:00:01Z")
+        note.addDecision(
+            queueEntryId: "q1", action: "merge", fromId: "e1", intoId: "e2", decidedAt: "2026-07-06T00:00:00Z"
+        )
+        note.addDecision(
+            queueEntryId: "q1", action: "merge", fromId: "e1", intoId: "e2", decidedAt: "2026-07-06T00:00:01Z"
+        )
 
         let decisions = note.document.frontmatter["decisions"]?.arrayValue ?? []
-        XCTAssertEqual(decisions.count, 1, "duplicate decision for the same queue entry + action must not be appended twice")
+        let message = "duplicate decision for the same queue entry + action must not be appended twice"
+        XCTAssertEqual(decisions.count, 1, message)
     }
 
     func testAttentionOverrideAppendPreservesCountsAndReasons() throws {
@@ -83,7 +88,9 @@ final class HeimdalNotesTests: XCTestCase {
         """
         let doc = try FrontmatterDocument.parse(text)
         var note = ListNote.watchlist(document: doc)
-        note.addEntry("new.com", source: "chat", target: "new.com", note: "added via Mimer", timestamp: "2026-07-06T09:00:00Z")
+        note.addEntry(
+            "new.com", source: "chat", target: "new.com", note: "added via Mimer", timestamp: "2026-07-06T09:00:00Z"
+        )
 
         XCTAssertEqual(note.entries, ["new.com"])
         XCTAssertTrue(note.document.body.contains("prior entry"))

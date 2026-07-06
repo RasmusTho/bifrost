@@ -213,7 +213,13 @@ public struct AttentionOverride: Equatable {
     public let note: String
     public let overriddenAt: String
 
-    public init(itemId: String, originalDecision: String, overriddenDecision: String, note: String, overriddenAt: String) {
+    public init(
+        itemId: String,
+        originalDecision: String,
+        overriddenDecision: String,
+        note: String,
+        overriddenAt: String
+    ) {
         self.itemId = itemId
         self.originalDecision = originalDecision
         self.overriddenDecision = overriddenDecision

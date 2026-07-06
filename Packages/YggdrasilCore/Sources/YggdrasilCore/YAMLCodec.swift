@@ -48,7 +48,7 @@ public enum YAMLCodec {
 
     private static func parseSequence(_ lines: [Line], _ index: inout Int, indent: Int) throws -> YAMLValue {
         var items: [YAMLValue] = []
-        while index < lines.count, lines[index].indent == indent, lines[index].content == "-" || lines[index].content.hasPrefix("- ") {
+        while index < lines.count, lines[index].indent == indent, isSequenceMarker(lines[index].content) {
             let content = lines[index].content
             let after = content == "-" ? "" : String(content.dropFirst(2))
             if after.isEmpty {
@@ -107,6 +107,10 @@ public enum YAMLCodec {
 
     private static func isMapEntry(_ text: String) -> Bool {
         topLevelColon(text) != nil
+    }
+
+    private static func isSequenceMarker(_ content: String) -> Bool {
+        content == "-" || content.hasPrefix("- ")
     }
 
     /// Finds the ':' that separates a key from its value, ignoring colons
@@ -194,104 +198,5 @@ public enum YAMLCodec {
             return String(text.dropFirst().dropLast())
         }
         return text
-    }
-
-    // MARK: Serialization
-
-    public static func serialize(_ value: YAMLValue) -> String {
-        guard case .map(let map) = value else {
-            return dumpScalar(value) + "\n"
-        }
-        return dump(map: map, indent: 0)
-    }
-
-    private static func dump(map: YAMLMap, indent: Int) -> String {
-        guard !map.isEmpty else { return String(repeating: " ", count: indent) + "{}\n" }
-        var lines: [String] = []
-        let pad = String(repeating: " ", count: indent)
-        for (key, value) in map.pairs {
-            switch value {
-            case .array(let items):
-                if items.isEmpty {
-                    lines.append("\(pad)\(key): []")
-                } else {
-                    lines.append("\(pad)\(key):")
-                    lines.append(dumpSequenceItems(items, indent: indent + 2))
-                }
-            case .map(let nested):
-                if nested.isEmpty {
-                    lines.append("\(pad)\(key): {}")
-                } else {
-                    lines.append("\(pad)\(key):")
-                    lines.append(dump(map: nested, indent: indent + 2))
-                }
-            default:
-                lines.append("\(pad)\(key): \(dumpScalar(value))")
-            }
-        }
-        return lines.joined(separator: "\n") + "\n"
-    }
-
-    private static func dumpSequenceItems(_ items: [YAMLValue], indent: Int) -> String {
-        let pad = String(repeating: " ", count: indent)
-        var lines: [String] = []
-        for item in items {
-            switch item {
-            case .map(let nested) where !nested.isEmpty:
-                let pairs = nested.pairs
-                for (offset, pair) in pairs.enumerated() {
-                    let (key, value) = pair
-                    let linePad = offset == 0 ? pad + "- " : pad + "  "
-                    switch value {
-                    case .array(let nestedItems):
-                        if nestedItems.isEmpty {
-                            lines.append("\(linePad)\(key): []")
-                        } else {
-                            lines.append("\(linePad)\(key):")
-                            lines.append(dumpSequenceItems(nestedItems, indent: indent + 4))
-                        }
-                    case .map(let deeperMap):
-                        if deeperMap.isEmpty {
-                            lines.append("\(linePad)\(key): {}")
-                        } else {
-                            lines.append("\(linePad)\(key):")
-                            lines.append(dump(map: deeperMap, indent: indent + 4))
-                        }
-                    default:
-                        lines.append("\(linePad)\(key): \(dumpScalar(value))")
-                    }
-                }
-            default:
-                lines.append("\(pad)- \(dumpScalar(item))")
-            }
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private static func dumpScalar(_ value: YAMLValue) -> String {
-        switch value {
-        case .null: return "null"
-        case .bool(let flag): return flag ? "true" : "false"
-        case .int(let intValue): return String(intValue)
-        case .double(let doubleValue): return String(doubleValue)
-        case .string(let stringValue): return dumpString(stringValue)
-        case .array(let items):
-            return "[" + items.map { dumpScalar($0) }.joined(separator: ", ") + "]"
-        case .map(let nested):
-            return "{" + nested.pairs.map { "\($0.0): \(dumpScalar($0.1))" }.joined(separator: ", ") + "}"
-        }
-    }
-
-    private static func dumpString(_ text: String) -> String {
-        guard let firstCharacter = text.first else { return "\"\"" }
-        let needsQuoting = text.hasPrefix(" ") || text.hasSuffix(" ")
-            || text.contains(": ") || text.hasSuffix(":")
-            || "-?:[]{}#&*!|>'\"%@`".contains(firstCharacter)
-            || text == "true" || text == "false" || text == "null" || text == "~"
-            || Int(text) != nil || Double(text) != nil
-        guard needsQuoting else { return text }
-        let escaped = text.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        return "\"\(escaped)\""
     }
 }

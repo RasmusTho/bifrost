@@ -38,8 +38,13 @@ struct NoteBrowserView: View {
                 Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
             }
         }
-        .navigationTitle(relativeDirectory.isEmpty ? "Vault" : (relativeDirectory.split(separator: "/").last.map(String.init) ?? "Folder"))
+        .navigationTitle(navigationTitle)
         .onAppear(perform: load)
+    }
+
+    private var navigationTitle: String {
+        guard !relativeDirectory.isEmpty else { return "Vault" }
+        return relativeDirectory.split(separator: "/").last.map(String.init) ?? "Folder"
     }
 
     private func load() {

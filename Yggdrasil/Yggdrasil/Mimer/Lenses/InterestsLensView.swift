@@ -99,7 +99,13 @@ struct InterestsLensView: View {
         do {
             try fileStore.readModifyWrite(HeimdalPaths.watchlist) { document in
                 var note = ListNote.watchlist(document: document)
-                note.addEntry(newSource, source: "mimer-iphone", target: newSource, note: "added from Interests lens", timestamp: timestamp)
+                note.addEntry(
+                    newSource,
+                    source: "mimer-iphone",
+                    target: newSource,
+                    note: "added from Interests lens",
+                    timestamp: timestamp
+                )
                 document = note.document
             }
             newSource = ""

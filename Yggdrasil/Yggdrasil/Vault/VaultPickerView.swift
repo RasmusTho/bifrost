@@ -13,7 +13,8 @@ struct VaultPickerView: View {
                 VStack(alignment: .leading, spacing: YggTheme.Spacing.lg) {
                     if !vaultManager.recentVaults.isEmpty {
                         YggSectionHeader(title: "Recent Vaults")
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: YggTheme.Spacing.md)], spacing: YggTheme.Spacing.md) {
+                        let columns = [GridItem(.adaptive(minimum: 140), spacing: YggTheme.Spacing.md)]
+                        LazyVGrid(columns: columns, spacing: YggTheme.Spacing.md) {
                             ForEach(vaultManager.recentVaults) { reference in
                                 Button {
                                     vaultManager.activate(reference)

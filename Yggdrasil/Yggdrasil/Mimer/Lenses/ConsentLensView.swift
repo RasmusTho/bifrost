@@ -39,12 +39,14 @@ struct ConsentLensView: View {
                     }
                 }
                 Section("Dormant in v1") {
+                    let withholdEnabled = note?.withholdReviewEnabled ?? false
                     Label(
-                        (note?.withholdReviewEnabled ?? false) ? "Withhold-review enabled" : "Withhold-review not enabled",
+                        withholdEnabled ? "Withhold-review enabled" : "Withhold-review not enabled",
                         systemImage: "eye.slash"
                     )
+                    let erasureSupported = note?.retentionErasureSupported ?? false
                     Label(
-                        (note?.retentionErasureSupported ?? false) ? "Erasure requests supported" : "Erasure requests not yet supported",
+                        erasureSupported ? "Erasure requests supported" : "Erasure requests not yet supported",
                         systemImage: "trash"
                     )
                     .foregroundStyle(YggTheme.Color.textSecondary)

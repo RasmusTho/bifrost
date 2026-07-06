@@ -85,10 +85,12 @@ struct VaultFileStore {
             .compactMap { name -> VaultEntry? in
                 var isDirectory: ObjCBool = false
                 let childURL = url.appendingPathComponent(name)
-                guard FileManager.default.fileExists(atPath: childURL.path, isDirectory: &isDirectory) else { return nil }
-                guard isDirectory.boolValue || name.hasSuffix(".md") else { return nil }
+                let exists = FileManager.default.fileExists(atPath: childURL.path, isDirectory: &isDirectory)
+                guard exists, isDirectory.boolValue || name.hasSuffix(".md") else { return nil }
                 let relativePath = relativeDirectory.isEmpty ? name : "\(relativeDirectory)/\(name)"
-                return VaultEntry(id: relativePath, name: name, relativePath: relativePath, isDirectory: isDirectory.boolValue)
+                return VaultEntry(
+                    id: relativePath, name: name, relativePath: relativePath, isDirectory: isDirectory.boolValue
+                )
             }
     }
 
