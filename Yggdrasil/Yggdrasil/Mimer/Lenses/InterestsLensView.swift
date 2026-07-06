@@ -55,8 +55,13 @@ struct InterestsLensView: View {
 
     private func load() {
         loadError = nil
+        let results = fileStore.readMany([HeimdalPaths.interests, HeimdalPaths.watchlist, HeimdalPaths.never])
+        func text(for path: String) throws -> String {
+            try (results[path] ?? .failure(VaultFileStoreError.notFound(path))).get()
+        }
+
         do {
-            let interestsText = try fileStore.read(HeimdalPaths.interests)
+            let interestsText = try text(for: HeimdalPaths.interests)
             let interests = InterestsNote(document: try FrontmatterDocument.parse(interestsText))
             weights = interests.weights
         } catch VaultFileStoreError.notFound {
@@ -66,7 +71,7 @@ struct InterestsLensView: View {
         }
 
         do {
-            let watchlistText = try fileStore.read(HeimdalPaths.watchlist)
+            let watchlistText = try text(for: HeimdalPaths.watchlist)
             watched = ListNote.watchlist(document: try FrontmatterDocument.parse(watchlistText)).entries
         } catch VaultFileStoreError.notFound {
             watched = []
@@ -75,7 +80,7 @@ struct InterestsLensView: View {
         }
 
         do {
-            let neverText = try fileStore.read(HeimdalPaths.never)
+            let neverText = try text(for: HeimdalPaths.never)
             never = ListNote.never(document: try FrontmatterDocument.parse(neverText)).entries
         } catch VaultFileStoreError.notFound {
             never = []

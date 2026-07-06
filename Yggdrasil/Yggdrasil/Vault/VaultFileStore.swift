@@ -25,11 +25,33 @@ struct VaultFileStore {
     let rootURL: URL
 
     func read(_ relativePath: String) throws -> String {
-        let url = VaultPath.resolve(relativePath, in: rootURL)
         guard rootURL.startAccessingSecurityScopedResource() else {
             throw VaultFileStoreError.readFailed(relativePath, CocoaError(.fileReadNoPermission))
         }
         defer { rootURL.stopAccessingSecurityScopedResource() }
+        return try readFile(relativePath)
+    }
+
+    /// Reads several vault-relative files under a single security-scoped
+    /// access session, so independent reads (e.g. a lens loading multiple
+    /// notes at once) don't each pay for their own start/stop of scoped
+    /// access. Each path's outcome is reported independently.
+    func readMany(_ relativePaths: [String]) -> [String: Result<String, Error>] {
+        guard rootURL.startAccessingSecurityScopedResource() else {
+            let joinedPaths = relativePaths.joined(separator: ", ")
+            let error = VaultFileStoreError.readFailed(joinedPaths, CocoaError(.fileReadNoPermission))
+            return Dictionary(uniqueKeysWithValues: relativePaths.map { ($0, .failure(error)) })
+        }
+        defer { rootURL.stopAccessingSecurityScopedResource() }
+        var results: [String: Result<String, Error>] = [:]
+        for relativePath in relativePaths {
+            results[relativePath] = Result { try readFile(relativePath) }
+        }
+        return results
+    }
+
+    private func readFile(_ relativePath: String) throws -> String {
+        let url = VaultPath.resolve(relativePath, in: rootURL)
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw VaultFileStoreError.notFound(relativePath)
         }
