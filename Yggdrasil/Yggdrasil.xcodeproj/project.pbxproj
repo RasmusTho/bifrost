@@ -28,6 +28,7 @@
 		049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */; };
 		45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */; };
 		5BB61A3A3A42C1521CE396AF /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
+		661D4087FF716F6CB52A808E /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +87,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				661D4087FF716F6CB52A808E /* YggdrasilCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,6 +278,9 @@
 				5E607BE78363E48AC791FD9C /* PBXTargetDependency */,
 			);
 			name = YggdrasilTests;
+			packageProductDependencies = (
+				E57461B6C5A0AAAB703095D2 /* YggdrasilCore */,
+			);
 			productName = YggdrasilTests;
 			productReference = FD7AA2B15AA01B81DC5A28A2 /* YggdrasilTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";

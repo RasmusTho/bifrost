@@ -1,4 +1,5 @@
 import XCTest
+import YggdrasilCore
 @testable import Yggdrasil
 
 final class VaultFileStoreTests: XCTestCase {
