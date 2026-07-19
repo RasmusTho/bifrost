@@ -29,6 +29,13 @@
 		049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */; };
 		A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */; };
 		45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */; };
+		A14000010000000000000001 /* CaptureFolderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000110000000000000001 /* CaptureFolderManager.swift */; };
+		A14000020000000000000002 /* CaptureSessionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000120000000000000002 /* CaptureSessionModel.swift */; };
+		A14000030000000000000003 /* HeimdalShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000130000000000000003 /* HeimdalShellView.swift */; };
+		A14000040000000000000004 /* HeimdalBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000140000000000000004 /* HeimdalBoundaryTests.swift */; };
+		A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000150000000000000005 /* CaptureFolderBindingTests.swift */; };
+		A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000160000000000000006 /* CaptureSessionModelTests.swift */; };
+		A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000170000000000000007 /* HeimdalShellUITests.swift */; };
 		5BB61A3A3A42C1521CE396AF /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 		661D4087FF716F6CB52A808E /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 /* End PBXBuildFile section */
@@ -72,6 +79,13 @@
 		8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStoreTests.swift; sourceTree = "<group>"; };
 		A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentionLensAuditTests.swift; sourceTree = "<group>"; };
 		75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggdrasilUITests.swift; sourceTree = "<group>"; };
+		A14000110000000000000001 /* CaptureFolderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderManager.swift; sourceTree = "<group>"; };
+		A14000120000000000000002 /* CaptureSessionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModel.swift; sourceTree = "<group>"; };
+		A14000130000000000000003 /* HeimdalShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellView.swift; sourceTree = "<group>"; };
+		A14000140000000000000004 /* HeimdalBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalBoundaryTests.swift; sourceTree = "<group>"; };
+		A14000150000000000000005 /* CaptureFolderBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderBindingTests.swift; sourceTree = "<group>"; };
+		A14000160000000000000006 /* CaptureSessionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModelTests.swift; sourceTree = "<group>"; };
+		A14000170000000000000007 /* HeimdalShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellUITests.swift; sourceTree = "<group>"; };
 		5CAEF267DA8A9A8592B0B826 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7D497DBFC684E0B65B3E9AD0 /* Yggdrasil.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yggdrasil.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD7AA2B15AA01B81DC5A28A2 /* YggdrasilTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YggdrasilTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -181,6 +195,16 @@
 			path = Mimer;
 			sourceTree = "<group>";
 		};
+		A14000210000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A14000110000000000000001 /* CaptureFolderManager.swift */,
+				A14000120000000000000002 /* CaptureSessionModel.swift */,
+				A14000130000000000000003 /* HeimdalShellView.swift */,
+			);
+			path = Heimdal;
+			sourceTree = "<group>";
+		};
 		5F44D0FB9286968825156D66 = {
 			isa = PBXGroup;
 			children = (
@@ -198,6 +222,7 @@
 				63070C0535014571F201A8B0 /* Vault */,
 				C50FEEDADB2CAD552390A17E /* Markdown */,
 				AC627CAEB0F061C3CB6B7D5F /* Mimer */,
+				A14000210000000000000001 /* Heimdal */,
 				5F44D0FB9286968825156D66 /* Resources */,
 			);
 			path = Yggdrasil;
@@ -208,6 +233,9 @@
 			children = (
 				8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */,
 				A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */,
+				A14000140000000000000004 /* HeimdalBoundaryTests.swift */,
+				A14000150000000000000005 /* CaptureFolderBindingTests.swift */,
+				A14000160000000000000006 /* CaptureSessionModelTests.swift */,
 			);
 			path = YggdrasilTests;
 			sourceTree = "<group>";
@@ -216,6 +244,7 @@
 			isa = PBXGroup;
 			children = (
 				75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */,
+				A14000170000000000000007 /* HeimdalShellUITests.swift */,
 			);
 			path = YggdrasilUITests;
 			sourceTree = "<group>";
@@ -388,6 +417,9 @@
 				D9FFFA17B7EB7F5D34BDB9FC /* SettingsLensView.swift in Sources */,
 				A6D1E0400000000000000001 /* LensScaffold.swift in Sources */,
 				D84DDF3D1BA800003034C73E /* NoteBrowserView.swift in Sources */,
+				A14000010000000000000001 /* CaptureFolderManager.swift in Sources */,
+				A14000020000000000000002 /* CaptureSessionModel.swift in Sources */,
+				A14000030000000000000003 /* HeimdalShellView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -397,6 +429,9 @@
 			files = (
 				049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */,
 				A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */,
+				A14000040000000000000004 /* HeimdalBoundaryTests.swift in Sources */,
+				A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */,
+				A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -405,6 +440,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */,
+				A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
