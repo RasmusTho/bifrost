@@ -15,9 +15,7 @@ struct SettingsLensView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let loadError {
-                    Text(loadError).foregroundStyle(.red)
-                }
+                LensScaffold.errorBanner(loadError)
                 Section("Retention") {
                     Stepper("Retention window: \(retentionDays) days", value: $retentionDays, in: 1...365)
                         .onChange(of: retentionDays) { _, newValue in
@@ -38,27 +36,23 @@ struct SettingsLensView: View {
 
     private func load() {
         defer { hasLoaded = true }
-        do {
+        LensScaffold.load(error: $loadError, operation: {
             let text = try fileStore.read(HeimdalPaths.settings)
             let note = SettingsNote(document: try FrontmatterDocument.parse(text))
             retentionDays = note.retentionWindowDays ?? 30
-            loadError = nil
-        } catch VaultFileStoreError.notFound {
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
-        }
+        }, recover: { error in
+            if case VaultFileStoreError.notFound = error { return true }
+            return false
+        })
     }
 
     private func save(retentionDays: Int) {
-        do {
+        LensScaffold.perform(error: $loadError) {
             try fileStore.readModifyWrite(HeimdalPaths.settings) { document in
                 var note = SettingsNote(document: document)
                 note.setRetentionWindowDays(retentionDays)
                 document = note.document
             }
-        } catch {
-            loadError = error.localizedDescription
         }
     }
 }

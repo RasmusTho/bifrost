@@ -15,9 +15,7 @@ struct InterestsLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let loadError {
-                    Text(loadError).foregroundStyle(.red)
-                }
+                LensScaffold.errorBanner(loadError)
                 Section("Interest Weights") {
                     if weights.isEmpty {
                         Text("No interest signal yet.").foregroundStyle(YggTheme.Color.textSecondary)
@@ -90,7 +88,7 @@ struct InterestsLensView: View {
     }
 
     private func setWeight(_ weight: Double, for name: String) {
-        do {
+        LensScaffold.perform(error: $loadError) {
             try fileStore.readModifyWrite(HeimdalPaths.interests) { document in
                 var note = InterestsNote(document: document)
                 note.setWeight(weight, for: name)
@@ -99,14 +97,12 @@ struct InterestsLensView: View {
             if let index = weights.firstIndex(where: { $0.name == name }) {
                 weights[index].weight = weight
             }
-        } catch {
-            loadError = error.localizedDescription
         }
     }
 
     private func addToWatchlist() {
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        do {
+        if LensScaffold.perform(error: $loadError, {
             try fileStore.readModifyWrite(HeimdalPaths.watchlist) { document in
                 var note = ListNote.watchlist(document: document)
                 note.addEntry(
@@ -118,10 +114,9 @@ struct InterestsLensView: View {
                 )
                 document = note.document
             }
+        }) {
             newSource = ""
             load()
-        } catch {
-            loadError = error.localizedDescription
         }
     }
 }

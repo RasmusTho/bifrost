@@ -14,6 +14,11 @@ final class YAMLCodecTests: XCTestCase {
         XCTAssertEqual(map["retention_window_days"]?.intValue, 30)
     }
 
+    func testLeadingZeroScalarRoundTripsVerbatim() throws {
+        let yaml = "ticket: 007\n"
+        XCTAssertEqual(YAMLCodec.serialize(try YAMLCodec.parse(yaml)), yaml)
+    }
+
     func testStringWithEmbeddedNewlineRoundTrips() throws {
         var map = YAMLMap()
         map["note"] = .string("line one\nline two")

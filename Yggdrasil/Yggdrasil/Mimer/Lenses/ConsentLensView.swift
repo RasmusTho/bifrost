@@ -13,9 +13,7 @@ struct ConsentLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let loadError {
-                    Text(loadError).foregroundStyle(.red)
-                }
+                LensScaffold.errorBanner(loadError)
                 Section("Grants") {
                     if let grants = note?.grants, !grants.isEmpty {
                         ForEach(Array(grants.enumerated()), id: \.offset) { _, grant in
@@ -58,18 +56,16 @@ struct ConsentLensView: View {
     }
 
     private func load() {
-        do {
+        LensScaffold.load(error: $loadError, operation: {
             let text = try fileStore.read(HeimdalPaths.consent)
             note = ConsentNote(document: try FrontmatterDocument.parse(text))
-            loadError = nil
-        } catch VaultFileStoreError.notFound {
+        }, recover: { error in
+            guard case VaultFileStoreError.notFound = error else { return false }
             // Match the other lenses: an absent note is an empty-state, not
             // an error — a fresh vault before Heimdal has ever run shouldn't
             // show a red banner on first open.
             note = ConsentNote(document: FrontmatterDocument(frontmatter: YAMLMap(), body: ""))
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
-        }
+            return true
+        })
     }
 }

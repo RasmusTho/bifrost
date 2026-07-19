@@ -23,9 +23,11 @@
 		65E3944866236A3633A19487 /* EntityConfirmLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133298A06EA3AB2A882E9293 /* EntityConfirmLensView.swift */; };
 		BCF4E8181967BDB175D4AC8E /* ConsentLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BA6D4F2B355FFD30418DB1 /* ConsentLensView.swift */; };
 		D9FFFA17B7EB7F5D34BDB9FC /* SettingsLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361D537E976856B250CFFBD3 /* SettingsLensView.swift */; };
+		A6D1E0400000000000000001 /* LensScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D1E0400000000000000002 /* LensScaffold.swift */; };
 		D84DDF3D1BA800003034C73E /* NoteBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 416399243593CE65ABBE7F18 /* NoteBrowserView.swift */; };
 		AFBD06499F7E0D5AEDD902DD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5CAEF267DA8A9A8592B0B826 /* Assets.xcassets */; };
 		049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */; };
+		A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */; };
 		45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */; };
 		A14000010000000000000001 /* CaptureFolderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000110000000000000001 /* CaptureFolderManager.swift */; };
 		A14000020000000000000002 /* CaptureSessionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000120000000000000002 /* CaptureSessionModel.swift */; };
@@ -72,8 +74,10 @@
 		133298A06EA3AB2A882E9293 /* EntityConfirmLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityConfirmLensView.swift; sourceTree = "<group>"; };
 		21BA6D4F2B355FFD30418DB1 /* ConsentLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentLensView.swift; sourceTree = "<group>"; };
 		361D537E976856B250CFFBD3 /* SettingsLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsLensView.swift; sourceTree = "<group>"; };
+		A6D1E0400000000000000002 /* LensScaffold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LensScaffold.swift; sourceTree = "<group>"; };
 		416399243593CE65ABBE7F18 /* NoteBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteBrowserView.swift; sourceTree = "<group>"; };
 		8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStoreTests.swift; sourceTree = "<group>"; };
+		A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentionLensAuditTests.swift; sourceTree = "<group>"; };
 		75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggdrasilUITests.swift; sourceTree = "<group>"; };
 		A14000110000000000000001 /* CaptureFolderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderManager.swift; sourceTree = "<group>"; };
 		A14000120000000000000002 /* CaptureSessionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModel.swift; sourceTree = "<group>"; };
@@ -176,6 +180,7 @@
 				133298A06EA3AB2A882E9293 /* EntityConfirmLensView.swift */,
 				21BA6D4F2B355FFD30418DB1 /* ConsentLensView.swift */,
 				361D537E976856B250CFFBD3 /* SettingsLensView.swift */,
+				A6D1E0400000000000000002 /* LensScaffold.swift */,
 				416399243593CE65ABBE7F18 /* NoteBrowserView.swift */,
 			);
 			path = Lenses;
@@ -227,6 +232,7 @@
 			isa = PBXGroup;
 			children = (
 				8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */,
+				A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */,
 				A14000140000000000000004 /* HeimdalBoundaryTests.swift */,
 				A14000150000000000000005 /* CaptureFolderBindingTests.swift */,
 				A14000160000000000000006 /* CaptureSessionModelTests.swift */,
@@ -409,6 +415,7 @@
 				65E3944866236A3633A19487 /* EntityConfirmLensView.swift in Sources */,
 				BCF4E8181967BDB175D4AC8E /* ConsentLensView.swift in Sources */,
 				D9FFFA17B7EB7F5D34BDB9FC /* SettingsLensView.swift in Sources */,
+				A6D1E0400000000000000001 /* LensScaffold.swift in Sources */,
 				D84DDF3D1BA800003034C73E /* NoteBrowserView.swift in Sources */,
 				A14000010000000000000001 /* CaptureFolderManager.swift in Sources */,
 				A14000020000000000000002 /* CaptureSessionModel.swift in Sources */,
@@ -421,6 +428,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */,
+				A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */,
 				A14000040000000000000004 /* HeimdalBoundaryTests.swift in Sources */,
 				A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */,
 				A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */,

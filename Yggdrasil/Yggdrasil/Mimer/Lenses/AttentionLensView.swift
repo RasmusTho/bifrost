@@ -17,9 +17,7 @@ struct AttentionLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let loadError {
-                    Text(loadError).foregroundStyle(.red)
-                }
+                LensScaffold.errorBanner(loadError)
                 Section("Today's Overrides") {
                     if let overrides = note?.overrides, !overrides.isEmpty {
                         ForEach(overrides, id: \.overriddenAt) { override in
@@ -67,37 +65,33 @@ struct AttentionLensView: View {
     }
 
     private func load() {
-        do {
+        LensScaffold.load(error: $loadError, operation: {
             let text = try fileStore.read(relativePath)
             note = AttentionNote(document: try FrontmatterDocument.parse(text))
-            loadError = nil
-        } catch VaultFileStoreError.notFound {
+        }, recover: { error in
+            guard case VaultFileStoreError.notFound = error else { return false }
             note = AttentionNote(document: FrontmatterDocument(frontmatter: YAMLMap(), body: ""))
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
-        }
+            return true
+        })
     }
 
     private func addOverride(decision: String) {
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        do {
+        if LensScaffold.perform(error: $loadError, {
             try fileStore.readModifyWrite(relativePath) { document in
                 var note = AttentionNote(document: document)
-                note.addOverride(AttentionOverride(
+                note.addOverride(.manualOverride(
                     itemId: pendingItemId,
-                    originalDecision: decision == "attended" ? "skipped" : "attended",
-                    overriddenDecision: decision,
+                    action: decision,
                     note: pendingNote,
                     overriddenAt: timestamp
                 ))
                 document = note.document
             }
+        }) {
             pendingItemId = ""
             pendingNote = ""
             load()
-        } catch {
-            loadError = error.localizedDescription
         }
     }
 }

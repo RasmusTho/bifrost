@@ -13,9 +13,7 @@ struct EntityConfirmLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let loadError {
-                    Text(loadError).foregroundStyle(.red)
-                }
+                LensScaffold.errorBanner(loadError)
                 if pending.isEmpty {
                     YggEmptyState(
                         systemImage: "checkmark.circle",
@@ -52,16 +50,14 @@ struct EntityConfirmLensView: View {
     }
 
     private func load() {
-        do {
+        LensScaffold.load(error: $loadError, operation: {
             let text = try fileStore.read(HeimdalPaths.entityReview)
             pending = EntityReviewNote(document: try FrontmatterDocument.parse(text)).pending
-            loadError = nil
-        } catch VaultFileStoreError.notFound {
+        }, recover: { error in
+            guard case VaultFileStoreError.notFound = error else { return false }
             pending = []
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
-        }
+            return true
+        })
     }
 
     private func decide(_ entry: EntityReviewEntry, action: String) {
@@ -69,7 +65,7 @@ struct EntityConfirmLensView: View {
         // Only "merge" has a real target; "reject" has none — falling back to
         // mentionId there would record a self-merge instead of a dismissal.
         let intoId = action == "merge" ? (entry.candidateEntityIDs.first ?? entry.mentionId) : ""
-        do {
+        if LensScaffold.perform(error: $loadError, {
             try fileStore.readModifyWrite(HeimdalPaths.entityReview) { document in
                 var note = EntityReviewNote(document: document)
                 note.addDecision(
@@ -81,9 +77,8 @@ struct EntityConfirmLensView: View {
                 )
                 document = note.document
             }
+        }) {
             load()
-        } catch {
-            loadError = error.localizedDescription
         }
     }
 }
