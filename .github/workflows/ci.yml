@@ -88,26 +88,37 @@ jobs:
           projDir="$(dirname "$proj")"
           cd "$projDir"
           scheme="$(xcodebuild -list -json 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("project",{}).get("schemes",[""])[0])' || true)"
-          simulator_udid="$(xcrun simctl list devices available -j | python3 -c '
+          simulator_udid_for() {
+            local device_prefix="$1"
+            xcrun simctl list devices available -j | python3 -c '
           import json
           import sys
 
+          device_prefix = sys.argv[1]
           for runtime, devices in sorted(json.load(sys.stdin).get("devices", {}).items()):
               if "iOS" not in runtime:
                   continue
               for device in devices:
-                  if device.get("isAvailable") and device.get("name", "").startswith("iPhone"):
+                  if device.get("isAvailable") and device.get("name", "").startswith(device_prefix):
                       print(device["udid"])
                       raise SystemExit(0)
-          raise SystemExit("No available iPhone simulator found")
-          ')"
-          destination="platform=iOS Simulator,id=$simulator_udid"
-          echo "Using simulator destination: $destination"
+          raise SystemExit(f"No available {device_prefix} simulator found")
+          ' "$device_prefix"
+          }
           echo "Building + testing scheme: ${scheme:-<default>} in $proj"
-          xcodebuild build test \
-            -scheme "${scheme:-Yggdrasil}" \
-            -destination "$destination" \
-            CODE_SIGNING_ALLOWED=NO | xcpretty || xcodebuild build test \
-            -scheme "${scheme:-Yggdrasil}" \
-            -destination "$destination" \
-            CODE_SIGNING_ALLOWED=NO
+          for device_prefix in iPhone iPad; do
+            simulator_udid="$(simulator_udid_for "$device_prefix")"
+            destination="platform=iOS Simulator,id=$simulator_udid"
+            echo "Using $device_prefix simulator destination: $destination"
+            if command -v xcpretty >/dev/null 2>&1; then
+              xcodebuild build test \
+                -scheme "${scheme:-Yggdrasil}" \
+                -destination "$destination" \
+                CODE_SIGNING_ALLOWED=NO | xcpretty
+            else
+              xcodebuild build test \
+                -scheme "${scheme:-Yggdrasil}" \
+                -destination "$destination" \
+                CODE_SIGNING_ALLOWED=NO
+            fi
+          done

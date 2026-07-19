@@ -36,6 +36,7 @@
 		A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000150000000000000005 /* CaptureFolderBindingTests.swift */; };
 		A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000160000000000000006 /* CaptureSessionModelTests.swift */; };
 		A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000170000000000000007 /* HeimdalShellUITests.swift */; };
+		A19000010000000000000001 /* MimerCanvasUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19000110000000000000001 /* MimerCanvasUITests.swift */; };
 		5BB61A3A3A42C1521CE396AF /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 		661D4087FF716F6CB52A808E /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 /* End PBXBuildFile section */
@@ -86,6 +87,7 @@
 		A14000150000000000000005 /* CaptureFolderBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderBindingTests.swift; sourceTree = "<group>"; };
 		A14000160000000000000006 /* CaptureSessionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModelTests.swift; sourceTree = "<group>"; };
 		A14000170000000000000007 /* HeimdalShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellUITests.swift; sourceTree = "<group>"; };
+		A19000110000000000000001 /* MimerCanvasUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasUITests.swift; sourceTree = "<group>"; };
 		5CAEF267DA8A9A8592B0B826 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7D497DBFC684E0B65B3E9AD0 /* Yggdrasil.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yggdrasil.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD7AA2B15AA01B81DC5A28A2 /* YggdrasilTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YggdrasilTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -245,6 +247,7 @@
 			children = (
 				75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */,
 				A14000170000000000000007 /* HeimdalShellUITests.swift */,
+				A19000110000000000000001 /* MimerCanvasUITests.swift */,
 			);
 			path = YggdrasilUITests;
 			sourceTree = "<group>";
@@ -441,6 +444,7 @@
 			files = (
 				45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */,
 				A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */,
+				A19000010000000000000001 /* MimerCanvasUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
