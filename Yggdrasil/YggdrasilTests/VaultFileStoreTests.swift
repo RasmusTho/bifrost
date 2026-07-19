@@ -265,7 +265,8 @@ final class VaultFileStoreTests: XCTestCase {
         await fulfillment(of: [started], timeout: 1)
 
         let mainActorTurn = Task { @MainActor in true }
-        XCTAssertTrue(await mainActorTurn.value)
+        let mainActorAdvanced = await mainActorTurn.value
+        XCTAssertTrue(mainActorAdvanced)
         let value = try await task.value
         XCTAssertFalse(coordinator.ranOnMainThread)
         return value
