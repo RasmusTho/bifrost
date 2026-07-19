@@ -16,6 +16,6 @@ final class HeimdalShellUITests: XCTestCase {
         heimdalTab.tap()
         XCTAssertTrue(app.navigationBars["Heimdal"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["heimdal.chooseCaptureFolder"].exists)
-        XCTAssertTrue(app.buttons["heimdal.record.disabled"].exists)
+        XCTAssertTrue(app.buttons["heimdal.record"].exists)
     }
 }

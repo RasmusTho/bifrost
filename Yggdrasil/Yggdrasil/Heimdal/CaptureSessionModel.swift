@@ -70,6 +70,7 @@ final class CaptureSessionModel: ObservableObject {
              (.recording, .paused),
              (.paused, .recording),
              (.recording, .finalizing),
+             (.paused, .finalizing),
              (.finalizing, .staged):
             true
         default:
