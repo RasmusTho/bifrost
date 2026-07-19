@@ -3,15 +3,18 @@ import XCTest
 
 @MainActor
 final class CaptureFolderBindingTests: XCTestCase {
-    private var defaults: UserDefaults!
+    private var defaults = UserDefaults.standard
+    private var suiteName = ""
 
     override func setUp() {
-        defaults = UserDefaults(suiteName: "CaptureFolderBindingTests-\(UUID().uuidString)")!
+        suiteName = "CaptureFolderBindingTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName) ?? .standard
     }
 
     override func tearDown() {
-        defaults.removePersistentDomain(forName: defaults.volatileDomainNames.first ?? "")
-        defaults = nil
+        if !suiteName.isEmpty {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
     }
 
     func testBookmarkPersistsAndResolves() {
