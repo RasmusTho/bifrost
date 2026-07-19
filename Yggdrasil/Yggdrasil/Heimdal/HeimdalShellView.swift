@@ -86,7 +86,8 @@ struct HeimdalShellView: View {
 
     private func recordButtonTapped() {
         switch sessionModel.phase {
-        case .recording, .paused: recorder.stop()
+        case .recording, .paused:
+            Task { await recorder.stop() }
         default: recorder.requestMicrophonePermissionAndStart()
         }
     }

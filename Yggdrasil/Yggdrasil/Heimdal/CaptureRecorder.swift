@@ -3,18 +3,20 @@ import Combine
 import Foundation
 import UIKit
 
+@MainActor
 protocol CaptureFileWriting: AnyObject {
-    var duration: TimeInterval { get }
     func start(url: URL) throws
     func pause()
     func resume() throws
-    func stop() throws
+    func stop() async throws -> TimeInterval
 }
 
+@MainActor
 final class AVFoundationCaptureFileWriter: NSObject, CaptureFileWriting {
     private var recorder: AVAudioRecorder?
-
-    var duration: TimeInterval { recorder?.currentTime ?? 0 }
+    private var delegateProxy: AudioRecorderDelegateProxy?
+    private var finishContinuation: CheckedContinuation<TimeInterval, Swift.Error>?
+    private var durationAtStop: TimeInterval = 0
 
     func start(url: URL) throws {
         let settings: [String: Any] = [
@@ -24,6 +26,14 @@ final class AVFoundationCaptureFileWriter: NSObject, CaptureFileWriting {
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         recorder = try AVAudioRecorder(url: url, settings: settings)
+        let writer = self
+        delegateProxy = AudioRecorderDelegateProxy { [weak writer] successfully in
+            guard let writer else { return }
+            Task { @MainActor [writer, successfully] in
+                writer.finish(successfully: successfully)
+            }
+        }
+        recorder?.delegate = delegateProxy
         guard recorder?.record() == true else { throw CaptureRecorder.Error.couldNotStart }
     }
 
@@ -33,7 +43,43 @@ final class AVFoundationCaptureFileWriter: NSObject, CaptureFileWriting {
         guard recorder?.record() == true else { throw CaptureRecorder.Error.couldNotStart }
     }
 
-    func stop() throws { recorder?.stop() }
+    func stop() async throws -> TimeInterval {
+        guard let recorder else { throw CaptureRecorder.Error.incompleteFile }
+        guard finishContinuation == nil else { throw CaptureRecorder.Error.incompleteFile }
+        durationAtStop = recorder.currentTime
+        return try await withCheckedThrowingContinuation { continuation in
+            finishContinuation = continuation
+            recorder.stop()
+        }
+    }
+
+    private func finish(successfully: Bool, error: Swift.Error? = nil) {
+        guard let continuation = finishContinuation else { return }
+        finishContinuation = nil
+        recorder = nil
+        delegateProxy = nil
+        if successfully {
+            continuation.resume(returning: durationAtStop)
+        } else {
+            continuation.resume(throwing: error ?? CaptureRecorder.Error.incompleteFile)
+        }
+    }
+}
+
+private final class AudioRecorderDelegateProxy: NSObject, AVAudioRecorderDelegate {
+    private let onFinish: @Sendable (Bool) -> Void
+
+    init(onFinish: @escaping @Sendable (Bool) -> Void) {
+        self.onFinish = onFinish
+    }
+
+    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        onFinish(flag)
+    }
+
+    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Swift.Error?) {
+        onFinish(false)
+    }
 }
 
 @MainActor
@@ -73,18 +119,18 @@ final class CaptureRecorder: ObservableObject {
     private var sessionObservers: [NSObjectProtocol] = []
 
     init(
-        sessionModel: CaptureSessionModel = CaptureSessionModel(),
-        writer: CaptureFileWriting = AVFoundationCaptureFileWriter(),
+        sessionModel: CaptureSessionModel? = nil,
+        writer: CaptureFileWriting? = nil,
         stagingDirectory: URL? = nil,
-        deviceShortID: String = UIDevice.current.identifierForVendor?
-            .uuidString.prefix(8).lowercased() ?? "device",
+        deviceShortID: String? = nil,
         configuration: Configuration = .production,
         observeInterruptions: Bool = true
     ) {
-        self.sessionModel = sessionModel
-        self.writer = writer
+        self.sessionModel = sessionModel ?? CaptureSessionModel()
+        self.writer = writer ?? AVFoundationCaptureFileWriter()
         self.stagingDirectory = stagingDirectory ?? Self.defaultStagingDirectory()
-        self.deviceShortID = deviceShortID
+        self.deviceShortID = deviceShortID ?? UIDevice.current.identifierForVendor?
+            .uuidString.prefix(8).lowercased() ?? "device"
         self.configuration = configuration
         if observeInterruptions {
             sessionObservers.append(NotificationCenter.default.addObserver(
@@ -92,28 +138,29 @@ final class CaptureRecorder: ObservableObject {
                 object: AVAudioSession.sharedInstance(),
                 queue: .main
             ) { [weak self] notification in
-                Task { @MainActor in self?.handleInterruption(notification) }
+                guard let recorder = self else { return }
+                let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+                let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
+                Task { @MainActor [recorder, rawType, rawOptions] in
+                    await recorder.handleInterruption(rawType: rawType, rawOptions: rawOptions)
+                }
             })
-            sessionObservers.append(NotificationCenter.default.addObserver(
-                forName: AVAudioSession.routeChangeNotification,
-                object: AVAudioSession.sharedInstance(),
-                queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor in self?.abandon() }
-            })
+            observeFinalizingNotification(AVAudioSession.routeChangeNotification)
+            observeFinalizingNotification(AVAudioSession.mediaServicesWereLostNotification)
+            observeFinalizingNotification(AVAudioSession.mediaServicesWereResetNotification)
         }
     }
 
     deinit { sessionObservers.forEach(NotificationCenter.default.removeObserver) }
 
     func requestMicrophonePermissionAndStart() {
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
-            Task { @MainActor in
-                guard let self else { return }
+        AVAudioApplication.requestRecordPermission { [weak self] granted in
+            guard let recorder = self else { return }
+            Task { @MainActor [recorder, granted] in
                 if granted {
-                    self.start()
+                    recorder.start()
                 } else {
-                    self.lastError = "Microphone access is needed to record your own spoken thoughts."
+                    recorder.lastError = "Microphone access is needed to record your own spoken thoughts."
                 }
             }
         }
@@ -150,45 +197,61 @@ final class CaptureRecorder: ObservableObject {
         }
     }
 
-    func stop() { finalizeCurrentSegment() }
+    func stop() async { await finalizeCurrentSegment() }
 
-    func abandon() { finalizeCurrentSegment() }
+    func abandon() async { await finalizeCurrentSegment() }
 
-    func handleInterruption(type: AVAudioSession.InterruptionType, shouldResume: Bool) {
+    func handleInterruption(type: AVAudioSession.InterruptionType, shouldResume: Bool) async {
         switch type {
         case .began: pause()
         case .ended:
             if shouldResume { resume() } else { needsManualResume = true }
-        @unknown default: abandon()
+        @unknown default: await abandon()
         }
     }
 
-    private func handleInterruption(_ notification: Notification) {
-        guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
-        let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
-        let options = rawOptions.map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
-        handleInterruption(type: type, shouldResume: options.contains(.shouldResume))
+    func handleRouteChangeOrSessionFailure() async {
+        await abandon()
     }
 
-    private func finalizeCurrentSegment() {
+    private func handleInterruption(rawType: UInt?, rawOptions: UInt?) async {
+        guard let rawType,
+              let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+        let options = rawOptions.map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
+        await handleInterruption(type: type, shouldResume: options.contains(.shouldResume))
+    }
+
+    private func finalizeCurrentSegment() async {
         guard let url = activeURL,
               sessionModel.phase == .recording || sessionModel.phase == .paused else { return }
         do {
-            try writer.stop()
+            _ = sessionModel.transition(to: .finalizing)
+            let duration = try await writer.stop()
             guard FileManager.default.fileExists(atPath: url.path),
                   (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else {
                 throw Error.incompleteFile
             }
-            _ = sessionModel.transition(to: .finalizing)
             guard sessionModel.stageCurrentItem(
                 url: url,
-                duration: writer.duration,
+                duration: duration,
                 capturedAt: Date()
             ) else { throw Error.incompleteFile }
             activeURL = nil
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch { lastError = error.localizedDescription }
+    }
+
+    private func observeFinalizingNotification(_ name: Notification.Name) {
+        sessionObservers.append(NotificationCenter.default.addObserver(
+            forName: name,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] _ in
+            guard let recorder = self else { return }
+            Task { @MainActor [recorder] in
+                await recorder.handleRouteChangeOrSessionFailure()
+            }
+        })
     }
 
     private func nextFileURL() -> URL {
