@@ -20,6 +20,22 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertEqual(recorder.sessionModel.phase, .recording)
     }
 
+    func testNonResumableInterruptionThenStopClearsManualResumeState() async {
+        let recorder = makeRecorder()
+        recorder.start()
+        await recorder.handleInterruption(type: .began, shouldResume: false)
+        await recorder.handleInterruption(type: .ended, shouldResume: false)
+        XCTAssertEqual(recorder.sessionModel.phase, .paused)
+        XCTAssertTrue(recorder.needsManualResume)
+
+        await recorder.stop()
+
+        XCTAssertEqual(recorder.sessionModel.phase, .staged)
+        XCTAssertFalse(recorder.needsManualResume)
+        await recorder.handleInterruption(type: .ended, shouldResume: false)
+        XCTAssertFalse(recorder.needsManualResume)
+    }
+
     func testAbandonedSessionFinalizesSegment() async {
         let recorder = makeRecorder()
         recorder.start()

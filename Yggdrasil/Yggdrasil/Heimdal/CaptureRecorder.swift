@@ -176,6 +176,7 @@ final class CaptureRecorder: ObservableObject {
             try writer.start(url: url)
             activeURL = url
             lastError = nil
+            needsManualResume = false
             _ = sessionModel.transition(to: .recording)
         } catch { lastError = error.localizedDescription }
     }
@@ -205,6 +206,7 @@ final class CaptureRecorder: ObservableObject {
         switch type {
         case .began: pause()
         case .ended:
+            guard sessionModel.phase == .paused else { return }
             if shouldResume { resume() } else { needsManualResume = true }
         @unknown default: await abandon()
         }
@@ -237,6 +239,7 @@ final class CaptureRecorder: ObservableObject {
                 capturedAt: Date()
             ) else { throw Error.incompleteFile }
             activeURL = nil
+            needsManualResume = false
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch { lastError = error.localizedDescription }
     }
