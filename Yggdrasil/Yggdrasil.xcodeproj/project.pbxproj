@@ -18,6 +18,7 @@
 		666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */; };
 		0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394547EDCD374141F3DFC604 /* NoteDetailView.swift */; };
 		11941E8256F7152EE531749C /* MimerShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435045F5470233E53111E5EC /* MimerShellView.swift */; };
+		B10000020000000000000010 /* MimerNoteInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000200000000000000010 /* MimerNoteInspectorView.swift */; };
 		85A49894D7CB1D1DA9836B5C /* AttentionLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE31C1526CE1715718725CB /* AttentionLensView.swift */; };
 		AC67F520A99A7506538E0860 /* InterestsLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C9D2BD395F9AD0B7288FE9D /* InterestsLensView.swift */; };
 		65E3944866236A3633A19487 /* EntityConfirmLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133298A06EA3AB2A882E9293 /* EntityConfirmLensView.swift */; };
@@ -72,6 +73,7 @@
 		90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRendererView.swift; sourceTree = "<group>"; };
 		394547EDCD374141F3DFC604 /* NoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDetailView.swift; sourceTree = "<group>"; };
 		435045F5470233E53111E5EC /* MimerShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerShellView.swift; sourceTree = "<group>"; };
+		B10000200000000000000010 /* MimerNoteInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerNoteInspectorView.swift; sourceTree = "<group>"; };
 		6AE31C1526CE1715718725CB /* AttentionLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentionLensView.swift; sourceTree = "<group>"; };
 		0C9D2BD395F9AD0B7288FE9D /* InterestsLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterestsLensView.swift; sourceTree = "<group>"; };
 		133298A06EA3AB2A882E9293 /* EntityConfirmLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityConfirmLensView.swift; sourceTree = "<group>"; };
@@ -196,6 +198,7 @@
 			isa = PBXGroup;
 			children = (
 				435045F5470233E53111E5EC /* MimerShellView.swift */,
+				B10000200000000000000010 /* MimerNoteInspectorView.swift */,
 				097EE2F715794FC34CED22E4 /* Lenses */,
 			);
 			path = Mimer;
@@ -419,6 +422,7 @@
 				666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */,
 				0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */,
 				11941E8256F7152EE531749C /* MimerShellView.swift in Sources */,
+				B10000020000000000000010 /* MimerNoteInspectorView.swift in Sources */,
 				85A49894D7CB1D1DA9836B5C /* AttentionLensView.swift in Sources */,
 				AC67F520A99A7506538E0860 /* InterestsLensView.swift in Sources */,
 				65E3944866236A3633A19487 /* EntityConfirmLensView.swift in Sources */,
