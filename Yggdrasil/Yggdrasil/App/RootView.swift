@@ -12,13 +12,23 @@ struct RootView: View {
             if authGate.state != .unlocked {
                 AuthGateView(gate: authGate)
             } else if let vaultURL = vaultManager.activeVaultURL {
-                MimerShellView(vaultURL: vaultURL)
-                    .toolbarBackground(.visible, for: .tabBar)
-                    .safeAreaInset(edge: .top) {
-                        VaultSwitcherBar(vaultManager: vaultManager)
-                    }
+                TabView {
+                    MimerShellView(vaultURL: vaultURL)
+                        .tabItem { Label("Mimer", systemImage: "book.closed") }
+                    HeimdalShellView()
+                        .tabItem { Label("Heimdal", systemImage: "waveform") }
+                }
+                .toolbarBackground(.visible, for: .tabBar)
+                .safeAreaInset(edge: .top) {
+                    VaultSwitcherBar(vaultManager: vaultManager)
+                }
             } else {
-                VaultPickerView(vaultManager: vaultManager)
+                TabView {
+                    VaultPickerView(vaultManager: vaultManager)
+                        .tabItem { Label("Mimer", systemImage: "book.closed") }
+                    HeimdalShellView()
+                        .tabItem { Label("Heimdal", systemImage: "waveform") }
+                }
             }
         }
     }
