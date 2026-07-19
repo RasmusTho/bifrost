@@ -52,71 +52,92 @@ struct InterestsLensView: View {
     }
 
     private func load() {
+        let paths = [
+            HeimdalPaths.interests,
+            HeimdalPaths.watchlist,
+            HeimdalPaths.never
+        ]
         loadError = nil
-        let results = fileStore.readMany([HeimdalPaths.interests, HeimdalPaths.watchlist, HeimdalPaths.never])
-        func text(for path: String) throws -> String {
-            try (results[path] ?? .failure(VaultFileStoreError.notFound(path))).get()
-        }
+        Task { @MainActor in
+            let results = await fileStore.readMany(paths)
+            func text(for path: String) throws -> String {
+                try (results[path] ?? .failure(VaultFileStoreError.notFound(path))).get()
+            }
 
-        do {
-            let interestsText = try text(for: HeimdalPaths.interests)
-            let interests = InterestsNote(document: try FrontmatterDocument.parse(interestsText))
-            weights = interests.weights
-        } catch VaultFileStoreError.notFound {
-            weights = []
-        } catch {
-            loadError = error.localizedDescription
-        }
+            do {
+                let interestsText = try text(for: HeimdalPaths.interests)
+                let interests = InterestsNote(document: try FrontmatterDocument.parse(interestsText))
+                weights = interests.weights
+            } catch VaultFileStoreError.notFound(_) {
+                weights = []
+            } catch {
+                loadError = error.localizedDescription
+            }
 
-        do {
-            let watchlistText = try text(for: HeimdalPaths.watchlist)
-            watched = ListNote.watchlist(document: try FrontmatterDocument.parse(watchlistText)).entries
-        } catch VaultFileStoreError.notFound {
-            watched = []
-        } catch {
-            loadError = error.localizedDescription
-        }
+            do {
+                let watchlistText = try text(for: HeimdalPaths.watchlist)
+                watched = ListNote.watchlist(document: try FrontmatterDocument.parse(watchlistText)).entries
+            } catch VaultFileStoreError.notFound(_) {
+                watched = []
+            } catch {
+                loadError = error.localizedDescription
+            }
 
-        do {
-            let neverText = try text(for: HeimdalPaths.never)
-            never = ListNote.never(document: try FrontmatterDocument.parse(neverText)).entries
-        } catch VaultFileStoreError.notFound {
-            never = []
-        } catch {
-            loadError = error.localizedDescription
+            do {
+                let neverText = try text(for: HeimdalPaths.never)
+                never = ListNote.never(document: try FrontmatterDocument.parse(neverText)).entries
+            } catch VaultFileStoreError.notFound(_) {
+                never = []
+            } catch {
+                loadError = error.localizedDescription
+            }
         }
     }
 
     private func setWeight(_ weight: Double, for name: String) {
-        LensScaffold.perform(error: $loadError) {
-            try fileStore.readModifyWrite(HeimdalPaths.interests) { document in
-                var note = InterestsNote(document: document)
-                note.setWeight(weight, for: name)
-                document = note.document
-            }
-            if let index = weights.firstIndex(where: { $0.name == name }) {
-                weights[index].weight = weight
+        let path = HeimdalPaths.interests
+        let selectedWeight = weight
+        let interestName = name
+        Task { @MainActor in
+            do {
+                try await fileStore.readModifyWrite(path) { document in
+                    var note = InterestsNote(document: document)
+                    note.setWeight(selectedWeight, for: interestName)
+                    document = note.document
+                }
+                if let index = weights.firstIndex(where: { $0.name == interestName }) {
+                    weights[index].weight = selectedWeight
+                }
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
             }
         }
     }
 
     private func addToWatchlist() {
+        let path = HeimdalPaths.watchlist
+        let source = newSource
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        if LensScaffold.perform(error: $loadError, {
-            try fileStore.readModifyWrite(HeimdalPaths.watchlist) { document in
-                var note = ListNote.watchlist(document: document)
-                note.addEntry(
-                    newSource,
-                    source: "mimer-iphone",
-                    target: newSource,
-                    note: "added from Interests lens",
-                    timestamp: timestamp
-                )
-                document = note.document
+        Task { @MainActor in
+            do {
+                try await fileStore.readModifyWrite(path) { document in
+                    var note = ListNote.watchlist(document: document)
+                    note.addEntry(
+                        source,
+                        source: "mimer-iphone",
+                        target: source,
+                        note: "added from Interests lens",
+                        timestamp: timestamp
+                    )
+                    document = note.document
+                }
+                if newSource == source { newSource = "" }
+                loadError = nil
+                load()
+            } catch {
+                loadError = error.localizedDescription
             }
-        }) {
-            newSource = ""
-            load()
         }
     }
 }

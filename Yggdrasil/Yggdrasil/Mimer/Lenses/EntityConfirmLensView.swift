@@ -50,35 +50,48 @@ struct EntityConfirmLensView: View {
     }
 
     private func load() {
-        LensScaffold.load(error: $loadError, operation: {
-            let text = try fileStore.read(HeimdalPaths.entityReview)
-            pending = EntityReviewNote(document: try FrontmatterDocument.parse(text)).pending
-        }, recover: { error in
-            guard case VaultFileStoreError.notFound = error else { return false }
-            pending = []
-            return true
-        })
+        let path = HeimdalPaths.entityReview
+        Task { @MainActor in
+            do {
+                let text = try await fileStore.read(path)
+                pending = EntityReviewNote(document: try FrontmatterDocument.parse(text)).pending
+                loadError = nil
+            } catch VaultFileStoreError.notFound(_) {
+                pending = []
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
     }
 
     private func decide(_ entry: EntityReviewEntry, action: String) {
+        let path = HeimdalPaths.entityReview
+        let queueEntryId = entry.id
+        let fromId = entry.mentionId
+        let selectedAction = action
         let timestamp = ISO8601DateFormatter().string(from: Date())
         // Only "merge" has a real target; "reject" has none — falling back to
         // mentionId there would record a self-merge instead of a dismissal.
-        let intoId = action == "merge" ? (entry.candidateEntityIDs.first ?? entry.mentionId) : ""
-        if LensScaffold.perform(error: $loadError, {
-            try fileStore.readModifyWrite(HeimdalPaths.entityReview) { document in
-                var note = EntityReviewNote(document: document)
-                note.addDecision(
-                    queueEntryId: entry.id,
-                    action: action,
-                    fromId: entry.mentionId,
-                    intoId: intoId,
-                    decidedAt: timestamp
-                )
-                document = note.document
+        let intoId = selectedAction == "merge" ? (entry.candidateEntityIDs.first ?? fromId) : ""
+        Task { @MainActor in
+            do {
+                try await fileStore.readModifyWrite(path) { document in
+                    var note = EntityReviewNote(document: document)
+                    note.addDecision(
+                        queueEntryId: queueEntryId,
+                        action: selectedAction,
+                        fromId: fromId,
+                        intoId: intoId,
+                        decidedAt: timestamp
+                    )
+                    document = note.document
+                }
+                loadError = nil
+                load()
+            } catch {
+                loadError = error.localizedDescription
             }
-        }) {
-            load()
         }
     }
 }
