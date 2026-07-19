@@ -31,6 +31,7 @@ private final class DelayedCoordinator: VaultFileCoordinating {
     private let failure: Error?
     private let lock = NSLock()
     private var accessedOnMainThread = false
+    private var accessCount = 0
     var onAccessStarted: (() -> Void)?
 
     init(delay: TimeInterval = 0.2, failure: Error? = nil) {
@@ -52,9 +53,16 @@ private final class DelayedCoordinator: VaultFileCoordinating {
         return accessedOnMainThread
     }
 
+    var totalAccessCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return accessCount
+    }
+
     private func performAccess<T>(_ accessor: () throws -> T) throws -> T {
         lock.lock()
         accessedOnMainThread = accessedOnMainThread || Thread.isMainThread
+        accessCount += 1
         lock.unlock()
         onAccessStarted?()
         Thread.sleep(forTimeInterval: delay)
@@ -238,7 +246,7 @@ final class VaultFileStoreTests: XCTestCase {
 
         let modifyCoordinator = DelayedCoordinator()
         let modifyStore = VaultFileStore(rootURL: tempDirectory, coordinator: modifyCoordinator)
-        _ = try await assertRunsOffMain(modifyCoordinator) {
+        _ = try await assertRunsOffMain(modifyCoordinator, expectedAccessCount: 2) {
             try await modifyStore.readModifyWrite(path) { document in
                 document.frontmatter["value"] = .string("modified")
             }
@@ -257,9 +265,11 @@ final class VaultFileStoreTests: XCTestCase {
     @MainActor
     private func assertRunsOffMain<T>(
         _ coordinator: DelayedCoordinator,
+        expectedAccessCount: Int = 1,
         operation: @escaping () async throws -> T
     ) async throws -> T {
         let started = expectation(description: "background coordination started")
+        started.expectedFulfillmentCount = expectedAccessCount
         coordinator.onAccessStarted = { started.fulfill() }
         let task = Task { try await operation() }
         await fulfillment(of: [started], timeout: 1)
@@ -269,6 +279,7 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertTrue(mainActorAdvanced)
         let value = try await task.value
         XCTAssertFalse(coordinator.ranOnMainThread)
+        XCTAssertEqual(coordinator.totalAccessCount, expectedAccessCount)
         return value
     }
 }
