@@ -77,7 +77,7 @@ final class CaptureFolderManager: ObservableObject {
         defaults.set(bookmark, forKey: Self.bookmarkDefaultsKey)
     }
 
-    private static func resolve(bookmark: Data) throws -> ResolvedCaptureFolder {
+    nonisolated private static func resolve(bookmark: Data) throws -> ResolvedCaptureFolder {
         var isStale = false
         let url = try URL(
             resolvingBookmarkData: bookmark,
@@ -88,7 +88,7 @@ final class CaptureFolderManager: ObservableObject {
         return ResolvedCaptureFolder(url: url, isStale: isStale)
     }
 
-    private static func makeBookmark(for url: URL) throws -> Data {
+    nonisolated private static func makeBookmark(for url: URL) throws -> Data {
         try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 }
