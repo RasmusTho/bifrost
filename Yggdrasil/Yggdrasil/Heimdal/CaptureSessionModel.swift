@@ -21,6 +21,9 @@ final class CaptureSessionModel: ObservableObject {
 
     struct StagedItem: Identifiable, Equatable {
         let id: UUID
+        let url: URL
+        let duration: TimeInterval
+        let capturedAt: Date
         var deliveryState: DeliveryState
     }
 
@@ -35,9 +38,20 @@ final class CaptureSessionModel: ObservableObject {
     }
 
     @discardableResult
-    func stageCurrentItem(id: UUID = UUID()) -> Bool {
+    func stageCurrentItem(
+        id: UUID = UUID(),
+        url: URL = URL(fileURLWithPath: "/dev/null"),
+        duration: TimeInterval = 0,
+        capturedAt: Date = Date()
+    ) -> Bool {
         guard phase == .finalizing else { return false }
-        stagedItems.append(StagedItem(id: id, deliveryState: .deliveryPending))
+        stagedItems.append(StagedItem(
+            id: id,
+            url: url,
+            duration: duration,
+            capturedAt: capturedAt,
+            deliveryState: .deliveryPending
+        ))
         phase = .staged
         return true
     }
@@ -52,6 +66,7 @@ final class CaptureSessionModel: ObservableObject {
     private func isValidTransition(from current: Phase, to next: Phase) -> Bool {
         switch (current, next) {
         case (.idle, .recording),
+             (.staged, .recording),
              (.recording, .paused),
              (.paused, .recording),
              (.recording, .finalizing),

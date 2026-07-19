@@ -7,7 +7,14 @@ import UniformTypeIdentifiers
 struct HeimdalShellView: View {
     @StateObject private var folderManager = CaptureFolderManager()
     @StateObject private var sessionModel = CaptureSessionModel()
+    @StateObject private var recorder: CaptureRecorder
     @State private var isFolderPickerPresented = false
+
+    init() {
+        let model = CaptureSessionModel()
+        _sessionModel = StateObject(wrappedValue: model)
+        _recorder = StateObject(wrappedValue: CaptureRecorder(sessionModel: model))
+    }
 
     var body: some View {
         NavigationStack {
@@ -32,18 +39,31 @@ struct HeimdalShellView: View {
                 }
 
                 Section("Capture") {
-                    Button("Record") {}
-                        .disabled(true)
-                        .accessibilityIdentifier("heimdal.record.disabled")
-                    Text("Recording becomes available in the next capture slice.")
+                    Text(recorder.configuration.microphonePrePrompt)
                         .font(YggTheme.Typography.caption)
                         .foregroundStyle(YggTheme.Color.textSecondary)
+                    Button(recordButtonTitle) { recordButtonTapped() }
+                        .accessibilityIdentifier("heimdal.record")
+                    if recorder.needsManualResume {
+                        Button("Resume Recording") { recorder.resume() }
+                    }
+                    if let error = recorder.lastError {
+                        Text(error).foregroundStyle(.red)
+                    }
                 }
 
                 Section("Staged Items") {
                     if sessionModel.stagedItems.isEmpty {
                         Text("No staged recordings yet.")
                             .foregroundStyle(YggTheme.Color.textSecondary)
+                    }
+                    ForEach(sessionModel.stagedItems) { item in
+                        VStack(alignment: .leading) {
+                            Text(item.capturedAt, format: .dateTime.year().month().day().hour().minute())
+                            Text("\(item.duration, format: .number.precision(.fractionLength(1))) seconds")
+                                .font(YggTheme.Typography.caption)
+                                .foregroundStyle(YggTheme.Color.textSecondary)
+                        }
                     }
                 }
             }
@@ -54,6 +74,20 @@ struct HeimdalShellView: View {
                     isFolderPickerPresented = false
                 }
             }
+        }
+    }
+
+    private var recordButtonTitle: String {
+        switch sessionModel.phase {
+        case .recording, .paused: "Stop Recording"
+        default: "Record"
+        }
+    }
+
+    private func recordButtonTapped() {
+        switch sessionModel.phase {
+        case .recording, .paused: recorder.stop()
+        default: recorder.requestMicrophonePermissionAndStart()
         }
     }
 }
