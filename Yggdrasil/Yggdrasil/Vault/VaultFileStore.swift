@@ -51,7 +51,11 @@ struct NSFileCoordinatorAccess: VaultFileCoordinating {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinationError: NSError?
         var result: Result<T, Error>?
-        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordinationError) { coordinatedURL in
+        coordinator.coordinate(
+            writingItemAt: url,
+            options: .forReplacing,
+            error: &coordinationError
+        ) { coordinatedURL in
             result = Result { try accessor(coordinatedURL) }
         }
         if let coordinationError {
