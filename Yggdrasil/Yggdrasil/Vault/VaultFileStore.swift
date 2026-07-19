@@ -88,48 +88,24 @@ struct VaultFileStore {
     }
 
     private static let maximumStaleWriteRetries = 3
+    private static let ioQueue = DispatchQueue(label: "com.rasmustho.bifrost.vault-file-store")
 
     let rootURL: URL
     private let coordinator: VaultFileCoordinating
-    private let atomicWriter: (String, URL) throws -> Void
 
     init(
         rootURL: URL,
-        coordinator: VaultFileCoordinating = NSFileCoordinatorAccess(),
-        atomicWriter: @escaping (String, URL) throws -> Void = { text, url in
-            try text.write(to: url, atomically: true, encoding: .utf8)
-        }
+        coordinator: VaultFileCoordinating = NSFileCoordinatorAccess()
     ) {
         self.rootURL = rootURL
         self.coordinator = coordinator
-        self.atomicWriter = atomicWriter
     }
 
-    func read(_ relativePath: String) throws -> String {
-        try withReadAccess(relativePath) {
-            let snapshot = try readSnapshot(relativePath)
-            guard case .contents(let text) = snapshot else {
-                throw VaultFileStoreError.notFound(relativePath)
-            }
-            return text
-        }
-    }
-
-    /// Reads several vault-relative files under a single security-scoped
-    /// access session, so independent reads (e.g. a lens loading multiple
-    /// notes at once) don't each pay for their own start/stop of scoped
-    /// access. Each path's outcome is reported independently.
-    func readMany(_ relativePaths: [String]) -> [String: Result<String, Error>] {
-        guard rootURL.startAccessingSecurityScopedResource() else {
-            let joinedPaths = relativePaths.joined(separator: ", ")
-            let error = VaultFileStoreError.readFailed(joinedPaths, CocoaError(.fileReadNoPermission))
-            return Dictionary(uniqueKeysWithValues: relativePaths.map { ($0, .failure(error)) })
-        }
-        defer { rootURL.stopAccessingSecurityScopedResource() }
-
-        var results: [String: Result<String, Error>] = [:]
-        for relativePath in relativePaths {
-            results[relativePath] = Result {
+    /// Public vault I/O never runs on SwiftUI's main actor. Security-scoped
+    /// access starts and stops on the same serial executor as coordination.
+    func read(_ relativePath: String) async throws -> String {
+        try await performIO {
+            try withReadAccess(relativePath) {
                 let snapshot = try readSnapshot(relativePath)
                 guard case .contents(let text) = snapshot else {
                     throw VaultFileStoreError.notFound(relativePath)
@@ -137,45 +113,75 @@ struct VaultFileStore {
                 return text
             }
         }
-        return results
     }
 
-    func write(_ text: String, to relativePath: String) throws {
-        try withWriteAccess(relativePath) {
-            let url = VaultPath.resolve(relativePath, in: rootURL)
-            try coordinator.coordinateWrite(at: url) { coordinatedURL in
-                try prepareParentDirectory(for: coordinatedURL)
-                try atomicWriter(text, coordinatedURL)
+    /// Reads several vault-relative files under a single security-scoped
+    /// access session, so independent reads (e.g. a lens loading multiple
+    /// notes at once) don't each pay for their own start/stop of scoped
+    /// access. Each path's outcome is reported independently.
+    func readMany(_ relativePaths: [String]) async -> [String: Result<String, Error>] {
+        await performIO {
+            guard rootURL.startAccessingSecurityScopedResource() else {
+                let joinedPaths = relativePaths.joined(separator: ", ")
+                let error = VaultFileStoreError.readFailed(joinedPaths, CocoaError(.fileReadNoPermission))
+                return Dictionary(uniqueKeysWithValues: relativePaths.map { ($0, .failure(error)) })
+            }
+            defer { rootURL.stopAccessingSecurityScopedResource() }
+
+            var results: [String: Result<String, Error>] = [:]
+            for relativePath in relativePaths {
+                results[relativePath] = Result {
+                    let snapshot = try readSnapshot(relativePath)
+                    guard case .contents(let text) = snapshot else {
+                        throw VaultFileStoreError.notFound(relativePath)
+                    }
+                    return text
+                }
+            }
+            return results
+        }
+    }
+
+    func write(_ text: String, to relativePath: String) async throws {
+        try await performIO {
+            try withWriteAccess(relativePath) {
+                let url = VaultPath.resolve(relativePath, in: rootURL)
+                try coordinator.coordinateWrite(at: url) { coordinatedURL in
+                    try prepareParentDirectory(for: coordinatedURL)
+                    try Self.atomicReplace(text, at: coordinatedURL)
+                }
             }
         }
     }
 
     /// Lists both folders and `.md` files directly inside `relativeDirectory`
     /// (empty string = vault root), for the visual vault browser.
-    func listEntries(in relativeDirectory: String) throws -> [VaultEntry] {
-        try withReadAccess(relativeDirectory) {
-            let url = VaultPath.resolve(relativeDirectory, in: rootURL)
-            return try coordinator.coordinateRead(at: url) { coordinatedURL in
-                let names = (try? FileManager.default.contentsOfDirectory(atPath: coordinatedURL.path)) ?? []
-                return names
-                    .filter { !$0.hasPrefix(".") }
-                    .sorted()
-                    .compactMap { name -> VaultEntry? in
-                        var isDirectory: ObjCBool = false
-                        let childURL = coordinatedURL.appendingPathComponent(name)
-                        let exists = FileManager.default.fileExists(
-                            atPath: childURL.path,
-                            isDirectory: &isDirectory
-                        )
-                        guard exists, isDirectory.boolValue || name.hasSuffix(".md") else { return nil }
-                        let relativePath = relativeDirectory.isEmpty ? name : "\(relativeDirectory)/\(name)"
-                        return VaultEntry(
-                            id: relativePath,
-                            name: name,
-                            relativePath: relativePath,
-                            isDirectory: isDirectory.boolValue
-                        )
-                    }
+    func listEntries(in relativeDirectory: String) async throws -> [VaultEntry] {
+        try await performIO {
+            try withReadAccess(relativeDirectory) {
+                let url = VaultPath.resolve(relativeDirectory, in: rootURL)
+                return try coordinator.coordinateRead(at: url) { coordinatedURL in
+                    let names = (try? FileManager.default.contentsOfDirectory(atPath: coordinatedURL.path)) ?? []
+                    return names
+                        .filter { !$0.hasPrefix(".") }
+                        .sorted()
+                        .compactMap { name -> VaultEntry? in
+                            var isDirectory: ObjCBool = false
+                            let childURL = coordinatedURL.appendingPathComponent(name)
+                            let exists = FileManager.default.fileExists(
+                                atPath: childURL.path,
+                                isDirectory: &isDirectory
+                            )
+                            guard exists, isDirectory.boolValue || name.hasSuffix(".md") else { return nil }
+                            let relativePath = relativeDirectory.isEmpty ? name : "\(relativeDirectory)/\(name)"
+                            return VaultEntry(
+                                id: relativePath,
+                                name: name,
+                                relativePath: relativePath,
+                                isDirectory: isDirectory.boolValue
+                            )
+                        }
+                }
             }
         }
     }
@@ -185,32 +191,34 @@ struct VaultFileStore {
     /// TOCTOU window remains), but it never emits a version known to be stale.
     func readModifyWrite(
         _ relativePath: String,
-        mutate: (inout FrontmatterDocument) -> Void
-    ) throws {
-        try withWriteAccess(relativePath) {
-            let url = VaultPath.resolve(relativePath, in: rootURL)
-            for _ in 0..<Self.maximumStaleWriteRetries {
-                let snapshot = try readSnapshot(relativePath)
-                var document: FrontmatterDocument
-                switch snapshot {
-                case .missing:
-                    document = FrontmatterDocument(frontmatter: YAMLMap(), body: "")
-                case .contents(let text):
-                    document = try FrontmatterDocument.parse(text)
-                }
-                mutate(&document)
+        mutate: @escaping (inout FrontmatterDocument) -> Void
+    ) async throws {
+        try await performIO {
+            try withWriteAccess(relativePath) {
+                let url = VaultPath.resolve(relativePath, in: rootURL)
+                for _ in 0..<Self.maximumStaleWriteRetries {
+                    let snapshot = try readSnapshot(relativePath)
+                    var document: FrontmatterDocument
+                    switch snapshot {
+                    case .missing:
+                        document = FrontmatterDocument(frontmatter: YAMLMap(), body: "")
+                    case .contents(let text):
+                        document = try FrontmatterDocument.parse(text)
+                    }
+                    mutate(&document)
 
-                let result = try writeIfUnchanged(
-                    document.rendered(),
-                    relativePath: relativePath,
-                    to: url,
-                    expectedHash: snapshot.hash
-                )
-                if result == .written {
-                    return
+                    let result = try writeIfUnchanged(
+                        document.rendered(),
+                        relativePath: relativePath,
+                        to: url,
+                        expectedHash: snapshot.hash
+                    )
+                    if result == .written {
+                        return
+                    }
                 }
+                throw VaultFileStoreError.staleWriteContention(relativePath)
             }
-            throw VaultFileStoreError.staleWriteContention(relativePath)
         }
     }
 
@@ -244,7 +252,7 @@ struct VaultFileStore {
                 }
                 guard currentSnapshot.hash == expectedHash else { return .stale }
                 try prepareParentDirectory(for: coordinatedURL)
-                try atomicWriter(text, coordinatedURL)
+                try Self.atomicReplace(text, at: coordinatedURL)
                 return .written
             }
         } catch {
@@ -273,5 +281,29 @@ struct VaultFileStore {
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+    }
+
+    private func performIO<T>(_ operation: @escaping () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            Self.ioQueue.async {
+                do {
+                    continuation.resume(returning: try operation())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private func performIO<T>(_ operation: @escaping () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            Self.ioQueue.async {
+                continuation.resume(returning: operation())
+            }
+        }
+    }
+
+    private static func atomicReplace(_ text: String, at url: URL) throws {
+        try text.write(to: url, atomically: true, encoding: .utf8)
     }
 }

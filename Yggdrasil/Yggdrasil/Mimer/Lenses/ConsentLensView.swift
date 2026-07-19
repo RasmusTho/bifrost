@@ -56,16 +56,20 @@ struct ConsentLensView: View {
     }
 
     private func load() {
-        LensScaffold.load(error: $loadError, operation: {
-            let text = try fileStore.read(HeimdalPaths.consent)
-            note = ConsentNote(document: try FrontmatterDocument.parse(text))
-        }, recover: { error in
-            guard case VaultFileStoreError.notFound = error else { return false }
-            // Match the other lenses: an absent note is an empty-state, not
-            // an error — a fresh vault before Heimdal has ever run shouldn't
-            // show a red banner on first open.
-            note = ConsentNote(document: FrontmatterDocument(frontmatter: YAMLMap(), body: ""))
-            return true
-        })
+        Task { @MainActor in
+            do {
+                let text = try await fileStore.read(HeimdalPaths.consent)
+                note = ConsentNote(document: try FrontmatterDocument.parse(text))
+                loadError = nil
+            } catch VaultFileStoreError.notFound(_) {
+                // Match the other lenses: an absent note is an empty-state, not
+                // an error — a fresh vault before Heimdal has ever run shouldn't
+                // show a red banner on first open.
+                note = ConsentNote(document: FrontmatterDocument(frontmatter: YAMLMap(), body: ""))
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
     }
 }

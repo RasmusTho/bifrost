@@ -35,23 +35,32 @@ struct SettingsLensView: View {
     }
 
     private func load() {
-        defer { hasLoaded = true }
-        LensScaffold.load(error: $loadError, operation: {
-            let text = try fileStore.read(HeimdalPaths.settings)
-            let note = SettingsNote(document: try FrontmatterDocument.parse(text))
-            retentionDays = note.retentionWindowDays ?? 30
-        }, recover: { error in
-            if case VaultFileStoreError.notFound = error { return true }
-            return false
-        })
+        Task { @MainActor in
+            defer { hasLoaded = true }
+            do {
+                let text = try await fileStore.read(HeimdalPaths.settings)
+                let note = SettingsNote(document: try FrontmatterDocument.parse(text))
+                retentionDays = note.retentionWindowDays ?? 30
+                loadError = nil
+            } catch VaultFileStoreError.notFound(_) {
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
     }
 
     private func save(retentionDays: Int) {
-        LensScaffold.perform(error: $loadError) {
-            try fileStore.readModifyWrite(HeimdalPaths.settings) { document in
-                var note = SettingsNote(document: document)
-                note.setRetentionWindowDays(retentionDays)
-                document = note.document
+        Task { @MainActor in
+            do {
+                try await fileStore.readModifyWrite(HeimdalPaths.settings) { document in
+                    var note = SettingsNote(document: document)
+                    note.setRetentionWindowDays(retentionDays)
+                    document = note.document
+                }
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
             }
         }
     }

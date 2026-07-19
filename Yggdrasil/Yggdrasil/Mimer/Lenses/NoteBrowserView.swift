@@ -48,11 +48,13 @@ struct NoteBrowserView: View {
     }
 
     private func load() {
-        do {
-            entries = try fileStore.listEntries(in: relativeDirectory)
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
+        Task { @MainActor in
+            do {
+                entries = try await fileStore.listEntries(in: relativeDirectory)
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
         }
     }
 }

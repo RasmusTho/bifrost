@@ -65,33 +65,41 @@ struct AttentionLensView: View {
     }
 
     private func load() {
-        LensScaffold.load(error: $loadError, operation: {
-            let text = try fileStore.read(relativePath)
-            note = AttentionNote(document: try FrontmatterDocument.parse(text))
-        }, recover: { error in
-            guard case VaultFileStoreError.notFound = error else { return false }
-            note = AttentionNote(document: FrontmatterDocument(frontmatter: YAMLMap(), body: ""))
-            return true
-        })
+        Task { @MainActor in
+            do {
+                let text = try await fileStore.read(relativePath)
+                note = AttentionNote(document: try FrontmatterDocument.parse(text))
+                loadError = nil
+            } catch VaultFileStoreError.notFound(_) {
+                note = AttentionNote(document: FrontmatterDocument(frontmatter: YAMLMap(), body: ""))
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
     }
 
     private func addOverride(decision: String) {
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        if LensScaffold.perform(error: $loadError, {
-            try fileStore.readModifyWrite(relativePath) { document in
-                var note = AttentionNote(document: document)
-                note.addOverride(.manualOverride(
-                    itemId: pendingItemId,
-                    action: decision,
-                    note: pendingNote,
-                    overriddenAt: timestamp
-                ))
-                document = note.document
+        Task { @MainActor in
+            do {
+                try await fileStore.readModifyWrite(relativePath) { document in
+                    var note = AttentionNote(document: document)
+                    note.addOverride(.manualOverride(
+                        itemId: pendingItemId,
+                        action: decision,
+                        note: pendingNote,
+                        overriddenAt: timestamp
+                    ))
+                    document = note.document
+                }
+                pendingItemId = ""
+                pendingNote = ""
+                loadError = nil
+                load()
+            } catch {
+                loadError = error.localizedDescription
             }
-        }) {
-            pendingItemId = ""
-            pendingNote = ""
-            load()
         }
     }
 }

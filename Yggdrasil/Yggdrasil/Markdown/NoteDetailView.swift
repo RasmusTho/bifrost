@@ -54,23 +54,27 @@ struct NoteDetailView: View {
     }
 
     private func load() {
-        do {
-            rawText = try fileStore.read(relativePath)
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
+        Task { @MainActor in
+            do {
+                rawText = try await fileStore.read(relativePath)
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
         }
     }
 
     private func save() {
         isSaving = true
-        do {
-            try fileStore.write(rawText, to: relativePath)
-            isEditing = false
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
+        Task { @MainActor in
+            defer { isSaving = false }
+            do {
+                try await fileStore.write(rawText, to: relativePath)
+                isEditing = false
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
         }
-        isSaving = false
     }
 }
