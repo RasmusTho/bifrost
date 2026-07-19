@@ -5,7 +5,7 @@ final class MimerCanvasUITests: XCTestCase {
     func testIPadShowsThreeColumnCanvasWithAllLenses() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
         XCUIDevice.shared.orientation = .landscapeLeft
-        let app = launchMimerShell()
+        let app = launchMimerShell(withFixture: true)
 
         XCTAssertTrue(app.navigationBars["Mimer"].waitForExistence(timeout: 10))
         for lens in ["today", "interests", "entities", "consent", "vault", "settings"] {
@@ -52,6 +52,21 @@ final class MimerCanvasUITests: XCTestCase {
         vaultLens.tap()
         XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.content.vault"].waitForExistence(timeout: 5))
 
+        let sidebar = app.descendants(matching: .any)["mimer.canvas.focus.sidebar"]
+        let content = app.descendants(matching: .any)["mimer.canvas.content.vault"]
+        let detail = app.descendants(matching: .any)["mimer.canvas.detail"]
+        app.typeKey(.leftArrow, modifierFlags: [])
+        XCTAssertEqual(sidebar.value as? String, "focused")
+        app.typeKey(.tab, modifierFlags: [])
+        XCTAssertEqual(content.value as? String, "focused")
+        app.typeKey(.rightArrow, modifierFlags: [])
+        XCTAssertEqual(detail.value as? String, "focused")
+
+        app.typeKey("f", modifierFlags: .command)
+        let filter = app.textFields["mimer.canvas.vault.filter"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5))
+        XCTAssertTrue(filter.hasKeyboardFocus)
+
         let inspector = app.buttons["mimer.canvas.inspector.toggle"]
         XCTAssertTrue(inspector.waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.inspector"].exists)
@@ -65,7 +80,9 @@ final class MimerCanvasUITests: XCTestCase {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
         let app = launchMimerShell(withFixture: true)
 
-        app.descendants(matching: .any)["mimer.canvas.lens.vault"].tap()
+        let vaultLens = app.descendants(matching: .any)["mimer.canvas.lens.vault"]
+        XCTAssertTrue(vaultLens.waitForExistence(timeout: 10))
+        vaultLens.tap()
         let projects = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects"]
         XCTAssertTrue(projects.waitForExistence(timeout: 10))
         projects.tap()

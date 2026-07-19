@@ -97,6 +97,7 @@ private struct MimerCanvasView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedNote: MimerCanvasNote?
     @State private var inspectorIsPresented = true
+    @FocusState private var focusedColumn: MimerCanvasFocus?
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -110,26 +111,60 @@ private struct MimerCanvasView: View {
             }
             .navigationTitle("Mimer")
             .focusSection()
+            .focusable()
+            .focused($focusedColumn, equals: .sidebar)
+            .accessibilityIdentifier("mimer.canvas.focus.sidebar")
+            .accessibilityValue(focusValue(for: .sidebar))
         } content: {
             if let selectedLens {
                 if selectedLens == .vault {
-                    MimerVaultColumnView(fileStore: fileStore, selectedNote: $selectedNote)
-                } else {
-                    MimerLensContentView(lens: selectedLens, fileStore: fileStore)
-                }
+                    MimerVaultColumnView(
+                        fileStore: fileStore,
+                        selectedNote: $selectedNote,
+                        focusedColumn: $focusedColumn
+                    )
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
                     .focusSection()
+                    .accessibilityValue(focusValue(for: .content))
+                } else {
+                    MimerLensContentView(lens: selectedLens, fileStore: fileStore)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
+                        .focusSection()
+                        .focusable()
+                        .focused($focusedColumn, equals: .content)
+                        .accessibilityValue(focusValue(for: .content))
+                }
             } else {
                 ContentUnavailableView("Choose a Lens", systemImage: "sidebar.left")
             }
         } detail: {
-            MimerCanvasDetailView(note: selectedNote, inspectorIsPresented: inspectorIsPresented)
+            MimerCanvasDetailView(
+                note: selectedNote,
+                inspectorIsPresented: inspectorIsPresented,
+                focusedColumn: $focusedColumn
+            )
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("mimer.canvas.detail")
                 .focusSection()
+                .focusable()
+                .focused($focusedColumn, equals: .detail)
+                .accessibilityValue(focusValue(for: .detail))
         }
         .navigationSplitViewStyle(.balanced)
+        .onKeyPress(.tab) { press in
+            moveFocus(forward: !press.modifiers.contains(.shift))
+            return .handled
+        }
+        .onKeyPress(.rightArrow) { _ in
+            moveFocus(forward: true)
+            return .handled
+        }
+        .onKeyPress(.leftArrow) { _ in
+            moveFocus(forward: false)
+            return .handled
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(inspectorIsPresented ? "Hide Inspector" : "Show Inspector") {
@@ -139,7 +174,28 @@ private struct MimerCanvasView: View {
                 .accessibilityIdentifier("mimer.canvas.inspector.toggle")
             }
         }
+        .onChange(of: selectedLens) { _, lens in
+            if lens != nil { focusedColumn = .content }
+        }
     }
+
+    private func moveFocus(forward: Bool) {
+        let targets: [MimerCanvasFocus] = [.sidebar, .content, .detail]
+        let currentIndex = targets.firstIndex(of: focusedColumn ?? .sidebar) ?? 0
+        let offset = forward ? 1 : -1
+        focusedColumn = targets[(currentIndex + offset + targets.count) % targets.count]
+    }
+
+    private func focusValue(for target: MimerCanvasFocus) -> String {
+        focusedColumn == target ? "focused" : "unfocused"
+    }
+}
+
+private enum MimerCanvasFocus: Hashable {
+    case sidebar
+    case content
+    case detail
+    case filter
 }
 
 private struct MimerCanvasNote: Equatable {
@@ -154,12 +210,12 @@ private struct MimerCanvasNote: Equatable {
 private struct MimerVaultColumnView: View {
     let fileStore: VaultFileStore
     @Binding var selectedNote: MimerCanvasNote?
+    let focusedColumn: FocusState<MimerCanvasFocus?>.Binding
 
     @State private var directory = ""
     @State private var entries: [VaultEntry] = []
     @State private var filter = ""
     @State private var loadError: String?
-    @FocusState private var filterIsFocused: Bool
 
     private var visibleEntries: [VaultEntry] {
         guard !filter.isEmpty else { return entries }
@@ -170,8 +226,9 @@ private struct MimerVaultColumnView: View {
         List {
             Section {
                 TextField("Filter notes", text: $filter)
-                    .focused($filterIsFocused)
+                    .focused(focusedColumn, equals: .filter)
                     .accessibilityIdentifier("mimer.canvas.vault.filter")
+                    .accessibilityValue(focusedColumn.wrappedValue == .filter ? "focused" : "unfocused")
             }
             if !directory.isEmpty {
                 Button("Back to \(directory.split(separator: "/").dropLast().last.map(String.init) ?? "Vault")") {
@@ -196,9 +253,11 @@ private struct MimerVaultColumnView: View {
             }
         }
         .navigationTitle(directory.isEmpty ? "Vault" : directory.split(separator: "/").last.map(String.init) ?? "Vault")
+        .focusable()
+        .focused(focusedColumn, equals: .content)
         .toolbar {
             ToolbarItem(placement: .secondaryAction) {
-                Button("Filter") { filterIsFocused = true }
+                Button("Filter") { focusedColumn.wrappedValue = .filter }
                     .keyboardShortcut("f", modifiers: .command)
             }
         }
@@ -245,6 +304,7 @@ private struct MimerVaultColumnView: View {
 private struct MimerCanvasDetailView: View {
     let note: MimerCanvasNote?
     let inspectorIsPresented: Bool
+    let focusedColumn: FocusState<MimerCanvasFocus?>.Binding
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
