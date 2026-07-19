@@ -99,6 +99,7 @@ private struct MimerCanvasView: View {
                 ForEach(MimerLens.allCases) { lens in
                     Label(lens.title, systemImage: lens.systemImage)
                         .tag(lens)
+                        .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("mimer.canvas.lens.\(lens.rawValue)")
                 }
             }
@@ -106,7 +107,8 @@ private struct MimerCanvasView: View {
         } content: {
             if let selectedLens {
                 MimerLensContentView(lens: selectedLens, fileStore: fileStore)
-                    .accessibilityIdentifier("mimer.canvas.content")
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
             } else {
                 ContentUnavailableView("Choose a Lens", systemImage: "sidebar.left")
             }
@@ -116,9 +118,9 @@ private struct MimerCanvasView: View {
                 title: "Select an Item",
                 message: "Choose an item from a Mimer lens to inspect it here."
             )
+            .accessibilityElement(children: .combine)
             .accessibilityIdentifier("mimer.canvas.detail")
         }
-        .accessibilityIdentifier("mimer.canvas.splitView")
     }
 }
 

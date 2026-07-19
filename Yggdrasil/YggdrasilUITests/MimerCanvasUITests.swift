@@ -6,15 +6,20 @@ final class MimerCanvasUITests: XCTestCase {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
         let app = launchMimerShell()
 
-        XCTAssertTrue(app.otherElements["mimer.canvas.splitView"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Mimer"].waitForExistence(timeout: 10))
         for lens in ["today", "interests", "entities", "consent", "vault", "settings"] {
+            let sidebarLens = app.descendants(matching: .any)["mimer.canvas.lens.\(lens)"]
             XCTAssertTrue(
-                app.descendants(matching: .any)["mimer.canvas.lens.\(lens)"].exists,
+                sidebarLens.waitForExistence(timeout: 5),
                 "Expected the \(lens) lens in the iPad canvas sidebar."
             )
+            sidebarLens.tap()
+            XCTAssertTrue(
+                app.descendants(matching: .any)["mimer.canvas.content.\(lens)"].waitForExistence(timeout: 5),
+                "Expected selecting \(lens) to present its content column."
+            )
         }
-        XCTAssertTrue(app.otherElements["mimer.canvas.content"].exists)
-        XCTAssertTrue(app.otherElements["mimer.canvas.detail"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.detail"].exists)
     }
 
     func testIPhoneKeepsTabBar() throws {
@@ -34,7 +39,7 @@ final class MimerCanvasUITests: XCTestCase {
                 "Expected the shipped \(overflowTab) tab in More."
             )
         }
-        XCTAssertFalse(app.otherElements["mimer.canvas.splitView"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["mimer.canvas.lens.today"].exists)
     }
 
     private func launchMimerShell() -> XCUIApplication {
