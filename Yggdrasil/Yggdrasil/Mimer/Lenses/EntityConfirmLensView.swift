@@ -50,9 +50,10 @@ struct EntityConfirmLensView: View {
     }
 
     private func load() {
+        let path = HeimdalPaths.entityReview
         Task { @MainActor in
             do {
-                let text = try await fileStore.read(HeimdalPaths.entityReview)
+                let text = try await fileStore.read(path)
                 pending = EntityReviewNote(document: try FrontmatterDocument.parse(text)).pending
                 loadError = nil
             } catch VaultFileStoreError.notFound(_) {
@@ -65,18 +66,22 @@ struct EntityConfirmLensView: View {
     }
 
     private func decide(_ entry: EntityReviewEntry, action: String) {
+        let path = HeimdalPaths.entityReview
+        let queueEntryId = entry.id
+        let fromId = entry.mentionId
+        let selectedAction = action
         let timestamp = ISO8601DateFormatter().string(from: Date())
         // Only "merge" has a real target; "reject" has none — falling back to
         // mentionId there would record a self-merge instead of a dismissal.
-        let intoId = action == "merge" ? (entry.candidateEntityIDs.first ?? entry.mentionId) : ""
+        let intoId = selectedAction == "merge" ? (entry.candidateEntityIDs.first ?? fromId) : ""
         Task { @MainActor in
             do {
-                try await fileStore.readModifyWrite(HeimdalPaths.entityReview) { document in
+                try await fileStore.readModifyWrite(path) { document in
                     var note = EntityReviewNote(document: document)
                     note.addDecision(
-                        queueEntryId: entry.id,
-                        action: action,
-                        fromId: entry.mentionId,
+                        queueEntryId: queueEntryId,
+                        action: selectedAction,
+                        fromId: fromId,
                         intoId: intoId,
                         decidedAt: timestamp
                     )

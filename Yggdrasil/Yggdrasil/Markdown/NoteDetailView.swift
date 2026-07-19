@@ -54,9 +54,10 @@ struct NoteDetailView: View {
     }
 
     private func load() {
+        let path = relativePath
         Task { @MainActor in
             do {
-                rawText = try await fileStore.read(relativePath)
+                rawText = try await fileStore.read(path)
                 loadError = nil
             } catch {
                 loadError = error.localizedDescription
@@ -65,11 +66,13 @@ struct NoteDetailView: View {
     }
 
     private func save() {
+        let path = relativePath
+        let text = rawText
         isSaving = true
         Task { @MainActor in
             defer { isSaving = false }
             do {
-                try await fileStore.write(rawText, to: relativePath)
+                try await fileStore.write(text, to: path)
                 isEditing = false
                 loadError = nil
             } catch {

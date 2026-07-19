@@ -56,9 +56,10 @@ struct ConsentLensView: View {
     }
 
     private func load() {
+        let path = HeimdalPaths.consent
         Task { @MainActor in
             do {
-                let text = try await fileStore.read(HeimdalPaths.consent)
+                let text = try await fileStore.read(path)
                 note = ConsentNote(document: try FrontmatterDocument.parse(text))
                 loadError = nil
             } catch VaultFileStoreError.notFound(_) {

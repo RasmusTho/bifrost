@@ -25,13 +25,13 @@ enum VaultFileStoreError: Error, LocalizedError {
 /// App-side seam around Apple's coordinated file access. Keeping this here,
 /// rather than in YggdrasilCore, preserves the package's platform-agnostic
 /// contract while letting store tests prove coordination from public calls.
-protocol VaultFileCoordinating {
-    func coordinateRead<T>(at url: URL, accessor: (URL) throws -> T) throws -> T
-    func coordinateWrite<T>(at url: URL, accessor: (URL) throws -> T) throws -> T
+protocol VaultFileCoordinating: Sendable {
+    func coordinateRead<T: Sendable>(at url: URL, accessor: @Sendable (URL) throws -> T) throws -> T
+    func coordinateWrite<T: Sendable>(at url: URL, accessor: @Sendable (URL) throws -> T) throws -> T
 }
 
 struct NSFileCoordinatorAccess: VaultFileCoordinating {
-    func coordinateRead<T>(at url: URL, accessor: (URL) throws -> T) throws -> T {
+    func coordinateRead<T: Sendable>(at url: URL, accessor: @Sendable (URL) throws -> T) throws -> T {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinationError: NSError?
         var result: Result<T, Error>?
@@ -47,7 +47,7 @@ struct NSFileCoordinatorAccess: VaultFileCoordinating {
         return try result.get()
     }
 
-    func coordinateWrite<T>(at url: URL, accessor: (URL) throws -> T) throws -> T {
+    func coordinateWrite<T: Sendable>(at url: URL, accessor: @Sendable (URL) throws -> T) throws -> T {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinationError: NSError?
         var result: Result<T, Error>?
@@ -71,8 +71,8 @@ struct NSFileCoordinatorAccess: VaultFileCoordinating {
 /// Read/write access to vault-relative files, scoped to the active vault's
 /// security-scoped URL. Every `_heimdal/**` lens and the generic markdown
 /// renderer go through this one seam.
-struct VaultFileStore {
-    private enum FileSnapshot {
+struct VaultFileStore: Sendable {
+    private enum FileSnapshot: Sendable {
         case missing
         case contents(String)
 
@@ -82,7 +82,7 @@ struct VaultFileStore {
         }
     }
 
-    private enum WriteResult: Equatable {
+    private enum WriteResult: Equatable, Sendable {
         case written
         case stale
     }
@@ -191,7 +191,7 @@ struct VaultFileStore {
     /// TOCTOU window remains), but it never emits a version known to be stale.
     func readModifyWrite(
         _ relativePath: String,
-        mutate: @escaping (inout FrontmatterDocument) -> Void
+        mutate: @escaping @Sendable (inout FrontmatterDocument) -> Void
     ) async throws {
         try await performIO {
             try withWriteAccess(relativePath) {
@@ -260,7 +260,10 @@ struct VaultFileStore {
         }
     }
 
-    private func withReadAccess<T>(_ relativePath: String, body: () throws -> T) throws -> T {
+    private func withReadAccess<T: Sendable>(
+        _ relativePath: String,
+        body: @Sendable () throws -> T
+    ) throws -> T {
         guard rootURL.startAccessingSecurityScopedResource() else {
             throw VaultFileStoreError.readFailed(relativePath, CocoaError(.fileReadNoPermission))
         }
@@ -268,7 +271,10 @@ struct VaultFileStore {
         return try body()
     }
 
-    private func withWriteAccess<T>(_ relativePath: String, body: () throws -> T) throws -> T {
+    private func withWriteAccess<T: Sendable>(
+        _ relativePath: String,
+        body: @Sendable () throws -> T
+    ) throws -> T {
         guard rootURL.startAccessingSecurityScopedResource() else {
             throw VaultFileStoreError.writeFailed(relativePath, CocoaError(.fileWriteNoPermission))
         }
@@ -283,7 +289,9 @@ struct VaultFileStore {
         )
     }
 
-    private func performIO<T>(_ operation: @escaping () throws -> T) async throws -> T {
+    private func performIO<T: Sendable>(
+        _ operation: @escaping @Sendable () throws -> T
+    ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             Self.ioQueue.async {
                 do {
@@ -295,7 +303,7 @@ struct VaultFileStore {
         }
     }
 
-    private func performIO<T>(_ operation: @escaping () -> T) async -> T {
+    private func performIO<T: Sendable>(_ operation: @escaping @Sendable () -> T) async -> T {
         await withCheckedContinuation { continuation in
             Self.ioQueue.async {
                 continuation.resume(returning: operation())

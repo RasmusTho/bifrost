@@ -35,10 +35,11 @@ struct SettingsLensView: View {
     }
 
     private func load() {
+        let path = HeimdalPaths.settings
         Task { @MainActor in
             defer { hasLoaded = true }
             do {
-                let text = try await fileStore.read(HeimdalPaths.settings)
+                let text = try await fileStore.read(path)
                 let note = SettingsNote(document: try FrontmatterDocument.parse(text))
                 retentionDays = note.retentionWindowDays ?? 30
                 loadError = nil
@@ -51,11 +52,13 @@ struct SettingsLensView: View {
     }
 
     private func save(retentionDays: Int) {
+        let path = HeimdalPaths.settings
+        let days = retentionDays
         Task { @MainActor in
             do {
-                try await fileStore.readModifyWrite(HeimdalPaths.settings) { document in
+                try await fileStore.readModifyWrite(path) { document in
                     var note = SettingsNote(document: document)
-                    note.setRetentionWindowDays(retentionDays)
+                    note.setRetentionWindowDays(days)
                     document = note.document
                 }
                 loadError = nil

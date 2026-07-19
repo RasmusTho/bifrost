@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct VaultEntry: Identifiable {
+struct VaultEntry: Identifiable, Sendable {
     let id: String
     let name: String
     let relativePath: String
@@ -48,9 +48,10 @@ struct NoteBrowserView: View {
     }
 
     private func load() {
+        let directory = relativeDirectory
         Task { @MainActor in
             do {
-                entries = try await fileStore.listEntries(in: relativeDirectory)
+                entries = try await fileStore.listEntries(in: directory)
                 loadError = nil
             } catch {
                 loadError = error.localizedDescription

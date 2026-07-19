@@ -65,9 +65,10 @@ struct AttentionLensView: View {
     }
 
     private func load() {
+        let path = relativePath
         Task { @MainActor in
             do {
-                let text = try await fileStore.read(relativePath)
+                let text = try await fileStore.read(path)
                 note = AttentionNote(document: try FrontmatterDocument.parse(text))
                 loadError = nil
             } catch VaultFileStoreError.notFound(_) {
@@ -80,21 +81,25 @@ struct AttentionLensView: View {
     }
 
     private func addOverride(decision: String) {
+        let path = relativePath
+        let itemId = pendingItemId
+        let noteText = pendingNote
+        let selectedDecision = decision
         let timestamp = ISO8601DateFormatter().string(from: Date())
         Task { @MainActor in
             do {
-                try await fileStore.readModifyWrite(relativePath) { document in
+                try await fileStore.readModifyWrite(path) { document in
                     var note = AttentionNote(document: document)
                     note.addOverride(.manualOverride(
-                        itemId: pendingItemId,
-                        action: decision,
-                        note: pendingNote,
+                        itemId: itemId,
+                        action: selectedDecision,
+                        note: noteText,
                         overriddenAt: timestamp
                     ))
                     document = note.document
                 }
-                pendingItemId = ""
-                pendingNote = ""
+                if pendingItemId == itemId { pendingItemId = "" }
+                if pendingNote == noteText { pendingNote = "" }
                 loadError = nil
                 load()
             } catch {
