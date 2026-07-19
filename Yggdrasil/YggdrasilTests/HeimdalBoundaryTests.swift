@@ -31,6 +31,13 @@ final class HeimdalBoundaryTests: XCTestCase {
         XCTAssertEqual(scanner.violations(in: "import Mimer"), ["import Mimer"])
     }
 
+    func testBoundaryScannerRejectsInterpolatedMimerTypeFixture() throws {
+        let scanner = try makeScanner()
+        let fixture = "let diagnostic = \"\\(MimerShellView.self)\""
+
+        XCTAssertEqual(scanner.violations(in: fixture), ["MimerShellView"])
+    }
+
     func testBoundaryScannerIgnoresCommentsAndStringLiterals() throws {
         let scanner = try makeScanner()
         let fixture = """
@@ -82,10 +89,6 @@ private struct HeimdalBoundaryScanner {
         pattern: #"\bimport(?:\s+(?:class|enum|func|protocol|struct|typealias|var))?\s+"#
             + #"Mimer(?:\.[A-Za-z_][A-Za-z0-9_]*)*"#
     )
-    private static let nonCodePattern = try? NSRegularExpression(
-        pattern: #"(?s)/\*.*?\*/|//[^\r\n]*|\"(?:\\.|[^\"\\])*\""#
-    )
-
     init(mimerSourceFiles: [URL]) throws {
         var names = Set<String>()
         for file in mimerSourceFiles {
@@ -107,9 +110,156 @@ private struct HeimdalBoundaryScanner {
     }
 
     private static func codeOnly(_ source: String) -> String {
-        guard let nonCodePattern else { return source }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return nonCodePattern.stringByReplacingMatches(in: source, range: range, withTemplate: " ")
+        let characters = Array(source)
+        var index = 0
+        return scanCode(in: characters, index: &index, interpolationDepth: nil)
+    }
+
+    private static func scanCode(
+        in characters: [Character],
+        index: inout Int,
+        interpolationDepth: Int?
+    ) -> String {
+        var code = ""
+        var depth = interpolationDepth
+
+        while index < characters.count {
+            if matches("//", in: characters, at: index) {
+                skipLineComment(in: characters, index: &index)
+                code.append(" ")
+            } else if matches("/*", in: characters, at: index) {
+                skipBlockComment(in: characters, index: &index)
+                code.append(" ")
+            } else if let delimiter = stringDelimiter(in: characters, at: index) {
+                index = delimiter.contentStart
+                code += scanString(in: characters, index: &index, delimiter: delimiter)
+                code.append(" ")
+            } else if depth != nil, characters[index] == "(" {
+                depth? += 1
+                code.append(characters[index])
+                index += 1
+            } else if let currentDepth = depth, characters[index] == ")" {
+                if currentDepth == 1 {
+                    index += 1
+                    return code
+                }
+                depth = currentDepth - 1
+                code.append(characters[index])
+                index += 1
+            } else {
+                code.append(characters[index])
+                index += 1
+            }
+        }
+        return code
+    }
+
+    private static func scanString(
+        in characters: [Character],
+        index: inout Int,
+        delimiter: StringDelimiter
+    ) -> String {
+        var interpolatedCode = ""
+        while index < characters.count {
+            if matchesClosingDelimiter(delimiter, in: characters, at: index) {
+                index += delimiter.quoteCount + delimiter.hashCount
+                return interpolatedCode
+            }
+            if matchesInterpolationStart(delimiter, in: characters, at: index) {
+                index += 2 + delimiter.hashCount
+                interpolatedCode += scanCode(in: characters, index: &index, interpolationDepth: 1)
+                interpolatedCode.append(" ")
+            } else if delimiter.hashCount == 0, characters[index] == "\\" {
+                index = min(index + 2, characters.count)
+            } else {
+                index += 1
+            }
+        }
+        return interpolatedCode
+    }
+
+    private static func skipLineComment(in characters: [Character], index: inout Int) {
+        index += 2
+        while index < characters.count, characters[index] != "\n" {
+            index += 1
+        }
+    }
+
+    private static func skipBlockComment(in characters: [Character], index: inout Int) {
+        var depth = 1
+        index += 2
+        while index < characters.count, depth > 0 {
+            if matches("/*", in: characters, at: index) {
+                depth += 1
+                index += 2
+            } else if matches("*/", in: characters, at: index) {
+                depth -= 1
+                index += 2
+            } else {
+                index += 1
+            }
+        }
+    }
+
+    private static func stringDelimiter(in characters: [Character], at index: Int) -> StringDelimiter? {
+        var cursor = index
+        while cursor < characters.count, characters[cursor] == "#" {
+            cursor += 1
+        }
+        guard cursor < characters.count, characters[cursor] == "\"" else { return nil }
+
+        let hashCount = cursor - index
+        let quoteCount = matches("\"\"\"", in: characters, at: cursor) ? 3 : 1
+        return StringDelimiter(
+            hashCount: hashCount,
+            quoteCount: quoteCount,
+            contentStart: cursor + quoteCount
+        )
+    }
+
+    private static func matchesClosingDelimiter(
+        _ delimiter: StringDelimiter,
+        in characters: [Character],
+        at index: Int
+    ) -> Bool {
+        guard repeatedCharacter("\"", count: delimiter.quoteCount, matches: characters, at: index) else {
+            return false
+        }
+        return repeatedCharacter(
+            "#",
+            count: delimiter.hashCount,
+            matches: characters,
+            at: index + delimiter.quoteCount
+        )
+    }
+
+    private static func matchesInterpolationStart(
+        _ delimiter: StringDelimiter,
+        in characters: [Character],
+        at index: Int
+    ) -> Bool {
+        guard index < characters.count, characters[index] == "\\" else { return false }
+        guard repeatedCharacter("#", count: delimiter.hashCount, matches: characters, at: index + 1) else {
+            return false
+        }
+        let parenthesisIndex = index + 1 + delimiter.hashCount
+        return parenthesisIndex < characters.count && characters[parenthesisIndex] == "("
+    }
+
+    private static func repeatedCharacter(
+        _ character: Character,
+        count: Int,
+        matches characters: [Character],
+        at index: Int
+    ) -> Bool {
+        guard index + count <= characters.count else { return false }
+        return characters[index..<(index + count)].allSatisfy { $0 == character }
+    }
+
+    private static func matches(_ token: String, in characters: [Character], at index: Int) -> Bool {
+        let tokenCharacters = Array(token)
+        guard index + tokenCharacters.count <= characters.count else { return false }
+        return Array(characters[index..<(index + tokenCharacters.count)]) == tokenCharacters
     }
 
     private static func hasMatch(in source: String, using pattern: NSRegularExpression?) -> Bool {
@@ -130,4 +280,10 @@ private struct HeimdalBoundaryScanner {
             return String(source[captureRange])
         })
     }
+}
+
+private struct StringDelimiter {
+    let hashCount: Int
+    let quoteCount: Int
+    let contentStart: Int
 }
