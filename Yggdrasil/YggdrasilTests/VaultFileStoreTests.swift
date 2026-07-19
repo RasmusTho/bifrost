@@ -2,14 +2,14 @@ import XCTest
 import YggdrasilCore
 @testable import Yggdrasil
 
+private enum VaultFileStoreCoordinationOperation: Equatable {
+    case read
+    case write
+}
+
 final class VaultFileStoreTests: XCTestCase {
     private final class RecordingCoordinator: VaultFileCoordinating {
-        enum Operation: Equatable {
-            case read
-            case write
-        }
-
-        var operations: [Operation] = []
+        var operations: [VaultFileStoreCoordinationOperation] = []
         var beforeNextWrite: ((URL) throws -> Void)?
 
         func coordinateRead<T>(at url: URL, accessor: (URL) throws -> T) throws -> T {
