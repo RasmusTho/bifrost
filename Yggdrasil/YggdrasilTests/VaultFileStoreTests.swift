@@ -3,6 +3,30 @@ import YggdrasilCore
 @testable import Yggdrasil
 
 final class VaultFileStoreTests: XCTestCase {
+    private final class RecordingCoordinator: VaultFileCoordinating {
+        enum Operation: Equatable {
+            case read
+            case write
+        }
+
+        var operations: [Operation] = []
+        var beforeNextWrite: ((URL) throws -> Void)?
+
+        func coordinateRead<T>(at url: URL, accessor: (URL) throws -> T) throws -> T {
+            operations.append(.read)
+            return try accessor(url)
+        }
+
+        func coordinateWrite<T>(at url: URL, accessor: (URL) throws -> T) throws -> T {
+            operations.append(.write)
+            if let beforeNextWrite {
+                self.beforeNextWrite = nil
+                try beforeNextWrite(url)
+            }
+            return try accessor(url)
+        }
+    }
+
     private var tempDirectory = FileManager.default.temporaryDirectory
 
     override func setUpWithError() throws {
@@ -48,5 +72,57 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertTrue(entries.contains { $0.name == "watchlist.md" && !$0.isDirectory })
         XCTAssertTrue(entries.contains { $0.name == "sources" && $0.isDirectory })
         XCTAssertFalse(entries.contains { $0.name == "notes.txt" })
+    }
+
+    func testWritesUseCoordinatedAccess() throws {
+        let coordinator = RecordingCoordinator()
+        let store = VaultFileStore(rootURL: tempDirectory, coordinator: coordinator)
+
+        try store.write("---\nvalue: initial\n---\n", to: "notes/example.md")
+        _ = try store.read("notes/example.md")
+        let many = store.readMany(["notes/example.md"])
+        try store.readModifyWrite("notes/example.md") { document in
+            document.frontmatter["value"] = .string("updated")
+        }
+        _ = try store.listEntries(in: "notes")
+
+        XCTAssertEqual(coordinator.operations, [.write, .read, .read, .read, .write, .read])
+        XCTAssertNotNil(try many["notes/example.md"]?.get())
+    }
+
+    func testStaleWriteIsReappliedOnFreshContent() throws {
+        let coordinator = RecordingCoordinator()
+        let store = VaultFileStore(rootURL: tempDirectory, coordinator: coordinator)
+        let path = "_heimdal/settings.md"
+        try store.write("---\nbase: true\n---\n", to: path)
+        coordinator.operations = []
+        coordinator.beforeNextWrite = { url in
+            try "---\nbase: true\nmac: fresh\n---\n".write(to: url, atomically: true, encoding: .utf8)
+        }
+
+        try store.readModifyWrite(path) { document in
+            document.frontmatter["phone"] = .string("applied")
+        }
+
+        let text = try store.read(path)
+        XCTAssertTrue(text.contains("mac: fresh"))
+        XCTAssertTrue(text.contains("phone: applied"))
+        XCTAssertEqual(coordinator.operations, [.read, .write, .read, .write, .read])
+    }
+
+    func testWholeFileWriteIsAtomicReplace() throws {
+        var atomicReplaceWasUsed = false
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            atomicWriter: { text, url in
+                atomicReplaceWasUsed = true
+                try text.write(to: url, atomically: true, encoding: .utf8)
+            }
+        )
+
+        try store.write("complete replacement", to: "notes/atomic.md")
+
+        XCTAssertTrue(atomicReplaceWasUsed)
+        XCTAssertEqual(try store.read("notes/atomic.md"), "complete replacement")
     }
 }
