@@ -11,6 +11,7 @@ final class CaptureSessionModel: ObservableObject {
         case paused
         case finalizing
         case staged
+        case failed
     }
 
     enum DeliveryState: Equatable {
@@ -63,10 +64,18 @@ final class CaptureSessionModel: ObservableObject {
         return true
     }
 
+    @discardableResult
+    func failCurrentItem() -> Bool {
+        guard phase == .finalizing else { return false }
+        phase = .failed
+        return true
+    }
+
     private func isValidTransition(from current: Phase, to next: Phase) -> Bool {
         switch (current, next) {
         case (.idle, .recording),
              (.staged, .recording),
+             (.failed, .recording),
              (.recording, .paused),
              (.paused, .recording),
              (.recording, .finalizing),

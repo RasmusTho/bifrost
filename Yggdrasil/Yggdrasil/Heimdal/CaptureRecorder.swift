@@ -3,82 +3,179 @@ import Combine
 import Foundation
 import UIKit
 
+enum CaptureFileWriterFailure: LocalizedError, Equatable, Sendable {
+    case couldNotStart
+    case incompleteFile
+    case encodingFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .couldNotStart:
+            "Heimdal could not start recording."
+        case .incompleteFile:
+            "Heimdal could not finish the recording safely."
+        case let .encodingFailed(description):
+            "Heimdal could not encode the recording: \(description)"
+        }
+    }
+}
+
+struct CaptureFileWriterTerminalEvent: Sendable {
+    let generation: UInt64
+    let result: Result<TimeInterval, CaptureFileWriterFailure>
+}
+
 @MainActor
 protocol CaptureFileWriting: AnyObject {
-    func start(url: URL) throws
+    func start(
+        url: URL,
+        generation: UInt64,
+        onTerminal: @escaping @MainActor @Sendable (CaptureFileWriterTerminalEvent) -> Void
+    ) throws
     func pause()
     func resume() throws
-    func stop() async throws -> TimeInterval
+    func stop(generation: UInt64) throws
+    func forceTerminate(generation: UInt64) throws
 }
 
 @MainActor
 final class AVFoundationCaptureFileWriter: NSObject, CaptureFileWriting {
     private var recorder: AVAudioRecorder?
     private var delegateProxy: AudioRecorderDelegateProxy?
-    private var finishContinuation: CheckedContinuation<TimeInterval, Swift.Error>?
+    private var terminalContinuation: AsyncStream<AudioRecorderTerminalSignal>.Continuation?
+    private var terminalConsumer: Task<Void, Never>?
+    private var terminalHandler: (@MainActor @Sendable (CaptureFileWriterTerminalEvent) -> Void)?
+    private var activeGeneration: UInt64?
     private var durationAtStop: TimeInterval = 0
+    private var deliveredTerminalEvent = false
 
-    func start(url: URL) throws {
+    func start(
+        url: URL,
+        generation: UInt64,
+        onTerminal: @escaping @MainActor @Sendable (CaptureFileWriterTerminalEvent) -> Void
+    ) throws {
+        guard recorder == nil, activeGeneration == nil else {
+            throw CaptureFileWriterFailure.couldNotStart
+        }
+
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: 44_100,
             AVNumberOfChannelsKey: 1,
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
-        recorder = try AVAudioRecorder(url: url, settings: settings)
-        let writer = self
-        delegateProxy = AudioRecorderDelegateProxy { [weak writer] successfully in
-            guard let writer else { return }
-            Task { @MainActor [writer, successfully] in
-                writer.finish(successfully: successfully)
+        let newRecorder = try AVAudioRecorder(url: url, settings: settings)
+        let (signals, continuation) = AsyncStream.makeStream(of: AudioRecorderTerminalSignal.self)
+        terminalContinuation = continuation
+        terminalHandler = onTerminal
+        activeGeneration = generation
+        deliveredTerminalEvent = false
+        durationAtStop = 0
+
+        delegateProxy = AudioRecorderDelegateProxy { signal in
+            continuation.yield(signal)
+        }
+        newRecorder.delegate = delegateProxy
+        recorder = newRecorder
+        terminalConsumer = Task { @MainActor [weak self] in
+            for await signal in signals {
+                guard let self else { return }
+                self.accept(signal, generation: generation)
             }
         }
-        recorder?.delegate = delegateProxy
-        guard recorder?.record() == true else { throw CaptureRecorder.Error.couldNotStart }
+
+        guard newRecorder.record() else {
+            disposeRecorder()
+            throw CaptureFileWriterFailure.couldNotStart
+        }
     }
 
-    func pause() { recorder?.pause() }
+    func pause() {
+        recorder?.pause()
+    }
 
     func resume() throws {
-        guard recorder?.record() == true else { throw CaptureRecorder.Error.couldNotStart }
-    }
-
-    func stop() async throws -> TimeInterval {
-        guard let recorder else { throw CaptureRecorder.Error.incompleteFile }
-        guard finishContinuation == nil else { throw CaptureRecorder.Error.incompleteFile }
-        durationAtStop = recorder.currentTime
-        return try await withCheckedThrowingContinuation { continuation in
-            finishContinuation = continuation
-            recorder.stop()
+        guard recorder?.record() == true else {
+            throw CaptureFileWriterFailure.couldNotStart
         }
     }
 
-    private func finish(successfully: Bool, error: Swift.Error? = nil) {
-        guard let continuation = finishContinuation else { return }
-        finishContinuation = nil
+    func stop(generation: UInt64) throws {
+        guard generation == activeGeneration, let recorder else {
+            throw CaptureFileWriterFailure.incompleteFile
+        }
+        durationAtStop = recorder.currentTime
+        recorder.stop()
+    }
+
+    func forceTerminate(generation: UInt64) throws {
+        guard generation == activeGeneration, let recorder else {
+            throw CaptureFileWriterFailure.incompleteFile
+        }
+
+        // Media-service loss/reset may suppress the delegate callback entirely. Stop and
+        // dispose the invalid recorder, then inject a terminal signal through the same
+        // ordered stream used by delegate callbacks. If an encode error was already
+        // enqueued, FIFO ordering makes that earlier failure win.
+        let duration = recorder.currentTime
+        recorder.delegate = nil
+        recorder.stop()
+        self.recorder = nil
+        delegateProxy = nil
+        terminalContinuation?.yield(.forcedCompletion(duration))
+    }
+
+    private func accept(_ signal: AudioRecorderTerminalSignal, generation: UInt64) {
+        guard generation == activeGeneration, !deliveredTerminalEvent else { return }
+        deliveredTerminalEvent = true
+
+        let result: Result<TimeInterval, CaptureFileWriterFailure>
+        switch signal {
+        case let .delegateCompletion(successfully):
+            result = successfully ? .success(durationAtStop) : .failure(.incompleteFile)
+        case let .encodingFailure(description):
+            result = .failure(.encodingFailed(description))
+        case let .forcedCompletion(duration):
+            result = .success(duration)
+        }
+
+        let handler = terminalHandler
+        disposeRecorder()
+        handler?(CaptureFileWriterTerminalEvent(generation: generation, result: result))
+    }
+
+    private func disposeRecorder() {
+        recorder?.delegate = nil
+        recorder?.stop()
         recorder = nil
         delegateProxy = nil
-        if successfully {
-            continuation.resume(returning: durationAtStop)
-        } else {
-            continuation.resume(throwing: error ?? CaptureRecorder.Error.incompleteFile)
-        }
+        activeGeneration = nil
+        terminalHandler = nil
+        terminalContinuation?.finish()
+        terminalContinuation = nil
+        terminalConsumer = nil
     }
 }
 
-private final class AudioRecorderDelegateProxy: NSObject, AVAudioRecorderDelegate {
-    private let onFinish: @Sendable (Bool) -> Void
+private enum AudioRecorderTerminalSignal: Sendable {
+    case delegateCompletion(Bool)
+    case encodingFailure(String)
+    case forcedCompletion(TimeInterval)
+}
 
-    init(onFinish: @escaping @Sendable (Bool) -> Void) {
-        self.onFinish = onFinish
+private final class AudioRecorderDelegateProxy: NSObject, AVAudioRecorderDelegate {
+    private let onTerminal: @Sendable (AudioRecorderTerminalSignal) -> Void
+
+    init(onTerminal: @escaping @Sendable (AudioRecorderTerminalSignal) -> Void) {
+        self.onTerminal = onTerminal
     }
 
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        onFinish(flag)
+        onTerminal(.delegateCompletion(flag))
     }
 
     func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Swift.Error?) {
-        onFinish(false)
+        onTerminal(.encodingFailure(error?.localizedDescription ?? "Unknown encoder failure"))
     }
 }
 
@@ -107,15 +204,30 @@ final class CaptureRecorder: ObservableObject {
         )
     }
 
+    private struct ActiveCapture {
+        let generation: UInt64
+        let url: URL
+    }
+
+    private enum FinalizationMode {
+        case delegateCompletion
+        case forcedCompletion
+    }
+
     let sessionModel: CaptureSessionModel
     let configuration: Configuration
     @Published private(set) var lastError: String?
     @Published private(set) var needsManualResume = false
+    private(set) var activeCaptureGeneration: UInt64?
 
     private let writer: CaptureFileWriting
     private let stagingDirectory: URL
     private let deviceShortID: String
-    private var activeURL: URL?
+    private let observeSessionNotifications: Bool
+    private var activeCapture: ActiveCapture?
+    private var nextCaptureGeneration: UInt64 = 0
+    private var finalizationGeneration: UInt64?
+    private var forcedTerminationGeneration: UInt64?
     private var sessionObservers: [NSObjectProtocol] = []
 
     init(
@@ -132,26 +244,12 @@ final class CaptureRecorder: ObservableObject {
         self.deviceShortID = deviceShortID ?? UIDevice.current.identifierForVendor?
             .uuidString.prefix(8).lowercased() ?? "device"
         self.configuration = configuration
-        if observeInterruptions {
-            sessionObservers.append(NotificationCenter.default.addObserver(
-                forName: AVAudioSession.interruptionNotification,
-                object: AVAudioSession.sharedInstance(),
-                queue: .main
-            ) { [weak self] notification in
-                guard let recorder = self else { return }
-                let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
-                let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
-                Task { @MainActor [recorder, rawType, rawOptions] in
-                    await recorder.handleInterruption(rawType: rawType, rawOptions: rawOptions)
-                }
-            })
-            observeFinalizingNotification(AVAudioSession.routeChangeNotification)
-            observeFinalizingNotification(AVAudioSession.mediaServicesWereLostNotification)
-            observeFinalizingNotification(AVAudioSession.mediaServicesWereResetNotification)
-        }
+        observeSessionNotifications = observeInterruptions
     }
 
-    deinit { sessionObservers.forEach(NotificationCenter.default.removeObserver) }
+    deinit {
+        sessionObservers.forEach(NotificationCenter.default.removeObserver)
+    }
 
     func requestMicrophonePermissionAndStart() {
         AVAudioApplication.requestRecordPermission { [weak self] granted in
@@ -167,28 +265,107 @@ final class CaptureRecorder: ObservableObject {
     }
 
     func start() {
-        guard sessionModel.phase == .idle || sessionModel.phase == .staged else { return }
+        guard sessionModel.phase == .idle
+                || sessionModel.phase == .staged
+                || sessionModel.phase == .failed else { return }
         do {
             try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
             try AVAudioSession.sharedInstance().setCategory(.record, mode: .default, options: [])
             try AVAudioSession.sharedInstance().setActive(true)
+
+            nextCaptureGeneration &+= 1
+            let generation = nextCaptureGeneration
             let url = nextFileURL()
-            try writer.start(url: url)
-            activeURL = url
+            try writer.start(url: url, generation: generation) { [weak self] event in
+                self?.handleWriterTerminal(event)
+            }
+
+            activeCapture = ActiveCapture(generation: generation, url: url)
+            activeCaptureGeneration = generation
             lastError = nil
             needsManualResume = false
             _ = sessionModel.transition(to: .recording)
-        } catch { lastError = error.localizedDescription }
+            installSessionObservers(for: generation)
+        } catch {
+            clearActiveCapture()
+            lastError = error.localizedDescription
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 
     func pause() {
-        guard sessionModel.phase == .recording else { return }
+        guard let generation = activeCapture?.generation else { return }
+        pause(captureGeneration: generation)
+    }
+
+    func resume() {
+        guard let generation = activeCapture?.generation else { return }
+        resume(captureGeneration: generation)
+    }
+
+    func stop() async {
+        // An interrupted recorder may never deliver its normal finish delegate callback.
+        // Explicit stop while paused therefore uses the deterministic forced terminal path.
+        let mode: FinalizationMode = sessionModel.phase == .paused
+            ? .forcedCompletion
+            : .delegateCompletion
+        finalizeCurrentSegment(mode: mode)
+    }
+
+    func abandon() async {
+        finalizeCurrentSegment(mode: .forcedCompletion)
+    }
+
+    func handleInterruption(type: AVAudioSession.InterruptionType, shouldResume: Bool) async {
+        guard let generation = activeCapture?.generation else { return }
+        await handleInterruption(
+            type: type,
+            shouldResume: shouldResume,
+            captureGeneration: generation
+        )
+    }
+
+    func handleInterruption(
+        type: AVAudioSession.InterruptionType,
+        shouldResume: Bool,
+        captureGeneration: UInt64
+    ) async {
+        guard captureGeneration == activeCapture?.generation else { return }
+        switch type {
+        case .began:
+            pause(captureGeneration: captureGeneration)
+        case .ended:
+            guard sessionModel.phase == .paused else { return }
+            if shouldResume {
+                resume(captureGeneration: captureGeneration)
+            } else {
+                needsManualResume = true
+            }
+        @unknown default:
+            finalizeCurrentSegment(mode: .forcedCompletion, captureGeneration: captureGeneration)
+        }
+    }
+
+    func handleRouteChangeOrSessionFailure() async {
+        guard let generation = activeCapture?.generation else { return }
+        handleRouteChangeOrSessionFailure(captureGeneration: generation)
+    }
+
+    func handleRouteChangeOrSessionFailure(captureGeneration: UInt64) {
+        guard captureGeneration == activeCapture?.generation else { return }
+        finalizeCurrentSegment(mode: .forcedCompletion, captureGeneration: captureGeneration)
+    }
+
+    private func pause(captureGeneration: UInt64) {
+        guard captureGeneration == activeCapture?.generation,
+              sessionModel.phase == .recording else { return }
         writer.pause()
         _ = sessionModel.transition(to: .paused)
     }
 
-    func resume() {
-        guard sessionModel.phase == .paused else { return }
+    private func resume(captureGeneration: UInt64) {
+        guard captureGeneration == activeCapture?.generation,
+              sessionModel.phase == .paused else { return }
         do {
             try writer.resume()
             needsManualResume = false
@@ -198,63 +375,158 @@ final class CaptureRecorder: ObservableObject {
         }
     }
 
-    func stop() async { await finalizeCurrentSegment() }
-
-    func abandon() async { await finalizeCurrentSegment() }
-
-    func handleInterruption(type: AVAudioSession.InterruptionType, shouldResume: Bool) async {
-        switch type {
-        case .began: pause()
-        case .ended:
-            guard sessionModel.phase == .paused else { return }
-            if shouldResume { resume() } else { needsManualResume = true }
-        @unknown default: await abandon()
-        }
-    }
-
-    func handleRouteChangeOrSessionFailure() async {
-        await abandon()
-    }
-
-    private func handleInterruption(rawType: UInt?, rawOptions: UInt?) async {
+    private func handleInterruption(
+        rawType: UInt?,
+        rawOptions: UInt?,
+        captureGeneration: UInt64
+    ) async {
         guard let rawType,
               let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
         let options = rawOptions.map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
-        await handleInterruption(type: type, shouldResume: options.contains(.shouldResume))
+        await handleInterruption(
+            type: type,
+            shouldResume: options.contains(.shouldResume),
+            captureGeneration: captureGeneration
+        )
     }
 
-    private func finalizeCurrentSegment() async {
-        guard let url = activeURL,
-              sessionModel.phase == .recording || sessionModel.phase == .paused else { return }
+    private func finalizeCurrentSegment(
+        mode: FinalizationMode,
+        captureGeneration: UInt64? = nil
+    ) {
+        guard let capture = activeCapture,
+              captureGeneration == nil || captureGeneration == capture.generation,
+              sessionModel.phase == .recording
+                || sessionModel.phase == .paused
+                || sessionModel.phase == .finalizing else { return }
+        if sessionModel.phase != .finalizing {
+            guard sessionModel.transition(to: .finalizing) else { return }
+        }
+
         do {
-            _ = sessionModel.transition(to: .finalizing)
-            let duration = try await writer.stop()
-            guard FileManager.default.fileExists(atPath: url.path),
-                  (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else {
-                throw Error.incompleteFile
+            switch mode {
+            case .delegateCompletion:
+                guard finalizationGeneration != capture.generation else { return }
+                finalizationGeneration = capture.generation
+                try writer.stop(generation: capture.generation)
+            case .forcedCompletion:
+                guard forcedTerminationGeneration != capture.generation else { return }
+                finalizationGeneration = capture.generation
+                forcedTerminationGeneration = capture.generation
+                try writer.forceTerminate(generation: capture.generation)
             }
-            guard sessionModel.stageCurrentItem(
-                url: url,
-                duration: duration,
-                capturedAt: Date()
-            ) else { throw Error.incompleteFile }
-            activeURL = nil
-            needsManualResume = false
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch { lastError = error.localizedDescription }
+        } catch {
+            handleWriterTerminal(CaptureFileWriterTerminalEvent(
+                generation: capture.generation,
+                result: .failure(.incompleteFile)
+            ))
+        }
     }
 
-    private func observeFinalizingNotification(_ name: Notification.Name) {
+    private func handleWriterTerminal(_ event: CaptureFileWriterTerminalEvent) {
+        guard let capture = activeCapture,
+              capture.generation == event.generation,
+              sessionModel.phase == .recording
+                || sessionModel.phase == .paused
+                || sessionModel.phase == .finalizing else { return }
+
+        if sessionModel.phase != .finalizing {
+            guard sessionModel.transition(to: .finalizing) else { return }
+        }
+
+        switch event.result {
+        case let .success(duration):
+            do {
+                guard FileManager.default.fileExists(atPath: capture.url.path),
+                      (try capture.url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else {
+                    throw Error.incompleteFile
+                }
+                guard sessionModel.stageCurrentItem(
+                    url: capture.url,
+                    duration: duration,
+                    capturedAt: Date()
+                ) else { throw Error.incompleteFile }
+                finishTerminalCleanup()
+            } catch {
+                failTerminalCapture(error)
+            }
+        case let .failure(error):
+            failTerminalCapture(error)
+        }
+    }
+
+    private func failTerminalCapture(_ error: Swift.Error) {
+        _ = sessionModel.failCurrentItem()
+        lastError = error.localizedDescription
+        finishTerminalCleanup()
+    }
+
+    private func finishTerminalCleanup() {
+        clearActiveCapture()
+        needsManualResume = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    private func clearActiveCapture() {
+        activeCapture = nil
+        activeCaptureGeneration = nil
+        finalizationGeneration = nil
+        forcedTerminationGeneration = nil
+        removeSessionObservers()
+    }
+
+    private func installSessionObservers(for captureGeneration: UInt64) {
+        guard observeSessionNotifications else { return }
+        removeSessionObservers()
+        sessionObservers.append(NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] notification in
+            guard let recorder = self else { return }
+            let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
+            Task { @MainActor [recorder, rawType, rawOptions, captureGeneration] in
+                await recorder.handleInterruption(
+                    rawType: rawType,
+                    rawOptions: rawOptions,
+                    captureGeneration: captureGeneration
+                )
+            }
+        })
+        observeFinalizingNotification(
+            AVAudioSession.routeChangeNotification,
+            captureGeneration: captureGeneration
+        )
+        observeFinalizingNotification(
+            AVAudioSession.mediaServicesWereLostNotification,
+            captureGeneration: captureGeneration
+        )
+        observeFinalizingNotification(
+            AVAudioSession.mediaServicesWereResetNotification,
+            captureGeneration: captureGeneration
+        )
+    }
+
+    private func observeFinalizingNotification(
+        _ name: Notification.Name,
+        captureGeneration: UInt64
+    ) {
         sessionObservers.append(NotificationCenter.default.addObserver(
             forName: name,
             object: AVAudioSession.sharedInstance(),
             queue: .main
         ) { [weak self] _ in
             guard let recorder = self else { return }
-            Task { @MainActor [recorder] in
-                await recorder.handleRouteChangeOrSessionFailure()
+            Task { @MainActor [recorder, captureGeneration] in
+                recorder.handleRouteChangeOrSessionFailure(captureGeneration: captureGeneration)
             }
         })
+    }
+
+    private func removeSessionObservers() {
+        sessionObservers.forEach(NotificationCenter.default.removeObserver)
+        sessionObservers.removeAll()
     }
 
     private func nextFileURL() -> URL {

@@ -63,15 +63,13 @@ final class CaptureRecorderTests: XCTestCase {
         let writer = FakeCaptureWriter(autoComplete: false)
         let recorder = makeRecorder(writer: writer)
         recorder.start()
-        let stopTask = Task { await recorder.stop() }
-        for _ in 0..<20 where !writer.isWaitingToFinish {
-            await Task.yield()
-        }
+        await recorder.stop()
         XCTAssertTrue(writer.isWaitingToFinish)
         XCTAssertEqual(recorder.sessionModel.phase, .finalizing)
         XCTAssertTrue(recorder.sessionModel.stagedItems.isEmpty)
+
         writer.completeStop()
-        await stopTask.value
+
         let item = try XCTUnwrap(recorder.sessionModel.stagedItems.first)
         XCTAssertGreaterThan(try item.url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0, 0)
     }
@@ -98,6 +96,101 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertEqual(recorder.sessionModel.stagedItems.count, 1)
     }
 
+    func testExceptionalSessionLossTerminatesWithoutDelegateCallback() async {
+        let writer = FakeCaptureWriter(autoComplete: false)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+
+        await recorder.handleRouteChangeOrSessionFailure()
+
+        XCTAssertEqual(writer.normalStopCount, 0)
+        XCTAssertEqual(writer.forcedStopCount, 1)
+        XCTAssertEqual(recorder.sessionModel.phase, .staged)
+        XCTAssertEqual(recorder.sessionModel.stagedItems.count, 1)
+    }
+
+    func testInterruptedStopTerminatesWithoutDelegateCallback() async {
+        let writer = FakeCaptureWriter(autoComplete: false)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        await recorder.handleInterruption(type: .began, shouldResume: false)
+
+        await recorder.stop()
+
+        XCTAssertEqual(writer.normalStopCount, 0)
+        XCTAssertEqual(writer.forcedStopCount, 1)
+        XCTAssertEqual(recorder.sessionModel.phase, .staged)
+        XCTAssertEqual(recorder.sessionModel.stagedItems.count, 1)
+    }
+
+    func testSessionLossEscalatesInFlightDelegateFinalization() async {
+        let writer = FakeCaptureWriter(autoComplete: false)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        await recorder.stop()
+        XCTAssertEqual(recorder.sessionModel.phase, .finalizing)
+
+        await recorder.handleRouteChangeOrSessionFailure()
+
+        XCTAssertEqual(writer.normalStopCount, 1)
+        XCTAssertEqual(writer.forcedStopCount, 1)
+        XCTAssertEqual(recorder.sessionModel.phase, .staged)
+    }
+
+    func testPreStopEncodeErrorWinsCallbackRaceExactlyOnce() async throws {
+        let writer = FakeCaptureWriter(autoComplete: false)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        let generation = try XCTUnwrap(recorder.activeCaptureGeneration)
+
+        writer.failEncoding(generation: generation, description: "encoder unavailable")
+        writer.completeSuccessfully(generation: generation)
+        await recorder.stop()
+
+        XCTAssertEqual(recorder.sessionModel.phase, .failed)
+        XCTAssertTrue(recorder.lastError?.contains("encoder unavailable") == true)
+        XCTAssertTrue(recorder.sessionModel.stagedItems.isEmpty)
+        XCTAssertEqual(writer.normalStopCount, 0)
+    }
+
+    func testStalePriorGenerationNotificationsCannotMutateNextCapture() async throws {
+        let writer = FakeCaptureWriter()
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        let firstGeneration = try XCTUnwrap(recorder.activeCaptureGeneration)
+        await recorder.stop()
+        recorder.start()
+        let secondGeneration = try XCTUnwrap(recorder.activeCaptureGeneration)
+        XCTAssertNotEqual(firstGeneration, secondGeneration)
+
+        await recorder.handleInterruption(
+            type: .began,
+            shouldResume: false,
+            captureGeneration: firstGeneration
+        )
+        recorder.handleRouteChangeOrSessionFailure(captureGeneration: firstGeneration)
+        writer.completeSuccessfully(generation: firstGeneration)
+
+        XCTAssertEqual(recorder.sessionModel.phase, .recording)
+        XCTAssertEqual(recorder.activeCaptureGeneration, secondGeneration)
+        XCTAssertEqual(recorder.sessionModel.stagedItems.count, 1)
+    }
+
+    func testMediaServicesResetDisposesWriterBeforeNextCapture() async throws {
+        let writer = FakeCaptureWriter(autoComplete: false)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        let firstGeneration = try XCTUnwrap(recorder.activeCaptureGeneration)
+
+        await recorder.handleRouteChangeOrSessionFailure()
+        recorder.start()
+        let secondGeneration = try XCTUnwrap(recorder.activeCaptureGeneration)
+
+        XCTAssertEqual(writer.startedGenerations, [firstGeneration, secondGeneration])
+        XCTAssertEqual(writer.forcedStopCount, 1)
+        XCTAssertEqual(recorder.sessionModel.phase, .recording)
+    }
+
     private func makeRecorder(
         writer: FakeCaptureWriter? = nil,
         observeInterruptions: Bool = false
@@ -121,35 +214,75 @@ final class CaptureRecorderTests: XCTestCase {
 
 @MainActor
 private final class FakeCaptureWriter: CaptureFileWriting {
-    private var url: URL?
-    private var stopContinuation: CheckedContinuation<Void, Never>?
+    private var urls: [UInt64: URL] = [:]
+    private var terminalHandlers: [
+        UInt64: @MainActor @Sendable (CaptureFileWriterTerminalEvent) -> Void
+    ] = [:]
     private let autoComplete: Bool
     private(set) var isWaitingToFinish = false
+    private(set) var normalStopCount = 0
+    private(set) var forcedStopCount = 0
+    private(set) var startedGenerations: [UInt64] = []
 
     init(autoComplete: Bool = true) {
         self.autoComplete = autoComplete
     }
 
-    func start(url: URL) throws {
-        self.url = url
+    func start(
+        url: URL,
+        generation: UInt64,
+        onTerminal: @escaping @MainActor @Sendable (CaptureFileWriterTerminalEvent) -> Void
+    ) throws {
+        urls[generation] = url
+        terminalHandlers[generation] = onTerminal
+        startedGenerations.append(generation)
     }
 
     func pause() {}
     func resume() throws {}
 
-    func stop() async throws -> TimeInterval {
-        guard let url else { throw CaptureRecorder.Error.incompleteFile }
-        if !autoComplete {
+    func stop(generation: UInt64) throws {
+        normalStopCount += 1
+        guard urls[generation] != nil else { throw CaptureFileWriterFailure.incompleteFile }
+        if autoComplete {
+            completeSuccessfully(generation: generation)
+        } else {
             isWaitingToFinish = true
-            await withCheckedContinuation { stopContinuation = $0 }
         }
-        try Data("captured audio".utf8).write(to: url)
-        return 2
+    }
+
+    func forceTerminate(generation: UInt64) throws {
+        forcedStopCount += 1
+        guard urls[generation] != nil else { throw CaptureFileWriterFailure.incompleteFile }
+        completeSuccessfully(generation: generation)
     }
 
     func completeStop() {
+        guard let generation = startedGenerations.last else {
+            XCTFail("No capture is available to complete")
+            return
+        }
+        completeSuccessfully(generation: generation)
+    }
+
+    func completeSuccessfully(generation: UInt64) {
+        guard let url = urls[generation], let handler = terminalHandlers[generation] else { return }
         isWaitingToFinish = false
-        stopContinuation?.resume()
-        stopContinuation = nil
+        do {
+            try Data("captured audio".utf8).write(to: url)
+            handler(CaptureFileWriterTerminalEvent(generation: generation, result: .success(2)))
+        } catch {
+            handler(CaptureFileWriterTerminalEvent(
+                generation: generation,
+                result: .failure(.incompleteFile)
+            ))
+        }
+    }
+
+    func failEncoding(generation: UInt64, description: String) {
+        terminalHandlers[generation]?(CaptureFileWriterTerminalEvent(
+            generation: generation,
+            result: .failure(.encodingFailed(description))
+        ))
     }
 }
