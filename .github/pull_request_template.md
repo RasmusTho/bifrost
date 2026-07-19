@@ -7,10 +7,14 @@ Docs authoring applies only to docs-only changes. Governance lane applies to bou
 (templates, labels, CI policy, skills routing). Neither may be used for product/runtime app implementation.
 
 ## Linked Issue
-Fixes #
+Governing-Issue: #<local-bifrost-issue>
+Fixes #<local-bifrost-issue>
 
-Required for implementation lane. App slices are tracked in the hub repo until Bifrost has its own board
-(ADR-0050 §1) — link the hub Issue, e.g. `Fixes RasmusTho/agentic-pkm-mvp#<n>`.
+Required for every issue-backed lane. The local Bifrost slice issue is the governing and closing authority;
+replace both placeholders with the same local issue number, for example `Governing-Issue: #25` and
+`Fixes #25`. If a hub issue is a parent or source, reference it evidence-only with
+`Refs RasmusTho/agentic-pkm-mvp#3023` or a plain GitHub issue URL. Never use `Fixes`, `Closes`, or
+`Resolves` for a hub issue in a Bifrost PR.
 
 ## SBS Impact
 Classify Product/Runtime System, Builder System, or boundary work per the hub's
