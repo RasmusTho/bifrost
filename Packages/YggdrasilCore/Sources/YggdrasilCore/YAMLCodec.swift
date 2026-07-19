@@ -160,13 +160,18 @@ public enum YAMLCodec {
         if (text.hasPrefix("\"") && text.hasSuffix("\"")) || (text.hasPrefix("'") && text.hasSuffix("'")) {
             return .string(unquote(text))
         }
+        if let numericValue = parseNumericScalar(text) { return numericValue }
+        return .string(text)
+    }
+
+    private static func parseNumericScalar(_ text: String) -> YAMLValue? {
         // Preserve a leading-zero scalar as text. Parsing it as an Int would
         // discard the spelling on write and can change a note field that this
         // client does not own.
-        if hasLeadingZeroInteger(text) { return .string(text) }
+        guard !hasLeadingZeroInteger(text) else { return nil }
         if let intValue = Int(text) { return .int(intValue) }
         if let doubleValue = Double(text) { return .double(doubleValue) }
-        return .string(text)
+        return nil
     }
 
     private static func hasLeadingZeroInteger(_ text: String) -> Bool {

@@ -12,30 +12,30 @@ enum LensScaffold {
     }
 
     @discardableResult
-    static func perform(error: Binding<String?>, _ operation: () throws -> Void) -> Bool {
+    static func perform(error errorBinding: Binding<String?>, _ operation: () throws -> Void) -> Bool {
         do {
             try operation()
-            error.wrappedValue = nil
+            errorBinding.wrappedValue = nil
             return true
-        } catch {
-            error.wrappedValue = error.localizedDescription
+        } catch let caughtError {
+            errorBinding.wrappedValue = caughtError.localizedDescription
             return false
         }
     }
 
     static func load(
-        error: Binding<String?>,
+        error errorBinding: Binding<String?>,
         operation: () throws -> Void,
         recover: (Error) -> Bool
     ) {
         do {
             try operation()
-            error.wrappedValue = nil
-        } catch {
-            if recover(error) {
-                error.wrappedValue = nil
+            errorBinding.wrappedValue = nil
+        } catch let caughtError {
+            if recover(caughtError) {
+                errorBinding.wrappedValue = nil
             } else {
-                error.wrappedValue = error.localizedDescription
+                errorBinding.wrappedValue = caughtError.localizedDescription
             }
         }
     }
