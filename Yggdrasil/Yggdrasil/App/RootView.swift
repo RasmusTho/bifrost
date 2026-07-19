@@ -4,8 +4,12 @@ import SwiftUI
 /// "thin host shell" the Issue asks for — everything past auth/vault-pick is
 /// a hosted client (Mimer-iPhone today).
 struct RootView: View {
-    @StateObject private var authGate = AuthGate()
+    @StateObject private var authGate: AuthGate
     @StateObject private var vaultManager = VaultManager()
+
+    init(authGateInitialState: AuthGate.State = .locked) {
+        _authGate = StateObject(wrappedValue: AuthGate(initialState: authGateInitialState))
+    }
 
     var body: some View {
         Group {

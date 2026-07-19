@@ -15,7 +15,11 @@ final class AuthGate: ObservableObject {
         case unavailable(reason: String)
     }
 
-    @Published private(set) var state: State = .locked
+    @Published private(set) var state: State
+
+    init(initialState: State = .locked) {
+        state = initialState
+    }
 
     func authenticate() {
         let context = LAContext()
