@@ -218,6 +218,10 @@ test("workflow_structure_and_source_pin_passes", () => {
     /types: \[opened, edited, reopened, synchronize, review_requested\]/,
   );
   assert.match(workflow, /^  pr-contract:\n/m);
+  assert.match(
+    workflow,
+    /permissions:\n      contents: read\n      pull-requests: read\n      issues: read/,
+  );
   assert.match(workflow, /pull-requests: read/);
   assert.match(workflow, /issues: read/);
   assert.match(workflow, /receipt\.repository === repository/);
