@@ -1,4 +1,6 @@
+import Foundation
 import SwiftUI
+import YggdrasilCore
 
 /// The Mimer client: the daily reader/steerer over vault notes, hosted inside
 /// the Yggdrasil shell. Compact widths preserve the shipped tab experience;
@@ -93,6 +95,8 @@ private struct MimerCanvasView: View {
     let fileStore: VaultFileStore
     @State private var selectedLens: MimerLens? = .today
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var selectedNote: MimerCanvasNote?
+    @State private var inspectorIsPresented = true
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -105,24 +109,213 @@ private struct MimerCanvasView: View {
                 }
             }
             .navigationTitle("Mimer")
+            .focusSection()
         } content: {
             if let selectedLens {
-                MimerLensContentView(lens: selectedLens, fileStore: fileStore)
+                if selectedLens == .vault {
+                    MimerVaultColumnView(fileStore: fileStore, selectedNote: $selectedNote)
+                } else {
+                    MimerLensContentView(lens: selectedLens, fileStore: fileStore)
+                }
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
+                    .focusSection()
             } else {
                 ContentUnavailableView("Choose a Lens", systemImage: "sidebar.left")
             }
         } detail: {
-            YggEmptyState(
-                systemImage: "rectangle.on.rectangle",
-                title: "Select an Item",
-                message: "Choose an item from a Mimer lens to inspect it here."
-            )
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("mimer.canvas.detail")
+            MimerCanvasDetailView(note: selectedNote, inspectorIsPresented: inspectorIsPresented)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("mimer.canvas.detail")
+                .focusSection()
         }
         .navigationSplitViewStyle(.balanced)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(inspectorIsPresented ? "Hide Inspector" : "Show Inspector") {
+                    inspectorIsPresented.toggle()
+                }
+                .keyboardShortcut("i", modifiers: .command)
+                .accessibilityIdentifier("mimer.canvas.inspector.toggle")
+            }
+        }
+    }
+}
+
+private struct MimerCanvasNote: Equatable {
+    let relativePath: String
+    let text: String
+    let modificationDate: Date?
+}
+
+/// Read-only, filesystem-backed Notes column. Its selection is deliberately
+/// local SwiftUI state: each folder enumeration is transient and no vault
+/// metadata is cached or indexed by the client.
+private struct MimerVaultColumnView: View {
+    let fileStore: VaultFileStore
+    @Binding var selectedNote: MimerCanvasNote?
+
+    @State private var directory = ""
+    @State private var entries: [VaultEntry] = []
+    @State private var filter = ""
+    @State private var loadError: String?
+    @FocusState private var filterIsFocused: Bool
+
+    private var visibleEntries: [VaultEntry] {
+        guard !filter.isEmpty else { return entries }
+        return entries.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                TextField("Filter notes", text: $filter)
+                    .focused($filterIsFocused)
+                    .accessibilityIdentifier("mimer.canvas.vault.filter")
+            }
+            if !directory.isEmpty {
+                Button("Back to \(directory.split(separator: "/").dropLast().last.map(String.init) ?? "Vault")") {
+                    directory = directory.split(separator: "/").dropLast().joined(separator: "/")
+                    selectedNote = nil
+                }
+                .accessibilityIdentifier("mimer.canvas.vault.back")
+            }
+            if let loadError {
+                Text(loadError).foregroundStyle(.red)
+            }
+            ForEach(visibleEntries) { entry in
+                Button {
+                    select(entry)
+                } label: {
+                    Label(entry.name, systemImage: entry.isDirectory ? "folder" : "doc.text")
+                }
+                .accessibilityIdentifier("mimer.canvas.vault.entry.\(entry.relativePath)")
+            }
+            if visibleEntries.isEmpty && loadError == nil {
+                Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
+            }
+        }
+        .navigationTitle(directory.isEmpty ? "Vault" : directory.split(separator: "/").last.map(String.init) ?? "Vault")
+        .toolbar {
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Filter") { filterIsFocused = true }
+                    .keyboardShortcut("f", modifiers: .command)
+            }
+        }
+        .onAppear(perform: load)
+        .onChange(of: directory) { _, _ in load() }
+    }
+
+    private func select(_ entry: VaultEntry) {
+        if entry.isDirectory {
+            directory = entry.relativePath
+            selectedNote = nil
+            return
+        }
+        let path = entry.relativePath
+        Task { @MainActor in
+            do {
+                async let text = fileStore.read(path)
+                async let modified = fileStore.modificationDate(of: path)
+                selectedNote = try await MimerCanvasNote(
+                    relativePath: path,
+                    text: text,
+                    modificationDate: modified
+                )
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
+    }
+
+    private func load() {
+        let currentDirectory = directory
+        Task { @MainActor in
+            do {
+                entries = try await fileStore.listEntries(in: currentDirectory)
+                loadError = nil
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
+    }
+}
+
+private struct MimerCanvasDetailView: View {
+    let note: MimerCanvasNote?
+    let inspectorIsPresented: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            Group {
+                if let note {
+                    ScrollView {
+                        MarkdownRendererView(text: note.text)
+                            .padding(YggTheme.Spacing.md)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .navigationTitle(note.relativePath.split(separator: "/").last.map(String.init) ?? note.relativePath)
+                } else {
+                    YggEmptyState(
+                        systemImage: "rectangle.on.rectangle",
+                        title: "Select an Item",
+                        message: "Choose a note from the Vault column to inspect it here."
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if inspectorIsPresented {
+                MimerNoteInspectorView(model: NoteInspectorModel(text: note?.text ?? "", modificationDate: note?.modificationDate))
+                    .frame(width: 260)
+                    .background(YggTheme.Color.secondaryBackground)
+                    .accessibilityIdentifier("mimer.canvas.inspector")
+            }
+        }
+    }
+}
+
+struct NoteInspectorModel {
+    let uuid: String?
+    let zone: String?
+    let origin: String?
+    let agentProvenance: [String: String]
+    let modifiedDescription: String?
+
+    init(text: String, modificationDate: Date?) {
+        let document = try? FrontmatterDocument.parse(text)
+        uuid = document?.frontmatter["uuid"]?.stringValue
+        zone = document?.frontmatter["zone"]?.stringValue
+        origin = document?.frontmatter["origin"]?.stringValue
+        agentProvenance = document?.frontmatter["agent_provenance"]?.mapValue?.pairs.reduce(into: [:]) {
+            $0[$1.0] = $1.1.stringValue ?? YAMLCodec.serialize($1.1).trimmingCharacters(in: .whitespacesAndNewlines)
+        } ?? [:]
+        modifiedDescription = modificationDate.map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short) }
+    }
+
+    var uuidDescription: String { uuid ?? "No uuid present" }
+}
+
+private struct MimerNoteInspectorView: View {
+    let model: NoteInspectorModel
+
+    var body: some View {
+        List {
+            Section("Note metadata") {
+                LabeledContent("uuid", value: model.uuidDescription)
+                if let zone = model.zone { LabeledContent("zone", value: zone) }
+                if let origin = model.origin { LabeledContent("origin", value: origin) }
+                if let modified = model.modifiedDescription { LabeledContent("modified", value: modified) }
+            }
+            if !model.agentProvenance.isEmpty {
+                Section("agent_provenance") {
+                    ForEach(model.agentProvenance.keys.sorted(), id: \.self) { key in
+                        LabeledContent(key, value: model.agentProvenance[key] ?? "")
+                    }
+                }
+            }
+        }
+        .navigationTitle("Inspector")
     }
 }
 

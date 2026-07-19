@@ -186,6 +186,23 @@ struct VaultFileStore: Sendable {
         }
     }
 
+    /// Returns the file-system modification date for a vault-relative note.
+    /// This is deliberately an on-demand read, not a client-side index.
+    func modificationDate(of relativePath: String) async throws -> Date? {
+        try await performIO {
+            try withReadAccess(relativePath) {
+                let url = VaultPath.resolve(relativePath, in: rootURL)
+                return try coordinator.coordinateRead(at: url) { coordinatedURL in
+                    guard FileManager.default.fileExists(atPath: coordinatedURL.path) else {
+                        throw VaultFileStoreError.notFound(relativePath)
+                    }
+                    return try coordinatedURL.resourceValues(forKeys: [.contentModificationDateKey])
+                        .contentModificationDate
+                }
+            }
+        }
+    }
+
     /// Reads, merges, and writes the document while cooperating with iCloud's
     /// coordinator. The hash re-check is advisory (the contract's residual
     /// TOCTOU window remains), but it never emits a version known to be stale.

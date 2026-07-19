@@ -43,9 +43,46 @@ final class MimerCanvasUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["mimer.canvas.lens.today"].exists)
     }
 
-    private func launchMimerShell() -> XCUIApplication {
+    func testKeyboardColumnTraversalAndInspectorToggle() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        let app = launchMimerShell()
+
+        let vaultLens = app.descendants(matching: .any)["mimer.canvas.lens.vault"]
+        XCTAssertTrue(vaultLens.waitForExistence(timeout: 10))
+        vaultLens.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.content.vault"].waitForExistence(timeout: 5))
+
+        let inspector = app.buttons["mimer.canvas.inspector.toggle"]
+        XCTAssertTrue(inspector.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.inspector"].exists)
+        app.typeKey("i", modifierFlags: .command)
+        XCTAssertFalse(app.descendants(matching: .any)["mimer.canvas.inspector"].exists)
+        app.typeKey("i", modifierFlags: .command)
+        XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.inspector"].waitForExistence(timeout: 5))
+    }
+
+    func testBrowseFolderToNoteAcrossColumns() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        let app = launchMimerShell(withFixture: true)
+
+        app.descendants(matching: .any)["mimer.canvas.lens.vault"].tap()
+        let projects = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects"]
+        XCTAssertTrue(projects.waitForExistence(timeout: 10))
+        projects.tap()
+
+        let note = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        note.tap()
+        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["fixture-uuid"].waitForExistence(timeout: 5))
+    }
+
+    private func launchMimerShell(withFixture: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-ui-testing-auth-unlocked", "-ui-testing-mimer-shell"]
+        if withFixture {
+            app.launchArguments.append("-ui-testing-mimer-fixture")
+        }
         app.launch()
         return app
     }

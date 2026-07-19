@@ -19,7 +19,7 @@ struct RootView: View {
                 // UI tests exercise the client layout against an ephemeral,
                 // read-only test root. This bypasses only the visual picker;
                 // it does not create a bookmark or alter vault data flows.
-                MimerShellView(vaultURL: FileManager.default.temporaryDirectory)
+                MimerShellView(vaultURL: mimerTestingVaultURL())
             } else if let vaultURL = vaultManager.activeVaultURL {
                 TabView {
                     MimerShellView(vaultURL: vaultURL)
@@ -41,6 +41,21 @@ struct RootView: View {
             }
         }
     }
+}
+
+/// Test-only fixture setup keeps UI tests independent of a human vault. The
+/// canvas itself still uses only the normal read/list store calls against this
+/// temporary directory.
+private func mimerTestingVaultURL() -> URL {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("MimerCanvasUITestVault")
+    guard ProcessInfo.processInfo.arguments.contains("-ui-testing-mimer-fixture") else { return root }
+    let projects = root.appendingPathComponent("Projects")
+    let note = projects.appendingPathComponent("fixture.md")
+    try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+    try? Data(
+        "---\nuuid: fixture-uuid\norigin: ui-test\nagent_provenance:\n  author: bifrost-ios\n---\n\n# Fixture note\n".utf8
+    ).write(to: note, options: .atomic)
+    return root
 }
 
 private struct VaultSwitcherBar: View {
