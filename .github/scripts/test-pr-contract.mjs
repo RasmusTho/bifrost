@@ -9,6 +9,10 @@ const workflowPath = fileURLToPath(
   new URL("../workflows/issue-pr-governance.yml", import.meta.url),
 );
 const workflow = readFileSync(workflowPath, "utf8");
+const template = readFileSync(
+  fileURLToPath(new URL("../pull_request_template.md", import.meta.url)),
+  "utf8",
+);
 
 const extract = (start, end) => {
   const afterStart = workflow.split(start, 2);
@@ -129,6 +133,35 @@ test("normal_issue_backed_body_passes", () => {
   assert.equal(authority.governingIssue, 25);
   assert.deepEqual(authority.closingIssues, [25]);
   assert.match(workflow, /## BuilderOps Routing/);
+});
+
+test("cross_repository_closer_fails_closed", () => {
+  const local = classifyIssueAuthority(
+    "Governing-Issue: #25\n\nFixes #25",
+  );
+  assert.equal(local.valid, true);
+  assert.equal(local.governingIssue, 25);
+  assert.deepEqual(local.closingIssues, [25]);
+
+  const foreign = classifyIssueAuthority(
+    "Governing-Issue: #25\n\nFixes RasmusTho/agentic-pkm-mvp#3023",
+  );
+  assert.equal(foreign.hasIssueAuthority, true);
+  assert.equal(foreign.valid, false);
+  assert.equal(foreign.hasIssueLink, false);
+  assert.equal(foreign.issueLinkMentions.length, 1);
+
+  const mixed = classifyIssueAuthority(
+    "Governing-Issue: #25\n\nFixes #25\nFixes RasmusTho/agentic-pkm-mvp#3023",
+  );
+  assert.equal(mixed.valid, false);
+  assert.equal(mixed.issueLinkMentions.length, 2);
+  assert.equal(mixed.exactIssueLinkMatches.length, 1);
+
+  assert.match(template, /^Governing-Issue: #<local-bifrost-issue>$/m);
+  assert.match(template, /^Fixes #<local-bifrost-issue>$/m);
+  assert.match(template, /Refs RasmusTho\/agentic-pkm-mvp#3023/);
+  assert.match(template, /Never use `Fixes`, `Closes`, or\n`Resolves` for a hub issue/);
 });
 
 test("trusted_neutralized_authority_passes", () => {
