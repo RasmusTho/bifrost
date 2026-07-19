@@ -15,6 +15,11 @@ struct RootView: View {
         Group {
             if authGate.state != .unlocked {
                 AuthGateView(gate: authGate)
+            } else if ProcessInfo.processInfo.arguments.contains("-ui-testing-mimer-shell") {
+                // UI tests exercise the client layout against an ephemeral,
+                // read-only test root. This bypasses only the visual picker;
+                // it does not create a bookmark or alter vault data flows.
+                MimerShellView(vaultURL: FileManager.default.temporaryDirectory)
             } else if let vaultURL = vaultManager.activeVaultURL {
                 TabView {
                     MimerShellView(vaultURL: vaultURL)
