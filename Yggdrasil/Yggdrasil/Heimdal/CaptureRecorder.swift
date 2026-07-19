@@ -157,7 +157,14 @@ final class CaptureRecorder: ObservableObject {
         guard captureGeneration == activeCapture?.generation else { return }
         switch type {
         case .began:
-            pause(captureGeneration: captureGeneration)
+            if sessionModel.phase == .finalizing {
+                finalizeCurrentSegment(
+                    mode: .forcedCompletion,
+                    captureGeneration: captureGeneration
+                )
+            } else {
+                pause(captureGeneration: captureGeneration)
+            }
         case .ended:
             guard sessionModel.phase == .paused else { return }
             if shouldResume {

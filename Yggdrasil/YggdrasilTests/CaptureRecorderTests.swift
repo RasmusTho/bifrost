@@ -136,6 +136,58 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertEqual(writer.forcedStopCount, 1)
         XCTAssertEqual(recorder.sessionModel.phase, .staged)
     }
+}
+
+extension CaptureRecorderTests {
+    func testInterruptionDuringDelegateFinalizationForcesTerminalOnce() async throws {
+        let writer = FakeCaptureWriter(autoComplete: false)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        let generation = try XCTUnwrap(recorder.activeCaptureGeneration)
+        await recorder.stop()
+        XCTAssertEqual(recorder.sessionModel.phase, .finalizing)
+
+        await recorder.handleInterruption(type: .began, shouldResume: false)
+
+        XCTAssertEqual(writer.normalStopCount, 1)
+        XCTAssertEqual(writer.forcedStopCount, 1)
+        XCTAssertEqual(recorder.sessionModel.phase, .staged)
+        XCTAssertEqual(recorder.sessionModel.stagedItems.count, 1)
+
+        writer.failEncoding(generation: generation, description: "late encoder failure")
+        await recorder.handleInterruption(
+            type: .began,
+            shouldResume: false,
+            captureGeneration: generation
+        )
+        XCTAssertEqual(writer.forcedStopCount, 1)
+        XCTAssertEqual(recorder.sessionModel.phase, .staged)
+        XCTAssertNil(recorder.lastError)
+    }
+
+    func testQueuedEncodeFailureWinsInterruptionForcedCompletion() async throws {
+        let writer = FakeCaptureWriter(autoComplete: false)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        let generation = try XCTUnwrap(recorder.activeCaptureGeneration)
+        await recorder.stop()
+        writer.queueEncodingFailure(
+            generation: generation,
+            description: "queued encoder failure"
+        )
+
+        await recorder.handleInterruption(type: .began, shouldResume: false)
+
+        XCTAssertEqual(writer.normalStopCount, 1)
+        XCTAssertEqual(writer.forcedStopCount, 1)
+        XCTAssertEqual(recorder.sessionModel.phase, .failed)
+        XCTAssertTrue(recorder.lastError?.contains("queued encoder failure") == true)
+        XCTAssertTrue(recorder.sessionModel.stagedItems.isEmpty)
+
+        writer.completeSuccessfully(generation: generation)
+        XCTAssertEqual(recorder.sessionModel.phase, .failed)
+        XCTAssertTrue(recorder.sessionModel.stagedItems.isEmpty)
+    }
 
     func testPreStopEncodeErrorWinsCallbackRaceExactlyOnce() async throws {
         let writer = FakeCaptureWriter(autoComplete: false)
@@ -215,6 +267,9 @@ final class CaptureRecorderTests: XCTestCase {
 @MainActor
 private final class FakeCaptureWriter: CaptureFileWriting {
     private var urls: [UInt64: URL] = [:]
+    private var queuedTerminalResults: [
+        UInt64: [Result<TimeInterval, CaptureFileWriterFailure>]
+    ] = [:]
     private var terminalHandlers: [
         UInt64: @MainActor @Sendable (CaptureFileWriterTerminalEvent) -> Void
     ] = [:]
@@ -254,7 +309,13 @@ private final class FakeCaptureWriter: CaptureFileWriting {
     func forceTerminate(generation: UInt64) throws {
         forcedStopCount += 1
         guard urls[generation] != nil else { throw CaptureFileWriterFailure.incompleteFile }
-        completeSuccessfully(generation: generation)
+        if var queuedResults = queuedTerminalResults[generation], !queuedResults.isEmpty {
+            let result = queuedResults.removeFirst()
+            queuedTerminalResults[generation] = queuedResults
+            deliver(result: result, generation: generation)
+        } else {
+            completeSuccessfully(generation: generation)
+        }
     }
 
     func completeStop() {
@@ -266,17 +327,13 @@ private final class FakeCaptureWriter: CaptureFileWriting {
     }
 
     func completeSuccessfully(generation: UInt64) {
-        guard let url = urls[generation], let handler = terminalHandlers[generation] else { return }
-        isWaitingToFinish = false
-        do {
-            try Data("captured audio".utf8).write(to: url)
-            handler(CaptureFileWriterTerminalEvent(generation: generation, result: .success(2)))
-        } catch {
-            handler(CaptureFileWriterTerminalEvent(
-                generation: generation,
-                result: .failure(.incompleteFile)
-            ))
-        }
+        deliver(result: .success(2), generation: generation)
+    }
+
+    func queueEncodingFailure(generation: UInt64, description: String) {
+        queuedTerminalResults[generation, default: []].append(
+            .failure(.encodingFailed(description))
+        )
     }
 
     func failEncoding(generation: UInt64, description: String) {
@@ -284,5 +341,24 @@ private final class FakeCaptureWriter: CaptureFileWriting {
             generation: generation,
             result: .failure(.encodingFailed(description))
         ))
+    }
+
+    private func deliver(
+        result: Result<TimeInterval, CaptureFileWriterFailure>,
+        generation: UInt64
+    ) {
+        guard let url = urls[generation], let handler = terminalHandlers[generation] else { return }
+        isWaitingToFinish = false
+        do {
+            if case .success = result {
+                try Data("captured audio".utf8).write(to: url)
+            }
+            handler(CaptureFileWriterTerminalEvent(generation: generation, result: result))
+        } catch {
+            handler(CaptureFileWriterTerminalEvent(
+                generation: generation,
+                result: .failure(.incompleteFile)
+            ))
+        }
     }
 }
