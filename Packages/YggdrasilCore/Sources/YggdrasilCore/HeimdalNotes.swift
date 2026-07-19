@@ -227,6 +227,24 @@ public struct AttentionOverride: Equatable {
         self.note = note
         self.overriddenAt = overriddenAt
     }
+
+    /// A manual lens action knows the decision the human chose, but not the
+    /// prior automated decision. Preserve that distinction instead of
+    /// fabricating the logical opposite in the durable audit entry.
+    public static func manualOverride(
+        itemId: String,
+        action: String,
+        note: String,
+        overriddenAt: String
+    ) -> AttentionOverride {
+        AttentionOverride(
+            itemId: itemId,
+            originalDecision: "unknown",
+            overriddenDecision: action,
+            note: note,
+            overriddenAt: overriddenAt
+        )
+    }
 }
 
 public struct AttentionNote: HeimdalNote {

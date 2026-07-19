@@ -34,4 +34,11 @@ final class MarkdownDocumentTests: XCTestCase {
         XCTAssertEqual(blocks[7], .codeBlock(text: "let x = 1", language: "swift"))
         XCTAssertEqual(blocks[8], .horizontalRule)
     }
+
+    func testNumberedListEdgeCase() {
+        XCTAssertEqual(
+            MarkdownDocument.parse("3.5 kg is the measured weight."),
+            [.paragraph(text: "3.5 kg is the measured weight.")]
+        )
+    }
 }

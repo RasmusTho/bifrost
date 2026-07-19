@@ -100,7 +100,8 @@ extension YAMLCodec {
             || text.contains(": ") || text.hasSuffix(":")
             || "-?:[]{}#&*!|>'\"%@`".contains(firstCharacter)
             || text == "true" || text == "false" || text == "null" || text == "~"
-            || Int(text) != nil || Double(text) != nil
+            || (Int(text) != nil && !hasLeadingZeroInteger(text))
+            || (Double(text) != nil && !hasLeadingZeroInteger(text))
         guard needsQuoting else { return text }
         // Double-quoted scalars must stay single-line for this codec's parser, so embedded
         // newlines are escaped as literal "\n"/"\r" rather than left as raw line breaks.
@@ -109,5 +110,10 @@ extension YAMLCodec {
             .replacingOccurrences(of: "\r", with: "\\r")
             .replacingOccurrences(of: "\n", with: "\\n")
         return "\"\(escaped)\""
+    }
+
+    private static func hasLeadingZeroInteger(_ text: String) -> Bool {
+        guard text.count > 1, text.first == "0" else { return false }
+        return text.dropFirst().allSatisfy(\.isNumber)
     }
 }
