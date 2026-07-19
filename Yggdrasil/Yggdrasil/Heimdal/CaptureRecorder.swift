@@ -216,7 +216,7 @@ private extension CaptureRecorder {
         )
     }
 
-    func finalizeCurrentSegment(
+    private func finalizeCurrentSegment(
         mode: FinalizationMode,
         captureGeneration: UInt64? = nil
     ) {
