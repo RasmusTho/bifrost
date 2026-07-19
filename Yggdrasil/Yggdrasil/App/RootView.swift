@@ -4,21 +4,35 @@ import SwiftUI
 /// "thin host shell" the Issue asks for — everything past auth/vault-pick is
 /// a hosted client (Mimer-iPhone today).
 struct RootView: View {
-    @StateObject private var authGate = AuthGate()
+    @StateObject private var authGate: AuthGate
     @StateObject private var vaultManager = VaultManager()
+
+    init(authGateInitialState: AuthGate.State = .locked) {
+        _authGate = StateObject(wrappedValue: AuthGate(initialState: authGateInitialState))
+    }
 
     var body: some View {
         Group {
             if authGate.state != .unlocked {
                 AuthGateView(gate: authGate)
             } else if let vaultURL = vaultManager.activeVaultURL {
-                MimerShellView(vaultURL: vaultURL)
-                    .toolbarBackground(.visible, for: .tabBar)
-                    .safeAreaInset(edge: .top) {
-                        VaultSwitcherBar(vaultManager: vaultManager)
-                    }
+                TabView {
+                    MimerShellView(vaultURL: vaultURL)
+                        .tabItem { Label("Mimer", systemImage: "book.closed") }
+                    HeimdalShellView()
+                        .tabItem { Label("Heimdal", systemImage: "waveform") }
+                }
+                .toolbarBackground(.visible, for: .tabBar)
+                .safeAreaInset(edge: .top) {
+                    VaultSwitcherBar(vaultManager: vaultManager)
+                }
             } else {
-                VaultPickerView(vaultManager: vaultManager)
+                TabView {
+                    VaultPickerView(vaultManager: vaultManager)
+                        .tabItem { Label("Mimer", systemImage: "book.closed") }
+                    HeimdalShellView()
+                        .tabItem { Label("Heimdal", systemImage: "waveform") }
+                }
             }
         }
     }
