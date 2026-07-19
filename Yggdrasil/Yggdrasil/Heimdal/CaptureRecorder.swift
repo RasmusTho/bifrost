@@ -21,7 +21,7 @@ final class AVFoundationCaptureFileWriter: NSObject, CaptureFileWriting {
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: 44_100,
             AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         recorder = try AVAudioRecorder(url: url, settings: settings)
         guard recorder?.record() == true else { throw CaptureRecorder.Error.couldNotStart }
@@ -56,7 +56,8 @@ final class CaptureRecorder: ObservableObject {
 
         static let production = Configuration(
             audioBackgroundModeEnabled: true,
-            microphonePrePrompt: "Heimdal records your own spoken thoughts into a local file. It does not transcribe or share audio."
+            microphonePrePrompt: "Heimdal records your own spoken thoughts into a local file. "
+                + "It does not transcribe or share audio."
         )
     }
 
@@ -75,7 +76,8 @@ final class CaptureRecorder: ObservableObject {
         sessionModel: CaptureSessionModel = CaptureSessionModel(),
         writer: CaptureFileWriting = AVFoundationCaptureFileWriter(),
         stagingDirectory: URL? = nil,
-        deviceShortID: String = UIDevice.current.identifierForVendor?.uuidString.prefix(8).lowercased() ?? "device",
+        deviceShortID: String = UIDevice.current.identifierForVendor?
+            .uuidString.prefix(8).lowercased() ?? "device",
         configuration: Configuration = .production,
         observeInterruptions: Bool = true
     ) {
@@ -108,8 +110,11 @@ final class CaptureRecorder: ObservableObject {
         AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
             Task { @MainActor in
                 guard let self else { return }
-                if granted { self.start() }
-                else { self.lastError = "Microphone access is needed to record your own spoken thoughts." }
+                if granted {
+                    self.start()
+                } else {
+                    self.lastError = "Microphone access is needed to record your own spoken thoughts."
+                }
             }
         }
     }
@@ -136,8 +141,13 @@ final class CaptureRecorder: ObservableObject {
 
     func resume() {
         guard sessionModel.phase == .paused else { return }
-        do { try writer.resume(); needsManualResume = false; _ = sessionModel.transition(to: .recording) }
-        catch { lastError = error.localizedDescription }
+        do {
+            try writer.resume()
+            needsManualResume = false
+            _ = sessionModel.transition(to: .recording)
+        } catch {
+            lastError = error.localizedDescription
+        }
     }
 
     func stop() { finalizeCurrentSegment() }
@@ -156,18 +166,26 @@ final class CaptureRecorder: ObservableObject {
     private func handleInterruption(_ notification: Notification) {
         guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
-        let options = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
+        let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
+        let options = rawOptions.map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
         handleInterruption(type: type, shouldResume: options.contains(.shouldResume))
     }
 
     private func finalizeCurrentSegment() {
-        guard let url = activeURL, sessionModel.phase == .recording || sessionModel.phase == .paused else { return }
+        guard let url = activeURL,
+              sessionModel.phase == .recording || sessionModel.phase == .paused else { return }
         do {
             try writer.stop()
             guard FileManager.default.fileExists(atPath: url.path),
-                  (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else { throw Error.incompleteFile }
+                  (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else {
+                throw Error.incompleteFile
+            }
             _ = sessionModel.transition(to: .finalizing)
-            guard sessionModel.stageCurrentItem(url: url, duration: writer.duration, capturedAt: Date()) else { throw Error.incompleteFile }
+            guard sessionModel.stageCurrentItem(
+                url: url,
+                duration: writer.duration,
+                capturedAt: Date()
+            ) else { throw Error.incompleteFile }
             activeURL = nil
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch { lastError = error.localizedDescription }
