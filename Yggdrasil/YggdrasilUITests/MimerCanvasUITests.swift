@@ -22,8 +22,17 @@ final class MimerCanvasUITests: XCTestCase {
         let app = launchMimerShell()
 
         XCTAssertTrue(app.otherElements["mimer.compact.tabView"].waitForExistence(timeout: 10))
-        for tab in ["Today", "Interests", "Entities", "Consent", "Vault", "Settings"] {
+        for tab in ["Today", "Interests", "Entities", "Consent"] {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "Expected the shipped \(tab) tab.")
+        }
+        let moreTab = app.tabBars.buttons["More"]
+        XCTAssertTrue(moreTab.exists, "Expected the shipped overflow tab.")
+        moreTab.tap()
+        for overflowTab in ["Vault", "Settings"] {
+            XCTAssertTrue(
+                app.staticTexts[overflowTab].waitForExistence(timeout: 5),
+                "Expected the shipped \(overflowTab) tab in More."
+            )
         }
         XCTAssertFalse(app.otherElements["mimer.canvas.splitView"].exists)
     }
