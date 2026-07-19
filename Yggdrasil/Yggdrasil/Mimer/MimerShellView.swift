@@ -92,9 +92,10 @@ private struct MimerTabView: View {
 private struct MimerCanvasView: View {
     let fileStore: VaultFileStore
     @State private var selectedLens: MimerLens? = .today
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $selectedLens) {
                 ForEach(MimerLens.allCases) { lens in
                     Label(lens.title, systemImage: lens.systemImage)
@@ -121,6 +122,7 @@ private struct MimerCanvasView: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("mimer.canvas.detail")
         }
+        .navigationSplitViewStyle(.balanced)
     }
 }
 

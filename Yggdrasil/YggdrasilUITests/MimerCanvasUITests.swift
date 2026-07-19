@@ -4,6 +4,7 @@ import UIKit
 final class MimerCanvasUITests: XCTestCase {
     func testIPadShowsThreeColumnCanvasWithAllLenses() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        XCUIDevice.shared.orientation = .landscapeLeft
         let app = launchMimerShell()
 
         XCTAssertTrue(app.navigationBars["Mimer"].waitForExistence(timeout: 10))
