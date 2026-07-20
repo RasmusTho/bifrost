@@ -44,17 +44,19 @@ Heimdal-iPhone + Watch.
 
 CI runs on pull requests and pushes to `main`. It preserves the repository-governance checks, applies
 SwiftLint in strict mode to app, package, and test sources, runs the `YggdrasilCore` Swift package tests,
-then builds and tests the shared `Yggdrasil` scheme (unit and UI tests) on an available iPad simulator.
-The workflow discovers the runner's installed Xcode, iOS runtime, and simulator instead of pinning a
-device identifier. It uses only standard GitHub-hosted runners and uploads no caches or artifacts, so it
-is designed for GitHub's public-repository free tier.
+then builds and tests the shared `Yggdrasil` scheme (unit and UI tests) on available iPhone and iPad
+simulators. The workflow discovers the runner's installed Xcode, iOS runtime, and simulators instead of
+pinning device identifiers. It uses only standard GitHub-hosted runners and uploads no caches or
+artifacts, so it is designed for GitHub's public-repository free tier.
 
-To reproduce the code checks locally, install Xcode and SwiftLint, select an installed iPad destination
-shown by `xcodebuild -showdestinations`, and run:
+To reproduce the code checks locally, install Xcode and SwiftLint, select installed iPhone and iPad
+destinations shown by `xcodebuild -showdestinations`, and run:
 
 ```sh
 swiftlint lint --strict --config .swiftlint.yml
 swift test --package-path Packages/YggdrasilCore
+xcodebuild test -project Yggdrasil/Yggdrasil.xcodeproj -scheme Yggdrasil \
+  -destination 'platform=iOS Simulator,name=<available iPhone>,OS=latest' CODE_SIGNING_ALLOWED=NO
 xcodebuild test -project Yggdrasil/Yggdrasil.xcodeproj -scheme Yggdrasil \
   -destination 'platform=iOS Simulator,name=<available iPad>,OS=latest' CODE_SIGNING_ALLOWED=NO
 ```

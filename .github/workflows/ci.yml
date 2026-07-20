@@ -19,7 +19,7 @@ permissions:
 #      governance scaffolding (templates, AGENTS.md, skills routing) regresses.
 #      This keeps CI honest before app sources exist (no false green).
 #   2. swift — strict lint, Swift package tests, and the shared Yggdrasil scheme's
-#      unit + UI tests on an iPad simulator selected from the installed runtime.
+#      unit + UI tests on iPhone and iPad simulators selected from the installed runtime.
 
 jobs:
   governance:
@@ -80,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           swift test --package-path Packages/YggdrasilCore
-      - name: Discover Xcode and an available iPad simulator
+      - name: Discover Xcode and available iPhone/iPad simulators
         id: simulator
         shell: bash
         run: |
@@ -102,7 +102,7 @@ jobs:
               devices_by_runtime = json.load(handle).get("devices", {})
 
           sdk_version = tuple(int(part) for part in os.environ["SIMULATOR_SDK_VERSION"].split("."))
-          candidates = []
+          candidates = {"iphone": [], "ipad": []}
           for runtime, devices in devices_by_runtime.items():
               match = re.search(r"SimRuntime\.iOS-(\d+(?:-\d+)*)$", runtime)
               if not match:
@@ -111,32 +111,47 @@ jobs:
               if version > sdk_version:
                   continue
               for device in devices:
-                  if device.get("isAvailable") and device.get("name", "").startswith("iPad"):
-                      candidates.append((version, device["name"], device["udid"], runtime))
+                  name = device.get("name", "")
+                  if not device.get("isAvailable"):
+                      continue
+                  for family, prefix in (("iphone", "iPhone"), ("ipad", "iPad")):
+                      if name.startswith(prefix):
+                          candidates[family].append((version, name, device["udid"], runtime))
 
-          if not candidates:
-              print(
-                  "::error::The selected Xcode has no compatible available iPad simulator. "
-                  "See the Xcode SDK, runtime, and device lists above."
-              )
-              sys.exit(1)
-
-          version, name, udid, runtime = max(candidates, key=lambda item: (item[0], item[1]))
-          destination = f"platform=iOS Simulator,id={udid}"
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"destination={destination}\n")
-          print(f"Selected {name} on {runtime} ({'.'.join(map(str, version))}); UDID discovered at runtime.")
+              for family in ("iphone", "ipad"):
+                  if not candidates[family]:
+                      print(
+                          f"::error::The selected Xcode has no compatible available {family} simulator. "
+                          "See the Xcode SDK, runtime, and device lists above."
+                      )
+                      sys.exit(1)
+                  version, name, udid, runtime = max(
+                      candidates[family], key=lambda item: (item[0], item[1])
+                  )
+                  output.write(f"{family}_destination=platform=iOS Simulator,id={udid}\n")
+                  print(
+                      f"Selected {name} on {runtime} ({'.'.join(map(str, version))}); "
+                      "UDID discovered at runtime."
+                  )
           PY
-      - name: Build and test shared Yggdrasil scheme on iPad
+      - name: Build and test shared Yggdrasil scheme on iPhone and iPad
         timeout-minutes: 30
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild test \
-            -project Yggdrasil/Yggdrasil.xcodeproj \
-            -scheme Yggdrasil \
-            -destination '${{ steps.simulator.outputs.destination }}' \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
-            -parallel-testing-enabled NO \
-            -maximum-concurrent-test-simulator-destinations 1 \
-            CODE_SIGNING_ALLOWED=NO
+          destinations=(
+            '${{ steps.simulator.outputs.iphone_destination }}'
+            '${{ steps.simulator.outputs.ipad_destination }}'
+          )
+          for destination in "${destinations[@]}"; do
+            echo "Testing destination: $destination"
+            xcodebuild test \
+              -project Yggdrasil/Yggdrasil.xcodeproj \
+              -scheme Yggdrasil \
+              -destination "$destination" \
+              -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+              -parallel-testing-enabled NO \
+              -maximum-concurrent-test-simulator-destinations 1 \
+              CODE_SIGNING_ALLOWED=NO
+          done

@@ -11,8 +11,6 @@ opt_in_rules:
   - force_unwrapping
   - implicitly_unwrapped_optional
   - redundant_nil_coalescing
-analyzer_rules:
-  - unused_import
 file_length:
   warning: 500
   error: 750
