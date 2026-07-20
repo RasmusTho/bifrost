@@ -152,15 +152,15 @@ private struct MimerCanvasView: View {
                 .accessibilityValue(focusValue(for: .detail))
         }
         .navigationSplitViewStyle(.balanced)
-        .onKeyPress(.tab) { press in
+        .onKeyPress(.tab, phases: [.down, .repeat]) { press in
             moveFocus(forward: !press.modifiers.contains(.shift))
             return .handled
         }
-        .onKeyPress(.rightArrow) { _ in
+        .onKeyPress(.rightArrow, phases: [.down, .repeat]) { _ in
             moveFocus(forward: true)
             return .handled
         }
-        .onKeyPress(.leftArrow) { _ in
+        .onKeyPress(.leftArrow, phases: [.down, .repeat]) { _ in
             moveFocus(forward: false)
             return .handled
         }
