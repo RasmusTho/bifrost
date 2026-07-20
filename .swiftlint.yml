@@ -11,7 +11,9 @@ opt_in_rules:
   - force_unwrapping
   - implicitly_unwrapped_optional
   - redundant_nil_coalescing
-  - unused_import
+file_length:
+  warning: 500
+  error: 750
 line_length:
   warning: 120
   error: 160
@@ -21,5 +23,7 @@ identifier_name:
   excluded: [id, x, y, to, up]
 excluded:
   - .build
+  - "**/.build"
   - DerivedData
+  - "**/DerivedData"
   - "**/*.generated.swift"
