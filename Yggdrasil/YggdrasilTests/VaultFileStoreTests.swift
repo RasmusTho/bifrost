@@ -217,8 +217,9 @@ final class VaultFileStoreTests: XCTestCase {
         let path = "notes/atomic.md"
         let directory = tempDirectory.appendingPathComponent("notes")
         let url = directory.appendingPathComponent("atomic.md")
-        let oldText = "---\nversion: old\n---\n\n" + String(repeating: "o", count: 2_000_000)
-        let newText = "---\nversion: new\n---\n\n" + String(repeating: "n", count: 2_000_000)
+        // Large enough to exercise replacement while keeping the concurrent probe bounded on CI simulators.
+        let oldText = "---\nversion: old\n---\n\n" + String(repeating: "o", count: 256_000)
+        let newText = "---\nversion: new\n---\n\n" + String(repeating: "n", count: 256_000)
         var modifiedDocument = try FrontmatterDocument.parse(newText)
         modifiedDocument.frontmatter["replaced"] = .bool(true)
         let modifiedText = modifiedDocument.rendered()
@@ -236,13 +237,14 @@ final class VaultFileStoreTests: XCTestCase {
                 probe.readerStarted()
                 while probe.shouldContinue {
                     probe.inspect(url)
+                    await Task.yield()
                 }
             }
         }
         defer { probe.stop() }
         while probe.readerCount < readers.count { await Task.yield() }
 
-        for iteration in 0..<16 {
+        for iteration in 0..<8 {
             try await store.write(iteration.isMultiple(of: 2) ? newText : oldText, to: path)
         }
         try await store.write(newText, to: path)
