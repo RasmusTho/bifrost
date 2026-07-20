@@ -52,9 +52,17 @@ private func mimerTestingVaultURL() -> URL {
     let projects = root.appendingPathComponent("Projects")
     let note = projects.appendingPathComponent("fixture.md")
     try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
-    try? Data(
-        "---\nuuid: fixture-uuid\norigin: ui-test\nagent_provenance:\n  author: bifrost-ios\n---\n\n# Fixture note\n".utf8
-    ).write(to: note, options: .atomic)
+    let fixture = """
+    ---
+    uuid: fixture-uuid
+    origin: ui-test
+    agent_provenance:
+      author: bifrost-ios
+    ---
+
+    # Fixture note
+    """ + "\n"
+    try? Data(fixture.utf8).write(to: note, options: .atomic)
     return root
 }
 

@@ -14,7 +14,8 @@ struct MimerShellView: View {
 
     var body: some View {
         if horizontalSizeClass == .regular {
-            MimerCanvasView(fileStore: fileStore)
+            MimerCanvasKeyboardHost(fileStore: fileStore)
+                .id(vaultURL)
         } else {
             MimerTabView(fileStore: fileStore)
         }
@@ -90,8 +91,9 @@ private struct MimerTabView: View {
     }
 }
 
-private struct MimerCanvasView: View {
+struct MimerCanvasView: View {
     let fileStore: VaultFileStore
+    @ObservedObject var keyboardRouter: MimerCanvasKeyboardRouter
     @State private var selectedLens: MimerLens? = .today
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedNote: MimerCanvasNote?
@@ -103,7 +105,15 @@ private struct MimerCanvasView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $selectedLens) {
                 ForEach(MimerLens.allCases) { lens in
-                    Label(lens.title, systemImage: lens.systemImage)
+                    Button {
+                        selectedLens = lens
+                        setFocus(.content)
+                    } label: {
+                        Label(lens.title, systemImage: lens.systemImage)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                        .buttonStyle(.plain)
                         .tag(lens)
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("mimer.canvas.lens.\(lens.rawValue)")
@@ -120,7 +130,8 @@ private struct MimerCanvasView: View {
                     MimerVaultColumnView(
                         fileStore: fileStore,
                         selectedNote: $selectedNote,
-                        focusedElement: $focusedElement
+                        focusedElement: $focusedElement,
+                        focusFilter: { setFocus(.filter) }
                     )
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
@@ -148,23 +159,31 @@ private struct MimerCanvasView: View {
                 .accessibilityValue(focusValue(for: .detail))
         }
         .navigationSplitViewStyle(.balanced)
-        .background {
-            MimerCanvasKeyboardCommands(moveFocus: moveFocus)
-        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(inspectorIsPresented ? "Hide Inspector" : "Show Inspector") {
                     inspectorIsPresented.toggle()
                 }
-                .keyboardShortcut("i", modifiers: .command)
                 .accessibilityIdentifier("mimer.canvas.inspector.toggle")
             }
         }
-        .onChange(of: selectedLens) { _, lens in
-            if lens != nil { setFocus(.content) }
+        .onChange(of: focusedElement) { _, element in
+            guard let element else { return }
+            focusedColumn = element == .filter ? .content : element
         }
-        .onAppear {
-            setFocus(.sidebar)
+        .onReceive(keyboardRouter.$command) { command in
+            switch command {
+            case .previousColumn:
+                moveFocus(forward: false)
+            case .nextColumn:
+                moveFocus(forward: true)
+            case .focusFilter:
+                setFocus(.filter)
+            case .toggleInspector:
+                inspectorIsPresented.toggle()
+            case nil:
+                break
+            }
         }
     }
 
@@ -176,7 +195,7 @@ private struct MimerCanvasView: View {
     }
 
     private func setFocus(_ target: MimerCanvasFocus) {
-        focusedColumn = target
+        focusedColumn = target == .filter ? .content : target
         focusedElement = target
     }
 
@@ -192,26 +211,6 @@ private enum MimerCanvasFocus: Hashable {
     case filter
 }
 
-private struct MimerCanvasKeyboardCommands: View {
-    let moveFocus: (Bool) -> Void
-
-    var body: some View {
-        Group {
-            Button("Previous column") { moveFocus(false) }
-                .keyboardShortcut(.leftArrow, modifiers: [])
-            Button("Previous column") { moveFocus(false) }
-                .keyboardShortcut(.tab, modifiers: .shift)
-            Button("Next column") { moveFocus(true) }
-                .keyboardShortcut(.rightArrow, modifiers: [])
-            Button("Next column") { moveFocus(true) }
-                .keyboardShortcut(.tab, modifiers: [])
-        }
-        .frame(width: 0, height: 0)
-        .opacity(0)
-        .accessibilityHidden(true)
-    }
-}
-
 private struct MimerCanvasNote: Equatable {
     let relativePath: String
     let text: String
@@ -225,6 +224,7 @@ private struct MimerVaultColumnView: View {
     let fileStore: VaultFileStore
     @Binding var selectedNote: MimerCanvasNote?
     let focusedElement: FocusState<MimerCanvasFocus?>.Binding
+    let focusFilter: () -> Void
 
     @State private var directory = ""
     @State private var entries: [VaultEntry] = []
@@ -271,8 +271,7 @@ private struct MimerVaultColumnView: View {
         .focused(focusedElement, equals: .content)
         .toolbar {
             ToolbarItem(placement: .secondaryAction) {
-                Button("Filter") { focusedElement.wrappedValue = .filter }
-                    .keyboardShortcut("f", modifiers: .command)
+                Button("Filter", action: focusFilter)
             }
         }
         .onAppear(perform: load)
