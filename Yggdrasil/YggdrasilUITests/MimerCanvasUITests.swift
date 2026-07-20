@@ -55,25 +55,30 @@ final class MimerCanvasUITests: XCTestCase {
         let sidebar = app.descendants(matching: .any)["mimer.canvas.focus.sidebar"]
         let content = app.descendants(matching: .any)["mimer.canvas.content.vault"]
         let detail = app.descendants(matching: .any)["mimer.canvas.detail"]
+        assertAccessibilityValue("focused", for: content)
         app.typeKey(.leftArrow, modifierFlags: [])
-        XCTAssertEqual(sidebar.value as? String, "focused")
+        assertAccessibilityValue("focused", for: sidebar)
         app.typeKey(.tab, modifierFlags: [])
-        XCTAssertEqual(content.value as? String, "focused")
+        assertAccessibilityValue("focused", for: content)
         app.typeKey(.rightArrow, modifierFlags: [])
-        XCTAssertEqual(detail.value as? String, "focused")
+        assertAccessibilityValue("focused", for: detail)
+
+        let inspector = app.descendants(matching: .any)["mimer.canvas.inspector"]
+        XCTAssertTrue(inspector.exists)
+        app.typeKey("i", modifierFlags: .command)
+        XCTAssertTrue(inspector.waitForNonExistence(timeout: 5))
+        app.typeKey("i", modifierFlags: .command)
+        XCTAssertTrue(inspector.waitForExistence(timeout: 5))
 
         app.typeKey("f", modifierFlags: .command)
         let filter = app.textFields["mimer.canvas.vault.filter"]
         XCTAssertTrue(filter.waitForExistence(timeout: 5))
-        XCTAssertEqual(filter.value as? String, "focused")
+        assertAccessibilityValue("focused", for: filter)
 
-        let inspector = app.buttons["mimer.canvas.inspector.toggle"]
+        app.typeKey("i", modifierFlags: .command)
+        XCTAssertTrue(inspector.waitForNonExistence(timeout: 5))
+        app.typeKey("i", modifierFlags: .command)
         XCTAssertTrue(inspector.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.inspector"].exists)
-        app.typeKey("i", modifierFlags: .command)
-        XCTAssertFalse(app.descendants(matching: .any)["mimer.canvas.inspector"].exists)
-        app.typeKey("i", modifierFlags: .command)
-        XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.inspector"].waitForExistence(timeout: 5))
     }
 
     func testBrowseFolderToNoteAcrossColumns() throws {
@@ -91,7 +96,28 @@ final class MimerCanvasUITests: XCTestCase {
         XCTAssertTrue(note.waitForExistence(timeout: 5))
         note.tap()
         XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["fixture-uuid"].waitForExistence(timeout: 5))
+        let uuid = app.descendants(matching: .any)["mimer.canvas.inspector.uuid"]
+        XCTAssertTrue(uuid.waitForExistence(timeout: 5))
+        XCTAssertTrue(uuid.label.contains("fixture-uuid"))
+    }
+
+    private func assertAccessibilityValue(
+        _ expectedValue: String,
+        for element: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", expectedValue),
+            object: element
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: 5),
+            .completed,
+            "Expected accessibility value \(expectedValue), got \(String(describing: element.value)).",
+            file: file,
+            line: line
+        )
     }
 
     private func launchMimerShell(withFixture: Bool = false) -> XCUIApplication {

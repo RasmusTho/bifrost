@@ -33,7 +33,10 @@ struct MimerNoteInspectorView: View {
     var body: some View {
         List {
             Section("Note metadata") {
-                LabeledContent("uuid", value: model.uuidDescription)
+                LabeledContent("uuid") {
+                    Text(model.uuidDescription)
+                        .accessibilityIdentifier("mimer.canvas.inspector.uuid")
+                }
                 if let zone = model.zone { LabeledContent("zone", value: zone) }
                 if let origin = model.origin { LabeledContent("origin", value: origin) }
                 if let modified = model.modifiedDescription { LabeledContent("modified", value: modified) }
