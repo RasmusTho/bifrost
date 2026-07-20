@@ -25,6 +25,9 @@ final class CaptureSessionModel: ObservableObject {
         let url: URL
         let duration: TimeInterval
         let capturedAt: Date
+        /// `true` when the item was reconstructed from the local staging directory
+        /// after the process was no longer able to retain its in-memory capture state.
+        let wasRecoveredAfterRestart: Bool
         var deliveryState: DeliveryState
     }
 
@@ -43,7 +46,8 @@ final class CaptureSessionModel: ObservableObject {
         id: UUID = UUID(),
         url: URL = URL(fileURLWithPath: "/dev/null"),
         duration: TimeInterval = 0,
-        capturedAt: Date = Date()
+        capturedAt: Date = Date(),
+        wasRecoveredAfterRestart: Bool = false
     ) -> Bool {
         guard phase == .finalizing else { return false }
         stagedItems.append(StagedItem(
@@ -51,6 +55,7 @@ final class CaptureSessionModel: ObservableObject {
             url: url,
             duration: duration,
             capturedAt: capturedAt,
+            wasRecoveredAfterRestart: wasRecoveredAfterRestart,
             deliveryState: .deliveryPending
         ))
         phase = .staged
@@ -69,6 +74,28 @@ final class CaptureSessionModel: ObservableObject {
         guard phase == .finalizing else { return false }
         phase = .failed
         return true
+    }
+
+    /// Rebuilds the durable staged list after a launch. Recovery intentionally uses
+    /// the same pending-delivery state as an ordinary finalized capture: it has not
+    /// yet been placed in the watched folder and must remain accountable locally.
+    func recoverStagedItem(
+        id: UUID = UUID(),
+        url: URL,
+        duration: TimeInterval,
+        capturedAt: Date
+    ) {
+        stagedItems.append(StagedItem(
+            id: id,
+            url: url,
+            duration: duration,
+            capturedAt: capturedAt,
+            wasRecoveredAfterRestart: true,
+            deliveryState: .deliveryPending
+        ))
+        if phase == .idle {
+            phase = .staged
+        }
     }
 
     private func isValidTransition(from current: Phase, to next: Phase) -> Bool {

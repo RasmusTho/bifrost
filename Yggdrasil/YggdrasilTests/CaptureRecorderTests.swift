@@ -74,6 +74,47 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertGreaterThan(try item.url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0, 0)
     }
 
+    func testRestartReconcilesOrphanedM4AIntoRecoveredPendingItem() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let orphan = directory.appendingPathComponent("heimdal-test-device-20260720-120000-orphan.m4a")
+        try Data("audio flushed before force kill".utf8).write(to: orphan)
+
+        let relaunchedRecorder = CaptureRecorder(
+            writer: FakeCaptureWriter(),
+            stagingDirectory: directory,
+            deviceShortID: "test-device",
+            observeInterruptions: false
+        )
+
+        let recovered = try XCTUnwrap(relaunchedRecorder.sessionModel.stagedItems.first)
+        XCTAssertEqual(relaunchedRecorder.sessionModel.phase, .staged)
+        XCTAssertEqual(recovered.url, orphan)
+        XCTAssertEqual(recovered.deliveryState, .deliveryPending)
+        XCTAssertTrue(recovered.wasRecoveredAfterRestart)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: orphan.path))
+    }
+
+    func testRestartLeavesUnsafeFilesOnDiskWithoutClaimingTheyAreStaged() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let emptyM4A = directory.appendingPathComponent("heimdal-empty.m4a")
+        let nonAudio = directory.appendingPathComponent("notes.txt")
+        FileManager.default.createFile(atPath: emptyM4A.path, contents: nil)
+        try Data("not audio".utf8).write(to: nonAudio)
+
+        let relaunchedRecorder = CaptureRecorder(
+            writer: FakeCaptureWriter(),
+            stagingDirectory: directory,
+            deviceShortID: "test-device",
+            observeInterruptions: false
+        )
+
+        XCTAssertTrue(relaunchedRecorder.sessionModel.stagedItems.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: emptyM4A.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: nonAudio.path))
+    }
+
     func testRouteChangeFinalizesThroughCompletionBoundary() async {
         let recorder = makeRecorder(observeInterruptions: true)
         recorder.start()

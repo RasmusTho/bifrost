@@ -69,6 +69,7 @@ final class CaptureRecorder: ObservableObject {
             .uuidString.prefix(8).lowercased() ?? "device"
         self.configuration = configuration
         observeSessionNotifications = observeInterruptions
+        reconcileStagingDirectory()
     }
 
     deinit {
@@ -185,6 +186,43 @@ final class CaptureRecorder: ObservableObject {
     func handleRouteChangeOrSessionFailure(captureGeneration: UInt64) {
         guard captureGeneration == activeCapture?.generation else { return }
         finalizeCurrentSegment(mode: .forcedCompletion, captureGeneration: captureGeneration)
+    }
+
+    /// Rebuilds visible, accountable staged state after force-kill/relaunch.
+    ///
+    /// AVAudioRecorder writes the capture file progressively. At launch there is no
+    /// reliable in-memory marker distinguishing a completed segment from one whose
+    /// process died before finalization, so every safely classifiable local `.m4a`
+    /// is retained as a pending, recovered item. We never delete or rename files in
+    /// this path. Empty files are deliberately excluded from `staged`: a staged item
+    /// promises a fully written file, while the bytes remain on disk for diagnosis.
+    func reconcileStagingDirectory() {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: stagingDirectory,
+            includingPropertiesForKeys: [
+                .isRegularFileKey,
+                .fileSizeKey,
+                .contentModificationDateKey
+            ],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        for url in contents.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            guard url.pathExtension.lowercased() == "m4a",
+                  let values = try? url.resourceValues(forKeys: [
+                      .isRegularFileKey,
+                      .fileSizeKey,
+                      .contentModificationDateKey
+                  ]),
+                  values.isRegularFile == true,
+                  (values.fileSize ?? 0) > 0 else { continue }
+
+            sessionModel.recoverStagedItem(
+                url: url,
+                duration: recoveredDuration(for: url),
+                capturedAt: values.contentModificationDate ?? Date()
+            )
+        }
     }
 }
 
@@ -378,5 +416,9 @@ private extension CaptureRecorder {
     static func defaultStagingDirectory() -> URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Heimdal/Staging", isDirectory: true)
+    }
+
+    func recoveredDuration(for url: URL) -> TimeInterval {
+        (try? AVAudioPlayer(contentsOf: url).duration) ?? 0
     }
 }

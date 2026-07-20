@@ -63,6 +63,11 @@ struct HeimdalShellView: View {
                             Text("\(item.duration, format: .number.precision(.fractionLength(1))) seconds")
                                 .font(YggTheme.Typography.caption)
                                 .foregroundStyle(YggTheme.Color.textSecondary)
+                            if item.wasRecoveredAfterRestart {
+                                Label("Recovered after restart", systemImage: "arrow.clockwise")
+                                    .font(YggTheme.Typography.caption)
+                                    .foregroundStyle(YggTheme.Color.textSecondary)
+                            }
                         }
                     }
                 }
