@@ -3,16 +3,23 @@ name: CI
 on:
   workflow_dispatch:
   pull_request:
-permissions: read-all
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 # Bifrost CI — the Builder-System delivery gate, adapted to the Swift/iOS stack
 # (ADR-0050 §1). Two jobs:
 #   1. governance — always meaningful today: fails loud if the repo's own
 #      governance scaffolding (templates, AGENTS.md, skills routing) regresses.
 #      This keeps CI honest before app sources exist (no false green).
-#   2. swift — build + test + lint. Runs the real Xcode gates the moment an
-#      Xcode project/workspace or a SwiftLint config lands; until then it states
-#      the gap explicitly and does not pretend to have validated app code.
+#   2. swift — strict lint, Swift package tests, and the shared Yggdrasil scheme's
+#      unit + UI tests on an iPad simulator selected from the installed runtime.
 
 jobs:
   governance:
@@ -53,72 +60,80 @@ jobs:
           echo "Constituent declaration + inherited authority present."
 
   swift:
-    name: Swift build + test + lint
-    runs-on: macos-14
+    name: Swift lint + package + iOS tests
+    # macos-26 only ships Xcode/iOS 26; Bifrost's established UI automation
+    # contract is on Xcode 16 and iOS 18 (see the PR compatibility note).
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode 16.2
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '16.2'
-      - name: SwiftLint (when Swift sources exist)
+      - name: SwiftLint (strict)
         shell: bash
         run: |
           set -euo pipefail
-          swift_files="$(find . -name '*.swift' -not -path './.git/*' | head -1 || true)"
-          if [[ -n "$swift_files" && -f ".swiftlint.yml" ]]; then
-            brew list swiftlint >/dev/null 2>&1 || brew install swiftlint
-            swiftlint --strict
-          else
-            echo "No Swift sources yet — lint gate not applicable (.swiftlint.yml standard is defined and ready)."
+          if ! command -v swiftlint >/dev/null 2>&1; then
+            brew install swiftlint
           fi
+          swiftlint version
+          swiftlint lint --strict --config .swiftlint.yml
       - name: YggdrasilCore package tests
         shell: bash
-        run: swift test --package-path Packages/YggdrasilCore
-      - name: Xcode build + test (if project present)
+        run: |
+          set -euo pipefail
+          swift test --package-path Packages/YggdrasilCore
+      - name: Discover Xcode and an available iPad simulator
+        id: simulator
         shell: bash
         run: |
           set -euo pipefail
-          proj="$(find . -maxdepth 2 \( -name '*.xcodeproj' -o -name '*.xcworkspace' \) -not -path './.git/*' | sort | head -1 || true)"
-          if [[ -z "$proj" ]]; then
-            echo "No Xcode project/workspace yet — build+test gate not applicable (app sources not landed)."
-            echo "This job becomes a hard gate automatically once an .xcodeproj/.xcworkspace lands (B1, #3023)."
-            exit 0
-          fi
-          projDir="$(dirname "$proj")"
-          cd "$projDir"
-          scheme="$(xcodebuild -list -json 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("project",{}).get("schemes",[""])[0])' || true)"
-          simulator_udid_for() {
-            local device_prefix="$1"
-            xcrun simctl list devices available -j | python3 -c '
+          xcodebuild -version
+          simulator_sdk_version="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          echo "Selected Xcode iOS Simulator SDK: $simulator_sdk_version"
+          xcrun simctl list runtimes available
+          xcrun simctl list devices available
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
+          export SIMULATOR_SDK_VERSION="$simulator_sdk_version"
+          python3 <<'PY'
           import json
+          import os
+          import re
           import sys
 
-          device_prefix = sys.argv[1]
-          for runtime, devices in sorted(json.load(sys.stdin).get("devices", {}).items()):
-              if "iOS" not in runtime:
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "simulators.json"), encoding="utf-8") as handle:
+              devices_by_runtime = json.load(handle).get("devices", {})
+
+          sdk_version = tuple(int(part) for part in os.environ["SIMULATOR_SDK_VERSION"].split("."))
+          candidates = []
+          for runtime, devices in devices_by_runtime.items():
+              match = re.search(r"SimRuntime\.iOS-(\d+(?:-\d+)*)$", runtime)
+              if not match:
+                  continue
+              version = tuple(int(part) for part in match.group(1).split("-"))
+              if version > sdk_version:
                   continue
               for device in devices:
-                  if device.get("isAvailable") and device.get("name", "").startswith(device_prefix):
-                      print(device["udid"])
-                      raise SystemExit(0)
-          raise SystemExit(f"No available {device_prefix} simulator found")
-          ' "$device_prefix"
-          }
-          echo "Building + testing scheme: ${scheme:-<default>} in $proj"
-          for device_prefix in iPhone iPad; do
-            simulator_udid="$(simulator_udid_for "$device_prefix")"
-            destination="platform=iOS Simulator,id=$simulator_udid"
-            echo "Using $device_prefix simulator destination: $destination"
-            if command -v xcpretty >/dev/null 2>&1; then
-              xcodebuild build test \
-                -scheme "${scheme:-Yggdrasil}" \
-                -destination "$destination" \
-                CODE_SIGNING_ALLOWED=NO | xcpretty
-            else
-              xcodebuild build test \
-                -scheme "${scheme:-Yggdrasil}" \
-                -destination "$destination" \
-                CODE_SIGNING_ALLOWED=NO
-            fi
-          done
+                  if device.get("isAvailable") and device.get("name", "").startswith("iPad"):
+                      candidates.append((version, device["name"], device["udid"], runtime))
+
+          if not candidates:
+              print(
+                  "::error::The selected Xcode has no compatible available iPad simulator. "
+                  "See the Xcode SDK, runtime, and device lists above."
+              )
+              sys.exit(1)
+
+          version, name, udid, runtime = max(candidates, key=lambda item: (item[0], item[1]))
+          destination = f"platform=iOS Simulator,id={udid}"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"destination={destination}\n")
+          print(f"Selected {name} on {runtime} ({'.'.join(map(str, version))}); UDID discovered at runtime.")
+          PY
+      - name: Build and test shared Yggdrasil scheme on iPad
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project Yggdrasil/Yggdrasil.xcodeproj \
+            -scheme Yggdrasil \
+            -destination '${{ steps.simulator.outputs.destination }}' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO
