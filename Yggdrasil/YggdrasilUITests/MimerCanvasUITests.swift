@@ -65,7 +65,7 @@ final class MimerCanvasUITests: XCTestCase {
         app.typeKey("f", modifierFlags: .command)
         let filter = app.textFields["mimer.canvas.vault.filter"]
         XCTAssertTrue(filter.waitForExistence(timeout: 5))
-        XCTAssertTrue(filter.hasKeyboardFocus)
+        XCTAssertEqual(filter.value as? String, "focused")
 
         let inspector = app.buttons["mimer.canvas.inspector.toggle"]
         XCTAssertTrue(inspector.waitForExistence(timeout: 5))

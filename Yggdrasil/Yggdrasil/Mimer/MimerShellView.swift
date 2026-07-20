@@ -109,9 +109,9 @@ private struct MimerCanvasView: View {
                 }
             }
             .navigationTitle("Mimer")
-            .focusSection()
             .focusable()
             .focused($focusedColumn, equals: .sidebar)
+            .mimerCanvasKeyboardTraversal(moveFocus: moveFocus)
             .accessibilityIdentifier("mimer.canvas.focus.sidebar")
             .accessibilityValue(focusValue(for: .sidebar))
         } content: {
@@ -124,15 +124,15 @@ private struct MimerCanvasView: View {
                     )
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
-                    .focusSection()
                     .accessibilityValue(focusValue(for: .content))
+                    .mimerCanvasKeyboardTraversal(moveFocus: moveFocus)
                 } else {
                     MimerLensContentView(lens: selectedLens, fileStore: fileStore)
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
-                        .focusSection()
                         .focusable()
                         .focused($focusedColumn, equals: .content)
+                        .mimerCanvasKeyboardTraversal(moveFocus: moveFocus)
                         .accessibilityValue(focusValue(for: .content))
                 }
             } else {
@@ -146,24 +146,12 @@ private struct MimerCanvasView: View {
             )
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("mimer.canvas.detail")
-                .focusSection()
                 .focusable()
                 .focused($focusedColumn, equals: .detail)
+                .mimerCanvasKeyboardTraversal(moveFocus: moveFocus)
                 .accessibilityValue(focusValue(for: .detail))
         }
         .navigationSplitViewStyle(.balanced)
-        .onKeyPress(.tab, phases: [.down, .repeat]) { press in
-            moveFocus(forward: !press.modifiers.contains(.shift))
-            return .handled
-        }
-        .onKeyPress(.rightArrow, phases: [.down, .repeat]) { _ in
-            moveFocus(forward: true)
-            return .handled
-        }
-        .onKeyPress(.leftArrow, phases: [.down, .repeat]) { _ in
-            moveFocus(forward: false)
-            return .handled
-        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(inspectorIsPresented ? "Hide Inspector" : "Show Inspector") {
@@ -195,6 +183,32 @@ private enum MimerCanvasFocus: Hashable {
     case content
     case detail
     case filter
+}
+
+private struct MimerCanvasKeyboardTraversal: ViewModifier {
+    let moveFocus: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onKeyPress(.tab, phases: [.down, .repeat]) { press in
+                moveFocus(!press.modifiers.contains(.shift))
+                return .handled
+            }
+            .onKeyPress(.rightArrow, phases: [.down, .repeat]) { _ in
+                moveFocus(true)
+                return .handled
+            }
+            .onKeyPress(.leftArrow, phases: [.down, .repeat]) { _ in
+                moveFocus(false)
+                return .handled
+            }
+    }
+}
+
+private extension View {
+    func mimerCanvasKeyboardTraversal(moveFocus: @escaping (Bool) -> Void) -> some View {
+        modifier(MimerCanvasKeyboardTraversal(moveFocus: moveFocus))
+    }
 }
 
 private struct MimerCanvasNote: Equatable {
