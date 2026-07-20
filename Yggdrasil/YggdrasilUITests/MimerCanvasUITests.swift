@@ -141,6 +141,21 @@ final class MimerCanvasUITests: XCTestCase {
         let uuid = app.descendants(matching: .any)["mimer.canvas.inspector.uuid"]
         XCTAssertTrue(uuid.waitForExistence(timeout: 5))
         XCTAssertTrue(uuid.label.contains("fixture-uuid"))
+
+        let todayLens = app.descendants(matching: .any)["mimer.canvas.lens.today"]
+        todayLens.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["mimer.canvas.content.today"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Fixture note"].exists)
+        XCTAssertFalse(uuid.label.contains("fixture-uuid"))
+
+        let sidebar = app.descendants(matching: .any)["mimer.canvas.focus.sidebar"]
+        app.typeKey(.leftArrow, modifierFlags: [])
+        assertAccessibilityValue("focused", for: sidebar)
+        app.typeKey("f", modifierFlags: .command)
+        assertAccessibilityValue(
+            "focused",
+            for: sidebar
+        )
     }
 
     private func assertAccessibilityValue(

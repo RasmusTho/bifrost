@@ -171,14 +171,21 @@ struct MimerCanvasView: View {
             guard let element else { return }
             focusedColumn = element == .filter ? .content : element
         }
+        .onChange(of: selectedLens) { oldLens, newLens in
+            guard oldLens != newLens else { return }
+            selectedNote = nil
+            if newLens != .vault, focusedElement == .filter { setFocus(.content) }
+        }
         .onReceive(keyboardRouter.$command) { command in
             switch command {
             case .previousColumn:
                 moveFocus(forward: false)
             case .nextColumn:
                 moveFocus(forward: true)
-            case .focusFilter:
+            case .focusFilter where selectedLens == .vault:
                 setFocus(.filter)
+            case .focusFilter:
+                break
             case .toggleInspector:
                 inspectorIsPresented.toggle()
             case nil:
@@ -205,10 +212,7 @@ struct MimerCanvasView: View {
 }
 
 private enum MimerCanvasFocus: Hashable {
-    case sidebar
-    case content
-    case detail
-    case filter
+    case sidebar, content, detail, filter
 }
 
 private struct MimerCanvasNote: Equatable {
@@ -230,6 +234,7 @@ private struct MimerVaultColumnView: View {
     @State private var entries: [VaultEntry] = []
     @State private var filter = ""
     @State private var loadError: String?
+    @State private var noteSelectionID = UUID()
 
     private var visibleEntries: [VaultEntry] {
         guard !filter.isEmpty else { return entries }
@@ -247,7 +252,7 @@ private struct MimerVaultColumnView: View {
             if !directory.isEmpty {
                 Button("Back to \(directory.split(separator: "/").dropLast().last.map(String.init) ?? "Vault")") {
                     directory = directory.split(separator: "/").dropLast().joined(separator: "/")
-                    selectedNote = nil
+                    invalidateNoteSelection()
                 }
                 .accessibilityIdentifier("mimer.canvas.vault.back")
             }
@@ -276,38 +281,52 @@ private struct MimerVaultColumnView: View {
         }
         .onAppear(perform: load)
         .onChange(of: directory) { _, _ in load() }
+        .onDisappear(perform: invalidatePendingNoteSelection)
     }
 
     private func select(_ entry: VaultEntry) {
         if entry.isDirectory {
             directory = entry.relativePath
-            selectedNote = nil
+            invalidateNoteSelection()
             return
         }
         let path = entry.relativePath
+        let selectionID = UUID()
+        noteSelectionID = selectionID
+        selectedNote = nil
+        loadError = nil
         Task { @MainActor in
             do {
                 async let text = fileStore.read(path)
                 async let modified = fileStore.modificationDate(of: path)
-                selectedNote = try await MimerCanvasNote(
+                let note = try await MimerCanvasNote(
                     relativePath: path,
                     text: text,
                     modificationDate: modified
                 )
+                guard selectionID == noteSelectionID else { return }
+                selectedNote = note
                 loadError = nil
             } catch {
+                guard selectionID == noteSelectionID else { return }
                 loadError = error.localizedDescription
             }
         }
     }
 
+    private func invalidateNoteSelection() { noteSelectionID = UUID(); selectedNote = nil }
+    private func invalidatePendingNoteSelection() { noteSelectionID = UUID() }
+
     private func load() {
         let currentDirectory = directory
         Task { @MainActor in
             do {
-                entries = try await fileStore.listEntries(in: currentDirectory)
+                let loadedEntries = try await fileStore.listEntries(in: currentDirectory)
+                guard currentDirectory == directory else { return }
+                entries = loadedEntries
                 loadError = nil
             } catch {
+                guard currentDirectory == directory else { return }
                 loadError = error.localizedDescription
             }
         }
