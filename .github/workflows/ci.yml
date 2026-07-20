@@ -128,6 +128,7 @@ jobs:
           print(f"Selected {name} on {runtime} ({'.'.join(map(str, version))}); UDID discovered at runtime.")
           PY
       - name: Build and test shared Yggdrasil scheme on iPad
+        timeout-minutes: 30
         shell: bash
         run: |
           set -euo pipefail
@@ -136,4 +137,6 @@ jobs:
             -scheme Yggdrasil \
             -destination '${{ steps.simulator.outputs.destination }}' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -parallel-testing-enabled NO \
+            -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO
