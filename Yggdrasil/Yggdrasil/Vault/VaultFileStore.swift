@@ -179,7 +179,7 @@ private enum VaultWriteProvenance {
 
     private static func isPlainBlockMappingEntry(_ line: String) -> Bool {
         guard let separator = line.indices.first(where: { index in
-            guard line[index] == ":", index != line.startIndex else { return false }
+            guard line[index] == ":", index != line.startIndex, !line.hasPrefix("- ") else { return false }
             let next = line.index(after: index)
             return next == line.endIndex || line[next].isWhitespace
         }) else { return false }
