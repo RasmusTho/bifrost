@@ -399,7 +399,6 @@ extension VaultFileStoreTests {
         """)
         XCTAssertTrue(loggedFailures.values.isEmpty)
     }
-
     func testAmbiguousExistingProvenanceIsPreservedAndLogged() async throws {
         let cases = [
             (
@@ -410,7 +409,10 @@ extension VaultFileStoreTests {
                 "notes/separated-provenance.md",
                 "---\ntitle: Keep\nagent_provenance:\n  author: old\n\n"
                     + "  written_at: old\n  origin: imported\nnext: keep\n---\n\nBody.\n"
-            )
+            ),
+            ("notes/empty-map.md", "---\n{}\n---\n\nBody.\n"),
+            ("notes/flow-map.md", "---\n{tags: [one, two]}\n---\n\nBody.\n"),
+            ("notes/sequence.md", "---\n- one\n- two\n---\n\nBody.\n")
         ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
@@ -423,13 +425,11 @@ extension VaultFileStoreTests {
             let saved = try await store.read(path)
             XCTAssertEqual(saved, text)
         }
-
         XCTAssertEqual(loggedFailures.values.count, cases.count)
         for (path, _) in cases {
             XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
         }
     }
-
     @MainActor
     func testMainActorPublicPathsUseBackgroundCoordinatorAndPropagateErrors() async throws {
         let path = "notes/example.md"

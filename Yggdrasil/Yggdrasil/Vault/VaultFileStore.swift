@@ -140,9 +140,41 @@ private enum VaultWriteProvenance {
             }
             lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
         } else {
-            lines.insert(contentsOf: provenanceLines, at: closingIndex)
+            try insert(provenanceLines, into: &lines, before: closingIndex)
         }
         return lines.joined(separator: newline)
+    }
+
+    private static func insert(_ provenance: [String], into lines: inout [String], before closingIndex: Int) throws {
+        guard acceptsBlockMappingInsertion(lines[1..<closingIndex]) else {
+            throw InjectionError.unsafeFrontmatter
+        }
+        lines.insert(contentsOf: provenance, at: closingIndex)
+    }
+
+    private static func acceptsBlockMappingInsertion(_ lines: ArraySlice<String>) -> Bool {
+        var sawMappingEntry = false
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+            if line.first?.isWhitespace == true {
+                guard sawMappingEntry else { return false }
+                continue
+            }
+            guard isPlainBlockMappingEntry(line) else { return false }
+            sawMappingEntry = true
+        }
+        return true
+    }
+
+    private static func isPlainBlockMappingEntry(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !["-", "?", "[", "{"].contains(where: trimmed.hasPrefix) else { return false }
+        return line.indices.contains { index in
+            guard line[index] == ":", index != line.startIndex else { return false }
+            let next = line.index(after: index)
+            return next == line.endIndex || line[next].isWhitespace
+        }
     }
 
     @discardableResult
