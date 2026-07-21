@@ -45,7 +45,9 @@ enum YAMLProvenanceSanitizer {
             in: characters,
             aliases: YAMLProvenanceAnchorBindings(text: String(characters))
         ) {
-            let neutralName = YAMLProvenanceKey.availableNeutralName(in: String(characters))
+            guard let neutralName = YAMLProvenanceKey.availableNeutralName(in: String(characters)) else {
+                break
+            }
             characters.replaceSubrange(match, with: Array(neutralName))
             neutralized = true
         }

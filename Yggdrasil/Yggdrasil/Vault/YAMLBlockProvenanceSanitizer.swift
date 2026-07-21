@@ -5,6 +5,12 @@ struct YAMLBlockProvenanceSanitization {
     let neutralized: Bool
 }
 
+private struct YAMLInlineKeyEntry {
+    let index: Int
+    let content: String
+    let keyRange: Range<String.Index>
+}
+
 enum YAMLBlockProvenanceSanitizer {
     static func neutralizingProvenance(
         in sourceLines: [String],
@@ -25,9 +31,8 @@ enum YAMLBlockProvenanceSanitizer {
                let keyRange = implicitOrInlineExplicitKeyRange(in: content),
                neutralizeInlineKey(
                    in: &lines,
-                   at: index,
-                   content: content,
-                   keyRange: keyRange,
+                   before: closing,
+                   entry: YAMLInlineKeyEntry(index: index, content: content, keyRange: keyRange),
                    activeAliases: aliases.activeNames(before: frontmatterOffset)
                ) {
                 neutralized = true
@@ -39,19 +44,12 @@ enum YAMLBlockProvenanceSanitizer {
                           rootIndent: rootIndent
                       ) {
                 let keyOffset = frontmatterOffset + lines[index..<keyLine].reduce(0) { $0 + $1.count + 1 }
-                let match = YAMLProvenanceKey.replacementMatch(
-                    in: lines[keyLine].trimmingCharacters(in: .whitespaces),
+                if neutralizeMultilineKey(
+                    in: &lines,
+                    at: keyLine,
+                    before: closing,
                     activeAliases: aliases.activeNames(before: keyOffset)
-                )
-                if let match {
-                    let neutralName = YAMLProvenanceKey.availableNeutralName(in: lines.joined(separator: "\n"))
-                    let indentation = lines[keyLine].prefix(while: { $0.isWhitespace }).count
-                    lines[keyLine] = replacingKey(
-                        in: lines[keyLine],
-                        match: match,
-                        offset: indentation,
-                        with: neutralName
-                    )
+                ) {
                     neutralized = true
                 }
             }
@@ -61,22 +59,48 @@ enum YAMLBlockProvenanceSanitizer {
         return YAMLBlockProvenanceSanitization(lines: lines, neutralized: neutralized)
     }
 
-    private static func neutralizeInlineKey(
+    private static func neutralizeMultilineKey(
         in lines: inout [String],
-        at index: Int,
-        content: String,
-        keyRange: Range<String.Index>,
+        at keyLine: Int,
+        before closing: Int,
         activeAliases: Set<String>
     ) -> Bool {
         guard let match = YAMLProvenanceKey.replacementMatch(
-            in: String(content[keyRange]),
+            in: lines[keyLine].trimmingCharacters(in: .whitespaces),
+            activeAliases: activeAliases
+        ), let neutralName = YAMLProvenanceKey.availableNeutralName(
+            in: lines[1..<closing].joined(separator: "\n")
+        ) else { return false }
+        let indentation = lines[keyLine].prefix(while: { $0.isWhitespace }).count
+        lines[keyLine] = replacingKey(
+            in: lines[keyLine],
+            match: match,
+            offset: indentation,
+            with: neutralName
+        )
+        return true
+    }
+
+    private static func neutralizeInlineKey(
+        in lines: inout [String],
+        before closing: Int,
+        entry: YAMLInlineKeyEntry,
+        activeAliases: Set<String>
+    ) -> Bool {
+        guard let match = YAMLProvenanceKey.replacementMatch(
+            in: String(entry.content[entry.keyRange]),
             activeAliases: activeAliases
         ) else { return false }
-        let keyOffset = content.distance(from: content.startIndex, to: keyRange.lowerBound)
-        let rootIndent = lines[index].count - content.count
-        let neutralName = YAMLProvenanceKey.availableNeutralName(in: lines.joined(separator: "\n"))
-        lines[index] = replacingKey(
-            in: lines[index],
+        let keyOffset = entry.content.distance(
+            from: entry.content.startIndex,
+            to: entry.keyRange.lowerBound
+        )
+        let rootIndent = lines[entry.index].count - entry.content.count
+        guard let neutralName = YAMLProvenanceKey.availableNeutralName(
+            in: lines[1..<closing].joined(separator: "\n")
+        ) else { return false }
+        lines[entry.index] = replacingKey(
+            in: lines[entry.index],
             match: match,
             offset: rootIndent + keyOffset,
             with: neutralName
@@ -224,7 +248,11 @@ enum YAMLProvenanceKey {
         return YAMLProvenanceKeyMatch(range: scalarStart..<end)
     }
 
-    static func availableNeutralName(in text: String) -> String {
+    static func availableNeutralName(in text: String) -> String? {
+        // A backslash can hide an equivalent double-quoted YAML key (for example,
+        // "\u0066ormer_writer_attribution"). Without a full semantic key decoder,
+        // collision freedom is unprovable, so preserve the requested bytes unchanged.
+        guard !text.contains("\\") else { return nil }
         var candidate = neutralName
         var suffix = 2
         while text.contains(candidate) {
@@ -239,21 +267,35 @@ enum YAMLProvenanceKey {
         startingAt start: Int,
         isInFlow: Bool
     ) -> Bool {
-        for form in [Array(activeName), Array("\"\(activeName)\""), Array("'\(activeName)'")] {
-            let end = start + form.count
-            guard end <= characters.count, Array(characters[start..<end]) == form else { continue }
-            if isExactScalarTerminator(after: end, in: characters, isInFlow: isInFlow) { return true }
+        let forms = [
+            (characters: Array(activeName), isPlain: true),
+            (characters: Array("\"\(activeName)\""), isPlain: false),
+            (characters: Array("'\(activeName)'"), isPlain: false)
+        ]
+        for form in forms {
+            let end = start + form.characters.count
+            guard end <= characters.count,
+                  Array(characters[start..<end]) == form.characters else { continue }
+            if isExactScalarTerminator(
+                after: end,
+                scalarStart: start,
+                in: characters,
+                isInFlow: isInFlow,
+                isPlain: form.isPlain
+            ) { return true }
         }
         return false
     }
 
     private static func isExactScalarTerminator(
         after end: Int,
+        scalarStart: Int,
         in characters: [Character],
-        isInFlow: Bool
+        isInFlow: Bool,
+        isPlain: Bool
     ) -> Bool {
         guard end < characters.count else { return true }
-        var index = end
+        let index = end
         if characters[index] == ":" {
             let next = index + 1
             return next == characters.count || characters[next].isWhitespace
@@ -261,13 +303,90 @@ enum YAMLProvenanceKey {
         }
         if isInFlow, "[],}".contains(characters[index]) { return true }
         guard characters[index].isWhitespace else { return false }
-        while index < characters.count, characters[index].isWhitespace,
-              characters[index] != "\n", characters[index] != "\r" {
-            index += 1
+        if isInFlow { return hasFlowScalarTerminator(after: index, in: characters) }
+        return hasBlockScalarTerminator(
+            after: index,
+            scalarStart: scalarStart,
+            in: characters,
+            isPlain: isPlain
+        )
+    }
+
+    private static func hasFlowScalarTerminator(
+        after end: Int,
+        in characters: [Character]
+    ) -> Bool {
+        var index = end
+        while index < characters.count {
+            while index < characters.count, characters[index].isWhitespace { index += 1 }
+            if index < characters.count, characters[index] == "#" {
+                while index < characters.count,
+                      characters[index] != "\n", characters[index] != "\r" { index += 1 }
+                continue
+            }
+            break
+        }
+        return index == characters.count || "[],}".contains(characters[index])
+    }
+
+    private static func hasBlockScalarTerminator(
+        after end: Int,
+        scalarStart: Int,
+        in characters: [Character],
+        isPlain: Bool
+    ) -> Bool {
+        var index = end
+        while index < characters.count,
+              characters[index].isWhitespace,
+              characters[index] != "\n", characters[index] != "\r" { index += 1 }
+        if index < characters.count, characters[index] == "#" {
+            while index < characters.count,
+                  characters[index] != "\n", characters[index] != "\r" { index += 1 }
         }
         guard index < characters.count else { return true }
-        if characters[index] == "\n" || characters[index] == "\r" || characters[index] == "#" { return true }
-        return isInFlow && "[],}".contains(characters[index])
+        guard characters[index] == "\n" || characters[index] == "\r" else { return false }
+        return !isPlain || !hasIndentedContinuation(
+            after: index,
+            scalarStart: scalarStart,
+            in: characters
+        )
+    }
+
+    private static func hasIndentedContinuation(
+        after lineBreak: Int,
+        scalarStart: Int,
+        in characters: [Character]
+    ) -> Bool {
+        let scalarIndent = lineIndent(containing: scalarStart, in: characters)
+        var lineStart = lineBreak + 1
+        if characters[lineBreak] == "\r", lineStart < characters.count,
+           characters[lineStart] == "\n" { lineStart += 1 }
+        while lineStart < characters.count {
+            var content = lineStart
+            while content < characters.count,
+                  characters[content] == " " || characters[content] == "\t" { content += 1 }
+            if content == characters.count { return false }
+            if characters[content] == "\n" || characters[content] == "\r" || characters[content] == "#" {
+                while content < characters.count,
+                      characters[content] != "\n", characters[content] != "\r" { content += 1 }
+                guard content < characters.count else { return false }
+                lineStart = content + 1
+                if characters[content] == "\r", lineStart < characters.count,
+                   characters[lineStart] == "\n" { lineStart += 1 }
+                continue
+            }
+            return content - lineStart > scalarIndent
+        }
+        return false
+    }
+
+    private static func lineIndent(containing index: Int, in characters: [Character]) -> Int {
+        var start = index
+        while start > 0, characters[start - 1] != "\n", characters[start - 1] != "\r" { start -= 1 }
+        var content = start
+        while content < characters.count,
+              characters[content] == " " || characters[content] == "\t" { content += 1 }
+        return content - start
     }
 
     private static func containsOnlyTrivia(_ suffix: ArraySlice<Character>) -> Bool {

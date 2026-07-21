@@ -12,7 +12,11 @@ struct YAMLProvenanceAnchorBindings {
             if blockScalarContent.contains(index) { continue }
             let character = characters[index]
             if state.consume(character, at: index, in: characters) { continue }
-            if character == "&", Self.isPropertyPosition(at: index, in: characters),
+            if character == "&", Self.isPropertyPosition(
+                at: index,
+                in: characters,
+                isInFlow: state.isInsideFlow
+            ),
                let name = Self.anchorName(at: index, in: characters) {
                 let isActive = Self.provenScalarNodeStart(after: index, in: characters).map {
                     YAMLProvenanceKey.isLiteralActiveNode(
@@ -42,7 +46,12 @@ struct YAMLProvenanceAnchorBindings {
         return Set(latest.compactMap { $0.value ? $0.key : nil })
     }
 
-    private static func isPropertyPosition(at index: Int, in characters: [Character]) -> Bool {
+    private static func isPropertyPosition(
+        at index: Int,
+        in characters: [Character],
+        isInFlow: Bool
+    ) -> Bool {
+        if isInFlow, isFlowNodeBoundary(before: index, in: characters) { return true }
         let start = lineStart(before: index, in: characters)
         let trimmed = String(characters[start..<index]).trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty || YAMLNodeStart.containsOnlyProperties(in: trimmed) {
@@ -55,6 +64,22 @@ struct YAMLProvenanceAnchorBindings {
             if suffix.isEmpty || YAMLNodeStart.containsOnlyProperties(in: suffix) { return true }
         }
         return false
+    }
+
+    private static func isFlowNodeBoundary(before index: Int, in characters: [Character]) -> Bool {
+        guard index > 0 else { return false }
+        var lineEnd = index
+        while true {
+            let start = lineStart(before: lineEnd, in: characters)
+            let line = String(characters[start..<lineEnd])
+            guard !line.contains("\"") && !line.contains("'") else { return false }
+            let withoutComment = line.split(separator: "#", maxSplits: 1).first.map(String.init) ?? line
+            if let candidate = withoutComment.last(where: { !$0.isWhitespace }) {
+                return "[{,:?".contains(candidate)
+            }
+            guard start > 0 else { return false }
+            lineEnd = start - 1
+        }
     }
 
     private static func isStandaloneNodeLine(at lineStart: Int, in characters: [Character]) -> Bool {
@@ -147,7 +172,7 @@ struct YAMLProvenanceAnchorBindings {
             let character = line[index]
             if state.consume(character, at: index, in: line) { continue }
             guard character == "|" || character == ">",
-                  isPropertyPosition(at: index, in: line),
+                  isPropertyPosition(at: index, in: line, isInFlow: state.isInsideFlow),
                   isBlockScalarSuffix(line[(index + 1)...]) else {
                 continue
             }
