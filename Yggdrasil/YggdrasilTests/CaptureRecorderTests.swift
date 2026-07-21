@@ -40,7 +40,6 @@ final class CaptureRecorderTests: XCTestCase {
         recorder.start()
         XCTAssertEqual(recorder.sessionModel.phase, .recording)
     }
-
     func testInterruptionPausesAndResumes() async {
         let recorder = makeRecorder()
         recorder.start()
@@ -49,25 +48,27 @@ final class CaptureRecorderTests: XCTestCase {
         await recorder.handleInterruption(type: .ended, shouldResume: true)
         XCTAssertEqual(recorder.sessionModel.phase, .recording)
     }
-
     func testAutomaticResumeFailureExposesManualRetry() async throws {
         let writer = FakeCaptureWriter(resumeFailuresRemaining: 1)
         let recorder = makeRecorder(writer: writer)
         recorder.start()
         let generation = try XCTUnwrap(recorder.activeCaptureGeneration)
+        let outputURL = try XCTUnwrap(writer.lastOutputURL)
         await recorder.handleInterruption(type: .began, shouldResume: false)
         await recorder.handleInterruption(type: .ended, shouldResume: true)
         XCTAssertEqual(recorder.sessionModel.phase, .paused)
         XCTAssertTrue(recorder.needsManualResume)
+        XCTAssertNotNil(recorder.lastError)
         XCTAssertEqual(recorder.activeCaptureGeneration, generation)
         XCTAssertTrue(recorder.sessionModel.stagedItems.isEmpty)
         recorder.resume()
         XCTAssertEqual(recorder.sessionModel.phase, .recording)
         XCTAssertFalse(recorder.needsManualResume)
+        XCTAssertNil(recorder.lastError)
         XCTAssertEqual(recorder.activeCaptureGeneration, generation)
+        XCTAssertEqual(writer.lastOutputURL, outputURL)
         XCTAssertEqual(writer.resumeAttempts, 2)
     }
-
     func testNonResumableInterruptionThenStopClearsManualResumeState() async {
         let recorder = makeRecorder()
         recorder.start()
@@ -81,7 +82,6 @@ final class CaptureRecorderTests: XCTestCase {
         await recorder.handleInterruption(type: .ended, shouldResume: false)
         XCTAssertFalse(recorder.needsManualResume)
     }
-
     func testAbandonedSessionFinalizesSegment() async {
         let recorder = makeRecorder()
         recorder.start()

@@ -274,6 +274,7 @@ private extension CaptureRecorder {
         do {
             try writer.resume()
             needsManualResume = false
+            lastError = nil
             _ = sessionModel.transition(to: .recording)
         } catch {
             needsManualResume = true
