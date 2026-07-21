@@ -213,6 +213,33 @@ final class CaptureDeliveryTests: XCTestCase {
         }
     }
 
+    func testWatchRelayedFileEntersStagingQueue() async throws {
+        let incomingDirectory = try makeDirectory()
+        let stagingDirectory = try makeDirectory()
+        let captureFolder = try makeDirectory()
+        let watchFile = incomingDirectory.appendingPathComponent("watch-recording.m4a")
+        let bytes = Data("watch memo".utf8)
+        try bytes.write(to: watchFile)
+        let model = CaptureSessionModel()
+        let receiver = WatchRelayStagingReceiver(sessionModel: model, stagingDirectory: stagingDirectory)
+
+        let stagedURL = try receiver.receive(fileURL: watchFile)
+        let itemID = try XCTUnwrap(model.stagedItems.first?.id)
+        let queue = CaptureDeliveryQueue(
+            sessionModel: model,
+            placer: CaptureDeliveryFilePlacer(coordinator: RecordingDeliveryCoordinator())
+        )
+        await queue.deliver(itemID: itemID, to: captureFolder)
+
+        XCTAssertEqual(model.stagedItems.count, 1)
+        XCTAssertTrue(model.stagedItems[0].wasRecoveredAfterRestart)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagedURL.path))
+        XCTAssertEqual(
+            try Data(contentsOf: captureFolder.appendingPathComponent(stagedURL.lastPathComponent)),
+            bytes
+        )
+    }
+
     func testRebuildKeepsUnverifiableMediaOutOfDeliveryQueue() throws {
         let stagingDirectory = try makeDirectory()
         let validURL = stagingDirectory.appendingPathComponent("valid.m4a")

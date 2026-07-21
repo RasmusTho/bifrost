@@ -60,7 +60,7 @@ jobs:
           echo "Constituent declaration + inherited authority present."
 
   swift:
-    name: Swift lint + package + iOS tests
+    name: Swift lint + package + app builds
     # macos-26 only ships Xcode/iOS 26; Bifrost's established UI automation
     # contract is on Xcode 16 and iOS 18 (see the PR compatibility note).
     runs-on: macos-15
@@ -80,18 +80,21 @@ jobs:
         run: |
           set -euo pipefail
           swift test --package-path Packages/YggdrasilCore
-      - name: Discover Xcode and available iPhone/iPad simulators
+      - name: Discover Xcode and available iPhone/iPad/Watch simulators
         id: simulator
         shell: bash
         run: |
           set -euo pipefail
           xcodebuild -version
           simulator_sdk_version="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          watch_simulator_sdk_version="$(xcrun --sdk watchsimulator --show-sdk-version)"
           echo "Selected Xcode iOS Simulator SDK: $simulator_sdk_version"
+          echo "Selected Xcode watchOS Simulator SDK: $watch_simulator_sdk_version"
           xcrun simctl list runtimes available
           xcrun simctl list devices available
           xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
           export SIMULATOR_SDK_VERSION="$simulator_sdk_version"
+          export WATCH_SIMULATOR_SDK_VERSION="$watch_simulator_sdk_version"
           python3 <<'PY'
           import json
           import os
@@ -102,13 +105,16 @@ jobs:
               devices_by_runtime = json.load(handle).get("devices", {})
 
           sdk_version = tuple(int(part) for part in os.environ["SIMULATOR_SDK_VERSION"].split("."))
-          candidates = {"iphone": [], "ipad": []}
+          watch_sdk_version = tuple(int(part) for part in os.environ["WATCH_SIMULATOR_SDK_VERSION"].split("."))
+          candidates = {"iphone": [], "ipad": [], "watch": []}
           for runtime, devices in devices_by_runtime.items():
-              match = re.search(r"SimRuntime\.iOS-(\d+(?:-\d+)*)$", runtime)
+              match = re.search(r"SimRuntime\.(iOS|watchOS)-(\d+(?:-\d+)*)$", runtime)
               if not match:
                   continue
-              version = tuple(int(part) for part in match.group(1).split("-"))
-              if version > sdk_version:
+              platform, raw_version = match.groups()
+              version = tuple(int(part) for part in raw_version.split("-"))
+              maximum_version = sdk_version if platform == "iOS" else watch_sdk_version
+              if version > maximum_version:
                   continue
               for device in devices:
                   name = device.get("name", "")
@@ -117,9 +123,11 @@ jobs:
                   for family, prefix in (("iphone", "iPhone"), ("ipad", "iPad")):
                       if name.startswith(prefix):
                           candidates[family].append((version, name, device["udid"], runtime))
+                  if platform == "watchOS" and name.startswith("Apple Watch"):
+                      candidates["watch"].append((version, name, device["udid"], runtime))
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              for family in ("iphone", "ipad"):
+              for family in ("iphone", "ipad", "watch"):
                   if not candidates[family]:
                       print(
                           f"::error::The selected Xcode has no compatible available {family} simulator. "
@@ -129,7 +137,8 @@ jobs:
                   version, name, udid, runtime = max(
                       candidates[family], key=lambda item: (item[0], item[1])
                   )
-                  output.write(f"{family}_destination=platform=iOS Simulator,id={udid}\n")
+                  destination_platform = "watchOS Simulator" if family == "watch" else "iOS Simulator"
+                  output.write(f"{family}_destination=platform={destination_platform},id={udid}\n")
                   print(
                       f"Selected {name} on {runtime} ({'.'.join(map(str, version))}); "
                       "UDID discovered at runtime."
@@ -155,3 +164,14 @@ jobs:
               -maximum-concurrent-test-simulator-destinations 1 \
               CODE_SIGNING_ALLOWED=NO
           done
+      - name: Build the Yggdrasil Watch companion
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project Yggdrasil/Yggdrasil.xcodeproj \
+            -scheme YggdrasilWatch \
+            -destination '${{ steps.simulator.outputs.watch_destination }}' \
+            -derivedDataPath "$RUNNER_TEMP/WatchDerivedData" \
+            CODE_SIGNING_ALLOWED=NO
