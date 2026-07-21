@@ -203,6 +203,12 @@ private final class AtomicReadProbe: @unchecked Sendable {
 final class VaultFileStoreTests: XCTestCase {
     private var tempDirectory = FileManager.default.temporaryDirectory
 
+    private func tagged(_ text: String, writtenAt timestamp: String) throws -> String {
+        var document = try FrontmatterDocument.parse(text)
+        document.applyBifrostProvenance(writtenAt: timestamp)
+        return document.rendered()
+    }
+
     override func setUpWithError() throws {
         tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("YggdrasilVaultFileStoreTests-\(UUID().uuidString)")
@@ -220,17 +226,24 @@ final class VaultFileStoreTests: XCTestCase {
         // Large enough to exercise replacement while keeping the concurrent probe bounded on CI simulators.
         let oldText = "---\nversion: old\n---\n\n" + String(repeating: "o", count: 256_000)
         let newText = "---\nversion: new\n---\n\n" + String(repeating: "n", count: 256_000)
-        var modifiedDocument = try FrontmatterDocument.parse(newText)
-        modifiedDocument.frontmatter["replaced"] = .bool(true)
-        let modifiedText = modifiedDocument.rendered()
+        let timestamp = "2026-07-21T10:15:30Z"
+        let taggedOldText = try tagged(oldText, writtenAt: timestamp)
+        let taggedNewText = try tagged(newText, writtenAt: timestamp)
+        var taggedModifiedDocument = try FrontmatterDocument.parse(taggedNewText)
+        taggedModifiedDocument.frontmatter["replaced"] = .bool(true)
+        let taggedModifiedText = taggedModifiedDocument.rendered()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try oldText.write(to: url, atomically: true, encoding: .utf8)
 
-        let store = VaultFileStore(rootURL: tempDirectory)
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp }
+        )
         let probe = AtomicReadProbe(allowedSnapshots: Set([
             Data(oldText.utf8),
-            Data(newText.utf8),
-            Data(modifiedText.utf8)
+            Data(taggedOldText.utf8),
+            Data(taggedNewText.utf8),
+            Data(taggedModifiedText.utf8)
         ]))
         let readers = (0..<4).map { _ in
             Task.detached {
@@ -258,7 +271,7 @@ final class VaultFileStoreTests: XCTestCase {
         let observation = probe.result
         XCTAssertGreaterThan(observation.readCount, 0)
         XCTAssertNil(observation.invalidObservation, observation.invalidObservation ?? "")
-        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), modifiedText)
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), taggedModifiedText)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["atomic.md"])
     }
 

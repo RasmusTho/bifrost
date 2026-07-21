@@ -138,12 +138,12 @@ struct VaultFileStore: Sendable {
 
     let rootURL: URL
     private let coordinator: VaultFileCoordinating
-    private let provenanceTimestampProvider: VaultWriteProvenance.TimestampProvider
+    private let provenanceTimestampProvider: @Sendable () throws -> String
 
     init(
         rootURL: URL,
         coordinator: VaultFileCoordinating = NSFileCoordinatorAccess(),
-        provenanceTimestampProvider: @escaping VaultWriteProvenance.TimestampProvider = { Date().ISO8601Format() }
+        provenanceTimestampProvider: @escaping @Sendable () throws -> String = { Date().ISO8601Format() }
     ) {
         self.rootURL = rootURL
         self.coordinator = coordinator

@@ -33,7 +33,7 @@ final class FrontmatterDocumentTests: XCTestCase {
 
     func testAgentProvenanceBlockOnCreatedNote() throws {
         var document = FrontmatterDocument(
-            frontmatter: ["artifact_class": .string("draft")],
+            frontmatter: YAMLMap([("artifact_class", .string("draft"))]),
             body: "Created from Bifrost."
         )
 
