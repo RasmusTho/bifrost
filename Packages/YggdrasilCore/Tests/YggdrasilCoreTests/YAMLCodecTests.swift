@@ -19,6 +19,12 @@ final class YAMLCodecTests: XCTestCase {
         XCTAssertEqual(YAMLCodec.serialize(try YAMLCodec.parse(yaml)), yaml)
     }
 
+    func testUnsupportedBlockScalarFailsInsteadOfPartiallyParsing() {
+        let yaml = "description: |\n  first line\nafter: preserved\n"
+
+        XCTAssertThrowsError(try YAMLCodec.parse(yaml))
+    }
+
     func testStringWithEmbeddedNewlineRoundTrips() throws {
         var map = YAMLMap()
         map["note"] = .string("line one\nline two")

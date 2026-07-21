@@ -353,6 +353,24 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
     }
 
+    func testUnsupportedFrontmatterFallsBackWithoutDataLoss() async throws {
+        let path = "notes/human-yaml.md"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let text = "---\ndescription: |\n  first line\n  second line\nafter: preserved\n---\n\nBody.\n"
+
+        try await store.write(text, to: path)
+
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, text)
+        XCTAssertEqual(loggedFailures.values.count, 1)
+        XCTAssertTrue(loggedFailures.values[0].contains(path))
+        XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
+    }
+
     @MainActor
     func testMainActorPublicPathsUseBackgroundCoordinatorAndPropagateErrors() async throws {
         let path = "notes/example.md"
