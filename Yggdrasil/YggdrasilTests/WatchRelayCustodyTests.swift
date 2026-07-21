@@ -37,6 +37,62 @@ final class WatchRelayCustodyTests: XCTestCase {
         XCTAssertNotNil(custody.lastError)
     }
 
+    func testRelaunchReenqueuesRetainedFilesNotAlreadyOutstanding() throws {
+        let directory = try makeDirectory()
+        let first = directory.appendingPathComponent("first.m4a")
+        let second = directory.appendingPathComponent("second.m4a")
+        try Data("first memo".utf8).write(to: first)
+        try Data("second memo".utf8).write(to: second)
+        let transport = RecordingWatchRelayTransport()
+        let custody = WatchRelayCustody()
+
+        custody.reconcileQueue(from: directory, using: transport)
+
+        XCTAssertEqual(Set(transport.transferredURLs), Set([first, second]))
+        XCTAssertEqual(Set(custody.queuedFiles), Set([first, second]))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.path))
+    }
+
+    func testRelaunchKeepsOfflineFilesUntilAReachableRetryIsQueued() throws {
+        let directory = try makeDirectory()
+        let fileURL = directory.appendingPathComponent("offline.m4a")
+        try Data("offline memo".utf8).write(to: fileURL)
+        let custody = WatchRelayCustody()
+
+        custody.reconcileQueue(from: directory, using: OfflineWatchRelayTransport())
+
+        XCTAssertEqual(custody.queuedFiles, [fileURL])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertNotNil(custody.lastError)
+
+        let reachableTransport = RecordingWatchRelayTransport()
+        custody.reconcileQueue(from: directory, using: reachableTransport)
+
+        XCTAssertEqual(reachableTransport.transferredURLs, [fileURL])
+        XCTAssertEqual(custody.queuedFiles, [fileURL])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+    }
+
+    func testRelaunchRetainsOutstandingTransferUntilItsConfirmedCompletion() throws {
+        let directory = try makeDirectory()
+        let fileURL = directory.appendingPathComponent("outstanding.m4a")
+        try Data("memo".utf8).write(to: fileURL)
+        let transport = RecordingWatchRelayTransport(outstandingURLs: [fileURL])
+        let custody = WatchRelayCustody()
+
+        custody.reconcileQueue(from: directory, using: transport)
+
+        XCTAssertTrue(transport.transferredURLs.isEmpty)
+        XCTAssertEqual(custody.queuedFiles, [fileURL])
+        custody.complete(
+            transfer: WatchRelayTransfer(identifier: UUID(), fileURL: fileURL),
+            error: nil
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertTrue(custody.queuedFiles.isEmpty)
+    }
+
     private func makeDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -49,6 +105,28 @@ private final class FakeWatchRelayTransport: WatchRelayTransferring {
 
     init(transfer: WatchRelayTransfer) { self.transfer = transfer }
     func transfer(fileURL: URL) throws -> WatchRelayTransfer { transfer }
+    func outstandingFileURLs() -> Set<URL> { [] }
+}
+
+private final class RecordingWatchRelayTransport: WatchRelayTransferring {
+    private let outstandingURLs: Set<URL>
+    private(set) var transferredURLs: [URL] = []
+
+    init(outstandingURLs: Set<URL> = []) {
+        self.outstandingURLs = outstandingURLs
+    }
+
+    func transfer(fileURL: URL) throws -> WatchRelayTransfer {
+        transferredURLs.append(fileURL)
+        return WatchRelayTransfer(identifier: UUID(), fileURL: fileURL)
+    }
+
+    func outstandingFileURLs() -> Set<URL> { outstandingURLs }
+}
+
+private struct OfflineWatchRelayTransport: WatchRelayTransferring {
+    func transfer(fileURL: URL) throws -> WatchRelayTransfer { throw FakeRelayError.failed }
+    func outstandingFileURLs() -> Set<URL> { [] }
 }
 
 private enum FakeRelayError: LocalizedError {

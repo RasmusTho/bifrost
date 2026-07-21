@@ -18,9 +18,14 @@ final class WatchConnectivityRelayTransport: NSObject, WatchRelayTransferring, W
     func transfer(fileURL: URL) throws -> WatchRelayTransfer {
         guard WCSession.isSupported() else { throw WatchRelayTransportError.unavailable }
         let transfer = WCSession.default.transferFile(fileURL, metadata: nil)
-        let token = WatchRelayTransfer(identifier: UUID())
+        let token = WatchRelayTransfer(identifier: UUID(), fileURL: fileURL)
         transferIDs[ObjectIdentifier(transfer)] = token
         return token
+    }
+
+    func outstandingFileURLs() -> Set<URL> {
+        guard WCSession.isSupported() else { return [] }
+        return Set(WCSession.default.outstandingFileTransfers.map { $0.file.fileURL })
     }
 
     func session(
@@ -30,7 +35,8 @@ final class WatchConnectivityRelayTransport: NSObject, WatchRelayTransferring, W
     ) {}
 
     func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
-        guard let token = transferIDs.removeValue(forKey: ObjectIdentifier(fileTransfer)) else { return }
+        let token = transferIDs.removeValue(forKey: ObjectIdentifier(fileTransfer))
+            ?? WatchRelayTransfer(identifier: UUID(), fileURL: fileTransfer.file.fileURL)
         completion?(token, error)
     }
 }

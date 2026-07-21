@@ -41,6 +41,7 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
         relay.completion = { [weak self] transfer, error in
             Task { @MainActor [weak self] in self?.handleRelayCompletion(transfer: transfer, error: error) }
         }
+        relay.activate()
         rebuildRelayQueue()
         installInterruptionObserver()
     }
@@ -50,8 +51,6 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
             NotificationCenter.default.removeObserver(interruptionObserver)
         }
     }
-
-    func activateRelay() { relay.activate() }
 
     func start() {
         guard model.start() else { return }
@@ -112,7 +111,7 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
 
     private func rebuildRelayQueue() {
         try? fileManager.createDirectory(at: recordingDirectory, withIntermediateDirectories: true)
-        custody.rebuildQueue(from: recordingDirectory)
+        custody.reconcileQueue(from: recordingDirectory, using: relay)
         model.updateQueuedRelayCount(custody.queuedCount)
     }
 

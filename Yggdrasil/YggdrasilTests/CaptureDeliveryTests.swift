@@ -240,6 +240,35 @@ final class CaptureDeliveryTests: XCTestCase {
         )
     }
 
+    func testWatchDelegateStagesFileBeforeCallbackSourceExpires() throws {
+        let incomingDirectory = try makeDirectory()
+        let stagingDirectory = try makeDirectory()
+        let watchFile = incomingDirectory.appendingPathComponent("callback-lifetime.m4a")
+        let bytes = Data("watch memo".utf8)
+        try bytes.write(to: watchFile)
+        let model = CaptureSessionModel()
+        let receiver = WatchRelayReceiver(sessionModel: model, stagingDirectory: stagingDirectory)
+
+        XCTAssertTrue(receiver.receiveIncomingFile(at: watchFile))
+        try FileManager.default.removeItem(at: watchFile)
+
+        let stagedURL = try XCTUnwrap(
+            try FileManager.default.contentsOfDirectory(
+                at: stagingDirectory,
+                includingPropertiesForKeys: nil
+            ).first
+        )
+        XCTAssertEqual(try Data(contentsOf: stagedURL), bytes)
+    }
+
+    func testWatchRelayStartupActivatesReceiverBeforeAuthOrVaultUI() {
+        let receiver = StartupWatchRelayReceiver()
+
+        _ = WatchRelayStartup(receiver: receiver)
+
+        XCTAssertEqual(receiver.activationCount, 1)
+    }
+
     func testRebuildKeepsUnverifiableMediaOutOfDeliveryQueue() throws {
         let stagingDirectory = try makeDirectory()
         let validURL = stagingDirectory.appendingPathComponent("valid.m4a")
@@ -274,6 +303,12 @@ final class CaptureDeliveryTests: XCTestCase {
         XCTAssertTrue(model.stageCurrentItem(url: url, duration: 2, capturedAt: Date()))
         return model
     }
+}
+
+private final class StartupWatchRelayReceiver: WatchRelayActivating {
+    private(set) var activationCount = 0
+
+    func activate() { activationCount += 1 }
 }
 
 private enum InjectedDeliveryError: LocalizedError {

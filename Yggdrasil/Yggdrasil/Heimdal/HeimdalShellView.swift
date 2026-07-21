@@ -10,15 +10,13 @@ struct HeimdalShellView: View {
     @StateObject private var sessionModel = CaptureSessionModel()
     @StateObject private var recorder: CaptureRecorder
     @StateObject private var deliveryQueue: CaptureDeliveryQueue
-    @StateObject private var watchRelayReceiver: WatchRelayReceiver
     @State private var isFolderPickerPresented = false
 
-    init() {
-        let model = CaptureSessionModel()
+    init(sessionModel: CaptureSessionModel) {
+        let model = sessionModel
         _sessionModel = StateObject(wrappedValue: model)
         _recorder = StateObject(wrappedValue: CaptureRecorder(sessionModel: model))
         _deliveryQueue = StateObject(wrappedValue: CaptureDeliveryQueue(sessionModel: model))
-        _watchRelayReceiver = StateObject(wrappedValue: WatchRelayReceiver(sessionModel: model))
     }
 
     var body: some View {
@@ -106,7 +104,6 @@ struct HeimdalShellView: View {
                 }
             }
             .task {
-                watchRelayReceiver.activate()
                 await retryUndelivered()
             }
             .onChange(of: scenePhase) { _, newPhase in

@@ -3,10 +3,17 @@ import Foundation
 
 struct WatchRelayTransfer: Equatable {
     let identifier: UUID
+    let fileURL: URL?
+
+    init(identifier: UUID, fileURL: URL? = nil) {
+        self.identifier = identifier
+        self.fileURL = fileURL
+    }
 }
 
 protocol WatchRelayTransferring {
     func transfer(fileURL: URL) throws -> WatchRelayTransfer
+    func outstandingFileURLs() -> Set<URL>
 }
 
 /// Disk remains the custody ledger. A transfer acknowledgement is the only
@@ -35,6 +42,18 @@ final class WatchRelayCustody: ObservableObject {
         lastError = nil
     }
 
+    /// Reconciles disk (the custody ledger) with WatchConnectivity's retained
+    /// transfer queue on relaunch. Files not already owned by an outstanding
+    /// transfer are submitted again; every file stays on disk until a confirmed
+    /// completion callback removes it.
+    func reconcileQueue(from directoryURL: URL, using transport: WatchRelayTransferring) {
+        rebuildQueue(from: directoryURL)
+        let outstanding = Set(transport.outstandingFileURLs().map(normalizedURL))
+        for fileURL in queuedFiles where !outstanding.contains(normalizedURL(fileURL)) {
+            _ = enqueue(fileURL: fileURL, using: transport)
+        }
+    }
+
     @discardableResult
     func enqueue(fileURL: URL, using transport: WatchRelayTransferring) -> Bool {
         guard fileManager.fileExists(atPath: fileURL.path) else {
@@ -57,7 +76,7 @@ final class WatchRelayCustody: ObservableObject {
     /// Called only by WatchConnectivity's `didFinish(_:error:)` callback.
     /// A failed hand-off deliberately leaves the file on disk and in the queue.
     func complete(transfer: WatchRelayTransfer, error: Error?) {
-        guard let fileURL = transfers.removeValue(forKey: transfer.identifier) else { return }
+        guard let fileURL = transfers.removeValue(forKey: transfer.identifier) ?? transfer.fileURL else { return }
         guard error == nil else {
             lastError = error?.localizedDescription
             return
@@ -73,5 +92,9 @@ final class WatchRelayCustody: ObservableObject {
             if !queuedFiles.contains(fileURL) { queuedFiles.append(fileURL) }
             lastError = error.localizedDescription
         }
+    }
+
+    private func normalizedURL(_ url: URL) -> URL {
+        url.standardizedFileURL.resolvingSymlinksInPath()
     }
 }

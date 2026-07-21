@@ -52,7 +52,6 @@ struct WatchCaptureView: View {
             }
         }
         .padding()
-        .onAppear { recorder.activateRelay() }
     }
 
     private var actionTitle: String {
