@@ -52,9 +52,14 @@ final class WatchRelayFileStager {
         let destinationURL = stagingDirectory.appendingPathComponent(
             "watch-\(UUID().uuidString.lowercased()).m4a"
         )
-        try fileManager.copyItem(at: fileURL, to: destinationURL)
         if let metadata {
             try metadataStore.write(metadata, for: destinationURL)
+        }
+        do {
+            try fileManager.copyItem(at: fileURL, to: destinationURL)
+        } catch {
+            try? metadataStore.remove(for: destinationURL)
+            throw error
         }
         return destinationURL
     }
