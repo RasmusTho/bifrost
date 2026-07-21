@@ -12,21 +12,24 @@ struct YAMLProvenanceAnchorBindings {
             if blockScalarContent.contains(index) { continue }
             let character = characters[index]
             if state.consume(character, at: index, in: characters) { continue }
-            guard character == "&", Self.isPropertyPosition(at: index, in: characters),
-                  let name = Self.anchorName(at: index, in: characters),
-                  let nodeStart = Self.provenScalarNodeStart(after: index, in: characters) else {
-                continue
-            }
-            bindings.append(
-                YAMLProvenanceAnchorBinding(
-                    name: name,
-                    position: index,
-                    resolvesToActiveName: YAMLProvenanceKey.isLiteralActiveNode(
+            if character == "&", Self.isPropertyPosition(at: index, in: characters),
+               let name = Self.anchorName(at: index, in: characters) {
+                let isActive = Self.provenScalarNodeStart(after: index, in: characters).map {
+                    YAMLProvenanceKey.isLiteralActiveNode(
                         in: characters,
-                        startingAt: nodeStart
+                        startingAt: $0,
+                        isInFlow: state.isInsideFlow
+                    )
+                } ?? false
+                bindings.append(
+                    YAMLProvenanceAnchorBinding(
+                        name: name,
+                        position: index,
+                        resolvesToActiveName: isActive
                     )
                 )
-            )
+            }
+            state.trackDepth(character)
         }
         events = bindings
     }
@@ -42,12 +45,38 @@ struct YAMLProvenanceAnchorBindings {
     private static func isPropertyPosition(at index: Int, in characters: [Character]) -> Bool {
         let start = lineStart(before: index, in: characters)
         let trimmed = String(characters[start..<index]).trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty || YAMLNodeStart.containsOnlyProperties(in: trimmed) { return true }
+        if trimmed.isEmpty || YAMLNodeStart.containsOnlyProperties(in: trimmed) {
+            return isStandaloneNodeLine(at: start, in: characters)
+        }
         if trimmed == "-" || trimmed == "?" { return true }
         for separator in trimmed.indices.reversed() where trimmed[separator] == ":" {
             let after = trimmed.index(after: separator)
             let suffix = String(trimmed[after...]).trimmingCharacters(in: .whitespaces)
             if suffix.isEmpty || YAMLNodeStart.containsOnlyProperties(in: suffix) { return true }
+        }
+        return false
+    }
+
+    private static func isStandaloneNodeLine(at lineStart: Int, in characters: [Character]) -> Bool {
+        guard lineStart > 0 else { return true }
+        let currentIndent = indentation(at: lineStart, in: characters)
+        var previousEnd = lineStart - 1
+        while previousEnd > 0 {
+            let previousStart = self.lineStart(before: previousEnd, in: characters)
+            let line = String(characters[previousStart..<previousEnd])
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty, !trimmed.hasPrefix("#") {
+                let previousIndent = indentation(at: previousStart, in: characters)
+                if previousIndent == currentIndent, YAMLNodeStart.containsOnlyProperties(in: trimmed) {
+                    return true
+                }
+                guard previousIndent < currentIndent else { return false }
+                let withoutComment = line.split(separator: "#", maxSplits: 1).first.map(String.init) ?? line
+                let indicator = withoutComment.trimmingCharacters(in: .whitespaces)
+                return indicator == "?" || indicator == "-" || indicator.hasSuffix(":")
+            }
+            guard previousStart > 0 else { break }
+            previousEnd = previousStart - 1
         }
         return false
     }
@@ -152,6 +181,10 @@ private struct YAMLAnchorScanState {
     private var inVerbatimTag = false
     private var escapingDoubleQuote = false
     private var skipNextSingleQuote = false
+    private var curlyDepth = 0
+    private var squareDepth = 0
+
+    var isInsideFlow: Bool { curlyDepth > 0 || squareDepth > 0 }
 
     mutating func consume(_ character: Character, at index: Int, in characters: [Character]) -> Bool {
         if consumeComment(character) { return true }
@@ -228,6 +261,16 @@ private struct YAMLAnchorScanState {
         if character == "\"" { quote = .double; return true }
         if character == "'" { quote = .single; return true }
         return false
+    }
+
+    mutating func trackDepth(_ character: Character) {
+        switch character {
+        case "{": curlyDepth += 1
+        case "}": curlyDepth = max(0, curlyDepth - 1)
+        case "[": squareDepth += 1
+        case "]": squareDepth = max(0, squareDepth - 1)
+        default: break
+        }
     }
 }
 

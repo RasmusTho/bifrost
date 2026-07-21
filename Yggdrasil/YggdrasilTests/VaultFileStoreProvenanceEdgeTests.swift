@@ -230,4 +230,93 @@ extension VaultFileStoreTests {
         }
         XCTAssertEqual(loggedFailures.values.count, cases.count)
     }
+
+    func testAnchorProofRequiresTheCompleteScalarValue() async throws {
+        struct ProvenanceFailure: Error {}
+        let lookalikes = [
+            "agent_provenance extra",
+            "agent_provenance:foo",
+            "agent_provenance[foo]",
+            "agent_provenance,foo"
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for (index, lookalike) in lookalikes.enumerated() {
+            let path = "notes/anchor-lookalike-\(index).md"
+            let text = "---\nbase: &ap \(lookalike)\n*ap: foreign\n---\n"
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, text)
+        }
+        XCTAssertEqual(loggedFailures.values.count, lookalikes.count)
+        XCTAssertTrue(loggedFailures.values.allSatisfy { $0.contains("without refreshed provenance") })
+    }
+
+    func testNonScalarAnchorRedefinitionsClearPriorActiveBindings() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            "---\nactive: &ap agent_provenance\nforeign: &ap\n  nested: value\n*ap: keep\n---\n",
+            "---\nactive: &ap agent_provenance\nforeign: &ap\n*ap: keep\n---\n"
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for (index, text) in cases.enumerated() {
+            let path = "notes/inactive-anchor-redefinition-\(index).md"
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, text)
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+    }
+
+    func testMultilinePlainScalarCannotForgeAnAnchorBinding() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/multiline-plain-anchor-lookalike.md"
+        let text = "---\nreal: &ap human-key\ntext: hello\n  &ap agent_provenance\n*ap: foreign\n---\n"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        try await store.write(text, to: path)
+
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, text)
+        XCTAssertEqual(loggedFailures.values.count, 1)
+        XCTAssertTrue(loggedFailures.values[0].contains("without refreshed provenance"))
+    }
+
+    func testCommentColonsCannotTurnScalarDocumentsIntoMappings() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            "---\nagent_provenance # mention: value\n---\n",
+            "---\n\"agent_provenance\" # mention: value\n---\n"
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for (index, text) in cases.enumerated() {
+            let path = "notes/comment-colon-scalar-\(index).md"
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, text)
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+    }
 }

@@ -175,6 +175,10 @@ enum YAMLBlockProvenanceSanitizer {
                 continue
             }
             if character == "\"" || character == "'" { quote = character; continue }
+            if character == "#" {
+                let previous = index > line.startIndex ? line[line.index(before: index)] : nil
+                if previous == nil || previous?.isWhitespace == true { return nil }
+            }
             guard character == ":", index != line.startIndex else { continue }
             let next = line.index(after: index)
             if next == line.endIndex || line[next].isWhitespace { return index }
@@ -230,15 +234,40 @@ enum YAMLProvenanceKey {
         return candidate
     }
 
-    static func isLiteralActiveNode(in characters: [Character], startingAt start: Int) -> Bool {
+    static func isLiteralActiveNode(
+        in characters: [Character],
+        startingAt start: Int,
+        isInFlow: Bool
+    ) -> Bool {
         for form in [Array(activeName), Array("\"\(activeName)\""), Array("'\(activeName)'")] {
             let end = start + form.count
             guard end <= characters.count, Array(characters[start..<end]) == form else { continue }
-            if end == characters.count || characters[end].isWhitespace || "[]{} ,:".contains(characters[end]) {
-                return true
-            }
+            if isExactScalarTerminator(after: end, in: characters, isInFlow: isInFlow) { return true }
         }
         return false
+    }
+
+    private static func isExactScalarTerminator(
+        after end: Int,
+        in characters: [Character],
+        isInFlow: Bool
+    ) -> Bool {
+        guard end < characters.count else { return true }
+        var index = end
+        if characters[index] == ":" {
+            let next = index + 1
+            return next == characters.count || characters[next].isWhitespace
+                || (isInFlow && "[]{},".contains(characters[next]))
+        }
+        if isInFlow, "[],}".contains(characters[index]) { return true }
+        guard characters[index].isWhitespace else { return false }
+        while index < characters.count, characters[index].isWhitespace,
+              characters[index] != "\n", characters[index] != "\r" {
+            index += 1
+        }
+        guard index < characters.count else { return true }
+        if characters[index] == "\n" || characters[index] == "\r" || characters[index] == "#" { return true }
+        return isInFlow && "[],}".contains(characters[index])
     }
 
     private static func containsOnlyTrivia(_ suffix: ArraySlice<Character>) -> Bool {
