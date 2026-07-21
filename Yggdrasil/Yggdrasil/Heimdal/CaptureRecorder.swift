@@ -27,8 +27,7 @@ struct AVFoundationCaptureMediaValidator: CaptureMediaValidating {
             guard readableFrames > 0,
                   let buffer = AVAudioPCMBuffer(
                       pcmFormat: audioFile.processingFormat,
-                      frameCapacity: AVAudioFrameCount(readableFrames)
-                  ) else {
+                      frameCapacity: AVAudioFrameCount(readableFrames)) else {
                 return .failure(.invalidOrUnverifiableMedia)
             }
 
@@ -41,17 +40,11 @@ struct AVFoundationCaptureMediaValidator: CaptureMediaValidating {
                 audioFile.framePosition = audioFile.length - readableFrames
                 guard let tailBuffer = AVAudioPCMBuffer(
                     pcmFormat: audioFile.processingFormat,
-                    frameCapacity: AVAudioFrameCount(readableFrames)
-                ) else {
+                    frameCapacity: AVAudioFrameCount(readableFrames)) else {
                     return .failure(.invalidOrUnverifiableMedia)
                 }
-                try audioFile.read(
-                    into: tailBuffer,
-                    frameCount: AVAudioFrameCount(readableFrames)
-                )
-                guard tailBuffer.frameLength > 0 else {
-                    return .failure(.invalidOrUnverifiableMedia)
-                }
+                try audioFile.read(into: tailBuffer, frameCount: AVAudioFrameCount(readableFrames))
+                guard tailBuffer.frameLength > 0 else { return .failure(.invalidOrUnverifiableMedia) }
             }
 
             let sampleRate = audioFile.processingFormat.sampleRate
@@ -406,6 +399,12 @@ private extension CaptureRecorder {
     }
 
     func failTerminalCapture(_ error: Swift.Error) {
+        if let url = activeCapture?.url,
+           FileManager.default.fileExists(atPath: url.path) {
+            sessionModel.recordRecoveryFailure(
+                url: url, detectedAt: Date(), reason: .invalidOrUnverifiableMedia
+            )
+        }
         _ = sessionModel.failCurrentItem()
         lastError = error.localizedDescription
         finishTerminalCleanup()

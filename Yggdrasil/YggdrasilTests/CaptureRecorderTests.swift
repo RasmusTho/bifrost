@@ -164,6 +164,15 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertTrue(recorder.lastError?.contains("complete, decodable audio") == true)
         let outputURL = try XCTUnwrap(writer.lastOutputURL)
         XCTAssertEqual(try Data(contentsOf: outputURL), CaptureTestAudio.truncatedM4A)
+        let recoveryFailure = try XCTUnwrap(recorder.sessionModel.recoveryFailures.first)
+        XCTAssertEqual(recoveryFailure.url, outputURL)
+        XCTAssertEqual(recoveryFailure.reason, .invalidOrUnverifiableMedia)
+
+        recorder.start()
+
+        XCTAssertEqual(recorder.sessionModel.phase, .recording)
+        XCTAssertNil(recorder.lastError)
+        XCTAssertEqual(recorder.sessionModel.recoveryFailures.first?.url, outputURL)
     }
 
     func testRouteChangeFinalizesThroughCompletionBoundary() async {
