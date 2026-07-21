@@ -325,21 +325,26 @@ extension VaultFileStoreTests {
 
     func testInvalidFlowRootPreservesUnverifiableBytesAndLogs() async throws {
         struct ProvenanceFailure: Error {}
-        let path = "notes/invalid-flow-root.md"
+        let cases = [
+            ("notes/invalid-flow-missing-comma.md", "{agent_provenance: old title: Keep}"),
+            ("notes/invalid-flow-embedded-collection.md", "{agent_provenance: old [title]}"),
+            ("notes/invalid-flow-trailing-node.md", "{agent_provenance: {author: old} title}")
+        ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
             rootURL: tempDirectory,
             provenanceTimestampProvider: { throw ProvenanceFailure() },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-        let text = "---\n{agent_provenance: old title: Keep}\n---\n\nBody.\n"
-        try await store.write(text, to: path)
-        let saved = try await store.read(path)
-        XCTAssertEqual(saved, text)
-        XCTAssertTrue(saved.contains("title: Keep"))
-        XCTAssertEqual(loggedFailures.values.count, 1)
-        XCTAssertTrue(loggedFailures.values[0].contains(path))
-        XCTAssertTrue(loggedFailures.values[0].contains("without refreshed provenance"))
+        for (path, frontmatter) in cases {
+            let text = "---\n\(frontmatter)\n---\n\nBody.\n"
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, text)
+            XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+        XCTAssertTrue(loggedFailures.values.allSatisfy { $0.contains("without refreshed provenance") })
     }
 
     func testUnsafeUnprovenancedFrontmatterIsPreservedAndLogged() async throws {

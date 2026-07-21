@@ -93,7 +93,8 @@ enum YAMLProvenanceSanitizer {
         previousComma: Int?
     ) -> [Int]? {
         guard let keyStart = firstYAMLContentIndex(in: characters, range: entryStart..<entryEnd),
-              let separator = flowMappingSeparator(in: characters, range: keyStart..<entryEnd) else {
+              let separator = flowMappingSeparator(in: characters, range: keyStart..<entryEnd),
+              isSafelyBoundedFlowValue(in: characters, range: (separator + 1)..<entryEnd) else {
             return nil
         }
         let key = String(characters[keyStart..<separator]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -106,6 +107,83 @@ enum YAMLProvenanceSanitizer {
             removal.append(previousComma)
         }
         return removal
+    }
+
+    private static func isSafelyBoundedFlowValue(in characters: [Character], range: Range<Int>) -> Bool {
+        guard let contentStart = firstYAMLContentIndex(in: characters, range: range) else { return true }
+        guard let nodeStart = YAMLNodeStart.index(in: characters, startingAt: contentStart) else {
+            return YAMLNodeStart.containsOnlyProperties(in: String(characters[contentStart..<range.upperBound]))
+        }
+        let node = characters[nodeStart]
+        if node == "{" || node == "[" {
+            guard let nodeEnd = flowCollectionEndIndex(
+                in: characters,
+                start: nodeStart,
+                before: range.upperBound
+            ) else { return false }
+            return firstYAMLContentIndex(in: characters, range: (nodeEnd + 1)..<range.upperBound) == nil
+        }
+        if node == "\"" || node == "'" {
+            guard let nodeEnd = quotedScalarEndIndex(
+                in: characters,
+                start: nodeStart,
+                before: range.upperBound
+            ) else { return false }
+            return firstYAMLContentIndex(in: characters, range: (nodeEnd + 1)..<range.upperBound) == nil
+        }
+        return plainFlowValueHasNoCollectionDelimiters(
+            in: characters,
+            range: nodeStart..<range.upperBound
+        )
+    }
+
+    private static func flowCollectionEndIndex(
+        in characters: [Character],
+        start: Int,
+        before end: Int
+    ) -> Int? {
+        var state = YAMLFlowParseState(
+            curlyDepth: characters[start] == "{" ? 1 : 0,
+            squareDepth: characters[start] == "[" ? 1 : 0
+        )
+        for index in (start + 1)..<end {
+            let character = characters[index]
+            if state.consume(character, context: characterContext(at: index, in: characters)) { continue }
+            state.trackDepth(character)
+            if state.curlyDepth == 0, state.squareDepth == 0 { return index }
+        }
+        return nil
+    }
+
+    private static func quotedScalarEndIndex(
+        in characters: [Character],
+        start: Int,
+        before end: Int
+    ) -> Int? {
+        var state = YAMLFlowParseState()
+        _ = state.consume(characters[start], context: characterContext(at: start, in: characters))
+        for index in (start + 1)..<end {
+            _ = state.consume(characters[index], context: characterContext(at: index, in: characters))
+            if state.quote == nil { return index }
+        }
+        return nil
+    }
+
+    private static func plainFlowValueHasNoCollectionDelimiters(
+        in characters: [Character],
+        range: Range<Int>
+    ) -> Bool {
+        for index in range {
+            let character = characters[index]
+            let previous = index > range.lowerBound ? characters[index - 1] : nil
+            if character == "#", previous?.isWhitespace == true { return true }
+            if "[]{}".contains(character) { return false }
+            if character == "?", previous?.isWhitespace == true {
+                let next = index + 1
+                if next == range.upperBound || characters[next].isWhitespace { return false }
+            }
+        }
+        return true
     }
 
     private static func flowMappingSeparator(in characters: [Character], range: Range<Int>) -> Int? {
@@ -278,8 +356,9 @@ private struct YAMLFlowParseState {
     private var escapingDoubleQuote = false
     private var skipNextSingleQuote = false
 
-    init(curlyDepth: Int = 0) {
+    init(curlyDepth: Int = 0, squareDepth: Int = 0) {
         self.curlyDepth = curlyDepth
+        self.squareDepth = squareDepth
     }
 
     var isAtRootMappingDepth: Bool { curlyDepth == 1 && squareDepth == 0 }
