@@ -330,10 +330,11 @@ final class VaultFileStoreTests: XCTestCase {
         }
         XCTAssertEqual(coordinator.writeAttempts, 3)
     }
+}
 
+extension VaultFileStoreTests {
     func testProvenanceFailureDoesNotBlockWrite() async throws {
         struct ProvenanceFailure: Error {}
-
         let path = "notes/untagged.md"
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
@@ -342,9 +343,7 @@ final class VaultFileStoreTests: XCTestCase {
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
         let text = "---\ntitle: Untagged fallback\n---\n\nThe user's write still lands.\n"
-
         try await store.write(text, to: path)
-
         let saved = try await store.read(path)
         XCTAssertEqual(saved, text)
         XCTAssertFalse(saved.contains("agent_provenance"))
@@ -380,9 +379,7 @@ final class VaultFileStoreTests: XCTestCase {
 
         Body.
         """
-
         try await store.write(text, to: path)
-
         let saved = try await store.read(path)
         XCTAssertEqual(saved, """
         ---
@@ -401,6 +398,36 @@ final class VaultFileStoreTests: XCTestCase {
         Body.
         """)
         XCTAssertTrue(loggedFailures.values.isEmpty)
+    }
+
+    func testAmbiguousExistingProvenanceIsPreservedAndLogged() async throws {
+        let cases = [
+            (
+                "notes/block-provenance.md",
+                "---\ntitle: Keep\nagent_provenance: |\n  legacy attribution\nnext: keep\n---\n\nBody.\n"
+            ),
+            (
+                "notes/separated-provenance.md",
+                "---\ntitle: Keep\nagent_provenance:\n  author: old\n\n"
+                    + "  written_at: old\n  origin: imported\nnext: keep\n---\n\nBody.\n"
+            )
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { "2026-07-21T10:30:00Z" },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        for (path, text) in cases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, text)
+        }
+
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+        for (path, _) in cases {
+            XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
+        }
     }
 
     @MainActor

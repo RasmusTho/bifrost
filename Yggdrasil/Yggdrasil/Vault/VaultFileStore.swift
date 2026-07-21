@@ -125,11 +125,18 @@ private enum VaultWriteProvenance {
             }
             let remainder = lines[startIndex].dropFirst("agent_provenance:".count)
                 .trimmingCharacters(in: .whitespaces)
+            guard remainder.isEmpty else {
+                throw InjectionError.unsafeFrontmatter
+            }
             var endIndex = startIndex + 1
-            if remainder.isEmpty {
-                while endIndex < closingIndex, lines[endIndex].first?.isWhitespace == true {
-                    endIndex += 1
+            while endIndex < closingIndex {
+                let line = lines[endIndex]
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
+                    throw InjectionError.unsafeFrontmatter
                 }
+                guard line.first?.isWhitespace == true else { break }
+                endIndex += 1
             }
             lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
         } else {
