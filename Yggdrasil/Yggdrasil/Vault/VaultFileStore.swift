@@ -128,21 +128,31 @@ private enum VaultWriteProvenance {
             guard remainder.isEmpty else {
                 throw InjectionError.unsafeFrontmatter
             }
-            var endIndex = startIndex + 1
-            while endIndex < closingIndex {
-                let line = lines[endIndex]
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
-                    throw InjectionError.unsafeFrontmatter
-                }
-                guard line.first?.isWhitespace == true else { break }
-                endIndex += 1
-            }
+            let endIndex = try replacementEnd(in: lines, after: startIndex, before: closingIndex)
             lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
         } else {
             try insert(provenanceLines, into: &lines, before: closingIndex)
         }
         return lines.joined(separator: newline)
+    }
+    private static func replacementEnd(in lines: [String], after start: Int, before closing: Int) throws -> Int {
+        var end = start + 1
+        while end < closing {
+            let line = lines[end]
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
+                throw InjectionError.unsafeFrontmatter
+            }
+            if line.first?.isWhitespace == true {
+                end += 1
+                continue
+            }
+            guard trimmed != "-", !trimmed.hasPrefix("- ") else {
+                throw InjectionError.unsafeFrontmatter
+            }
+            break
+        }
+        return end
     }
 
     private static func insert(_ provenance: [String], into lines: inout [String], before closingIndex: Int) throws {

@@ -1,12 +1,10 @@
 import XCTest
 import YggdrasilCore
 @testable import Yggdrasil
-
 enum VaultFileStoreCoordinationOperation: Equatable {
     case read
     case write
 }
-
 final class RecordingCoordinator: VaultFileCoordinating, @unchecked Sendable {
     var operations: [VaultFileStoreCoordinationOperation] = []
     var beforeNextWrite: (@Sendable (URL) throws -> Void)?
@@ -203,10 +201,11 @@ private final class AtomicReadProbe: @unchecked Sendable {
 final class VaultFileStoreTests: XCTestCase {
     private var tempDirectory = FileManager.default.temporaryDirectory
 
-    private func tagged(_ text: String, writtenAt timestamp: String) throws -> String {
-        var document = try FrontmatterDocument.parse(text)
-        document.applyBifrostProvenance(writtenAt: timestamp)
-        return document.rendered()
+    private func genericallyTagged(_ text: String, writtenAt timestamp: String) throws -> String {
+        let closing = try XCTUnwrap(text.range(of: "\n---\n"))
+        let replacement = "\nagent_provenance:\n  author: bifrost-ios\n"
+            + "  written_at: \(timestamp)\n  origin: direct-fs\n---\n"
+        return text.replacingCharacters(in: closing, with: replacement)
     }
 
     override func setUpWithError() throws {
@@ -227,8 +226,8 @@ final class VaultFileStoreTests: XCTestCase {
         let oldText = "---\nversion: old\n---\n\n" + String(repeating: "o", count: 256_000)
         let newText = "---\nversion: new\n---\n\n" + String(repeating: "n", count: 256_000)
         let timestamp = "2026-07-21T10:15:30Z"
-        let taggedOldText = try tagged(oldText, writtenAt: timestamp)
-        let taggedNewText = try tagged(newText, writtenAt: timestamp)
+        let taggedOldText = try genericallyTagged(oldText, writtenAt: timestamp)
+        let taggedNewText = try genericallyTagged(newText, writtenAt: timestamp)
         var taggedModifiedDocument = try FrontmatterDocument.parse(taggedNewText)
         taggedModifiedDocument.frontmatter["replaced"] = .bool(true)
         let taggedModifiedText = taggedModifiedDocument.rendered()
@@ -412,7 +411,8 @@ extension VaultFileStoreTests {
             ("notes/flow-map.md", "---\n{tags: [one, two]}\n---\n\nBody.\n"),
             ("notes/sequence.md", "---\n- one\n- two\n---\n\nBody.\n"),
             ("notes/double-quoted.md", "---\n\"literal: scalar\"\n---\n\nBody.\n"),
-            ("notes/single-quoted.md", "---\n'literal: scalar'\n---\n\nBody.\n")
+            ("notes/single-quoted.md", "---\n'literal: scalar'\n---\n\nBody.\n"),
+            ("notes/indentless-sequence.md", "---\nagent_provenance:\n- author: old\nnext: keep\n---\n")
         ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
