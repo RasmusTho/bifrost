@@ -120,7 +120,7 @@ final class CaptureRecorderTests: XCTestCase {
         let recovered = try XCTUnwrap(relaunchedRecorder.sessionModel.stagedItems.first)
         XCTAssertEqual(relaunchedRecorder.sessionModel.phase, .staged)
         XCTAssertEqual(recovered.url, orphan)
-        XCTAssertEqual(recovered.deliveryState, .deliveryPending)
+        XCTAssertEqual(recovered.deliveryState, .staged)
         XCTAssertTrue(recovered.wasRecoveredAfterRestart)
         XCTAssertTrue(FileManager.default.fileExists(atPath: orphan.path))
         XCTAssertTrue(relaunchedRecorder.sessionModel.recoveryFailures.isEmpty)

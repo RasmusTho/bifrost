@@ -39,6 +39,21 @@ final class CaptureFolderManager: ObservableObject {
 
     var isBound: Bool { boundFolderURL != nil }
 
+    /// Opens the persisted security scope for the complete asynchronous delivery
+    /// attempt. The caller must pair success with `endAccessingBoundFolder`.
+    func beginAccessingBoundFolder() -> URL? {
+        guard let folderURL = boundFolderURL else { return nil }
+        guard beginSecurityScope(folderURL) else {
+            lastError = "This capture folder is no longer reachable. Pick it again from Files."
+            return nil
+        }
+        return folderURL
+    }
+
+    func endAccessingBoundFolder(_ folderURL: URL) {
+        endSecurityScope(folderURL)
+    }
+
     func bind(folderURL: URL) {
         guard beginSecurityScope(folderURL) else {
             lastError = "Couldn't access the selected capture folder. Try picking it again."

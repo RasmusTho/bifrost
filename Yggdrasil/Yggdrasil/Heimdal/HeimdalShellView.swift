@@ -5,15 +5,18 @@ import UniformTypeIdentifiers
 /// Heimdal's isolated capture-client entry surface. It owns no Mimer lens
 /// state and no vault writes; later capture slices extend this boundary.
 struct HeimdalShellView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var folderManager = CaptureFolderManager()
     @StateObject private var sessionModel = CaptureSessionModel()
     @StateObject private var recorder: CaptureRecorder
+    @StateObject private var deliveryQueue: CaptureDeliveryQueue
     @State private var isFolderPickerPresented = false
 
     init() {
         let model = CaptureSessionModel()
         _sessionModel = StateObject(wrappedValue: model)
         _recorder = StateObject(wrappedValue: CaptureRecorder(sessionModel: model))
+        _deliveryQueue = StateObject(wrappedValue: CaptureDeliveryQueue(sessionModel: model))
     }
 
     var body: some View {
@@ -68,6 +71,7 @@ struct HeimdalShellView: View {
                                     .font(YggTheme.Typography.caption)
                                     .foregroundStyle(YggTheme.Color.textSecondary)
                             }
+                            deliveryStatus(for: item)
                         }
                     }
                 }
@@ -96,7 +100,16 @@ struct HeimdalShellView: View {
                 CaptureFolderPicker { url in
                     folderManager.bind(folderURL: url)
                     isFolderPickerPresented = false
+                    Task { await retryUndelivered() }
                 }
+            }
+            .task { await retryUndelivered() }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                Task { await retryUndelivered() }
+            }
+            .onChange(of: sessionModel.stagedItems.map(\.id)) { _, _ in
+                Task { await deliverNewlyStaged() }
             }
         }
     }
@@ -114,6 +127,72 @@ struct HeimdalShellView: View {
             Task { await recorder.stop() }
         default: recorder.requestMicrophonePermissionAndStart()
         }
+    }
+
+    @ViewBuilder
+    private func deliveryStatus(for item: CaptureSessionModel.StagedItem) -> some View {
+        switch item.deliveryState {
+        case .staged:
+            Label("Staged locally", systemImage: "internaldrive")
+                .accessibilityIdentifier("heimdal.delivery.staged")
+        case let .delivering(startedAt):
+            Label("Placing in capture folder", systemImage: "arrow.up.doc")
+            Text(startedAt, format: .dateTime.hour().minute().second())
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.textSecondary)
+        case let .deliveredAwaitingSync(placedAt):
+            Label("Placed in capture folder", systemImage: "checkmark.circle")
+                .accessibilityIdentifier("heimdal.delivery.placed")
+            Text(placedAt, format: .dateTime.hour().minute().second())
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.textSecondary)
+            Text("iCloud sync and hub admission are not confirmed here.")
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.textSecondary)
+        case let .failed(message, failedAt):
+            Label("Delivery failed — recording kept locally", systemImage: "exclamationmark.circle")
+                .foregroundStyle(.red)
+                .accessibilityIdentifier("heimdal.delivery.failed")
+            Text(failedAt, format: .dateTime.hour().minute().second())
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.textSecondary)
+            Text(message)
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.textSecondary)
+            Button("Retry Placement") {
+                Task { await retry(itemID: item.id) }
+            }
+            .accessibilityIdentifier("heimdal.delivery.retry")
+        }
+    }
+
+    private func retryUndelivered() async {
+        await withBoundCaptureFolder { folderURL in
+            await deliveryQueue.retryUndelivered(to: folderURL)
+        }
+    }
+
+    private func deliverNewlyStaged() async {
+        await withBoundCaptureFolder { folderURL in
+            await deliveryQueue.deliverNewlyStaged(to: folderURL)
+        }
+    }
+
+    private func retry(itemID: UUID) async {
+        await withBoundCaptureFolder { folderURL in
+            await deliveryQueue.deliver(itemID: itemID, to: folderURL)
+        }
+    }
+
+    private func withBoundCaptureFolder(
+        operation: (URL?) async -> Void
+    ) async {
+        guard let folderURL = folderManager.beginAccessingBoundFolder() else {
+            await operation(nil)
+            return
+        }
+        defer { folderManager.endAccessingBoundFolder(folderURL) }
+        await operation(folderURL)
     }
 }
 

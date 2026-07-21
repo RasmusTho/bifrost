@@ -16,10 +16,14 @@ final class CaptureSessionModelTests: XCTestCase {
         let itemID = UUID()
         XCTAssertTrue(model.stageCurrentItem(id: itemID))
         XCTAssertEqual(model.phase, .staged)
-        XCTAssertEqual(model.stagedItems.first?.deliveryState, .deliveryPending)
-        XCTAssertTrue(model.updateDeliveryState(for: itemID, to: .delivered))
-        XCTAssertEqual(model.stagedItems.first?.deliveryState, .delivered)
-        XCTAssertFalse(model.updateDeliveryState(for: UUID(), to: .failed))
+        XCTAssertEqual(model.stagedItems.first?.deliveryState, .staged)
+        let placedAt = Date()
+        XCTAssertTrue(model.updateDeliveryState(for: itemID, to: .deliveredAwaitingSync(placedAt: placedAt)))
+        XCTAssertEqual(model.stagedItems.first?.deliveryState, .deliveredAwaitingSync(placedAt: placedAt))
+        XCTAssertFalse(model.updateDeliveryState(
+            for: UUID(),
+            to: .failed(message: "failure", at: Date())
+        ))
         XCTAssertTrue(model.transition(to: .recording))
     }
 }

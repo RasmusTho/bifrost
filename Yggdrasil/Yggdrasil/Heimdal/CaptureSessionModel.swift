@@ -1,8 +1,8 @@
 import Foundation
 import SwiftUI
 
-/// UI-independent session progression. Audio capture and delivery are injected
-/// by later slices; this model only protects the state contract they must use.
+/// UI-independent capture and delivery progression. Durable custody remains on
+/// disk; these states explain the current process's view of each attempt.
 @MainActor
 final class CaptureSessionModel: ObservableObject {
     enum Phase: Equatable {
@@ -15,9 +15,10 @@ final class CaptureSessionModel: ObservableObject {
     }
 
     enum DeliveryState: Equatable {
-        case deliveryPending
-        case delivered
-        case failed
+        case staged
+        case delivering(startedAt: Date)
+        case deliveredAwaitingSync(placedAt: Date)
+        case failed(message: String, at: Date)
     }
 
     enum RecoveryFailureReason: Equatable {
@@ -75,7 +76,7 @@ final class CaptureSessionModel: ObservableObject {
             duration: duration,
             capturedAt: capturedAt,
             wasRecoveredAfterRestart: wasRecoveredAfterRestart,
-            deliveryState: .deliveryPending
+            deliveryState: .staged
         ))
         phase = .staged
         return true
@@ -104,13 +105,14 @@ final class CaptureSessionModel: ObservableObject {
         duration: TimeInterval,
         capturedAt: Date
     ) {
+        guard !stagedItems.contains(where: { $0.url == url }) else { return }
         stagedItems.append(StagedItem(
             id: id,
             url: url,
             duration: duration,
             capturedAt: capturedAt,
             wasRecoveredAfterRestart: true,
-            deliveryState: .deliveryPending
+            deliveryState: .staged
         ))
         if phase == .idle {
             phase = .staged
