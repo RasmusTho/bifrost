@@ -23,11 +23,13 @@ enum YAMLBlockProvenanceSanitizer {
             let content = rootContent(of: lines[index], rootIndent: rootIndent)
             if let content,
                let keyRange = implicitOrInlineExplicitKeyRange(in: content),
-               let token = YAMLProvenanceKey.replacementToken(
-                   in: String(content[keyRange]),
+               neutralizeInlineKey(
+                   in: &lines,
+                   at: index,
+                   content: content,
+                   keyRange: keyRange,
                    activeAliases: aliases.activeNames(before: frontmatterOffset)
                ) {
-                lines[index] = rootIndent + replacingKeyToken(in: content, keyRange: keyRange, token: token)
                 neutralized = true
             } else if let content, isBareExplicitKeyIndicator(content),
                       let keyLine = multilineExplicitKeyLine(
@@ -37,12 +39,19 @@ enum YAMLBlockProvenanceSanitizer {
                           rootIndent: rootIndent
                       ) {
                 let keyOffset = frontmatterOffset + lines[index..<keyLine].reduce(0) { $0 + $1.count + 1 }
-                let token = YAMLProvenanceKey.replacementToken(
+                let match = YAMLProvenanceKey.replacementMatch(
                     in: lines[keyLine].trimmingCharacters(in: .whitespaces),
                     activeAliases: aliases.activeNames(before: keyOffset)
                 )
-                if let token {
-                    lines[keyLine] = replacingKeyToken(in: lines[keyLine], token: token)
+                if let match {
+                    let neutralName = YAMLProvenanceKey.availableNeutralName(in: lines.joined(separator: "\n"))
+                    let indentation = lines[keyLine].prefix(while: { $0.isWhitespace }).count
+                    lines[keyLine] = replacingKey(
+                        in: lines[keyLine],
+                        match: match,
+                        offset: indentation,
+                        with: neutralName
+                    )
                     neutralized = true
                 }
             }
@@ -50,6 +59,29 @@ enum YAMLBlockProvenanceSanitizer {
             index += 1
         }
         return YAMLBlockProvenanceSanitization(lines: lines, neutralized: neutralized)
+    }
+
+    private static func neutralizeInlineKey(
+        in lines: inout [String],
+        at index: Int,
+        content: String,
+        keyRange: Range<String.Index>,
+        activeAliases: Set<String>
+    ) -> Bool {
+        guard let match = YAMLProvenanceKey.replacementMatch(
+            in: String(content[keyRange]),
+            activeAliases: activeAliases
+        ) else { return false }
+        let keyOffset = content.distance(from: content.startIndex, to: keyRange.lowerBound)
+        let rootIndent = lines[index].count - content.count
+        let neutralName = YAMLProvenanceKey.availableNeutralName(in: lines.joined(separator: "\n"))
+        lines[index] = replacingKey(
+            in: lines[index],
+            match: match,
+            offset: rootIndent + keyOffset,
+            with: neutralName
+        )
+        return true
     }
 
     private static func blockMappingRootIndent(in lines: ArraySlice<String>) -> String? {
@@ -102,18 +134,18 @@ enum YAMLBlockProvenanceSanitizer {
         return nil
     }
 
-    private static func replacingKeyToken(
+    private static func replacingKey(
         in line: String,
-        keyRange: Range<String.Index>? = nil,
-        token: String
+        match: YAMLProvenanceKeyMatch,
+        offset: Int,
+        with replacement: String
     ) -> String {
-        let bounds = keyRange ?? line.startIndex..<line.endIndex
-        guard let replacement = line.range(
-            of: token,
-            options: .backwards,
-            range: bounds
-        ) else { return line }
-        return line.replacingCharacters(in: replacement, with: YAMLProvenanceKey.neutralName)
+        var characters = Array(line)
+        characters.replaceSubrange(
+            (offset + match.range.lowerBound)..<(offset + match.range.upperBound),
+            with: Array(replacement)
+        )
+        return String(characters)
     }
 
     private static func isBareExplicitKeyIndicator(_ content: String) -> Bool {
@@ -155,28 +187,47 @@ enum YAMLProvenanceKey {
     static let activeName = "agent_provenance"
     static let neutralName = "former_writer_attribution"
 
-    static func replacementToken(in key: String, activeAliases: Set<String>) -> String? {
-        var candidate = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        if isExplicitMappingEntry(candidate) {
-            candidate = String(candidate.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+    static func replacementMatch(in key: String, activeAliases: Set<String>) -> YAMLProvenanceKeyMatch? {
+        let characters = Array(key)
+        guard var nodeStart = contentIndex(in: characters, startingAt: 0) else { return nil }
+        if isExplicitMappingEntry(at: nodeStart, in: characters) {
+            guard let explicitNode = contentIndex(in: characters, startingAt: nodeStart + 1) else { return nil }
+            nodeStart = explicitNode
         }
-        let characters = Array(candidate)
-        if let start = characters.indices.first,
-           let nodeStart = YAMLNodeStart.index(in: characters, startingAt: start),
-           nodeStart != start {
-            candidate = String(characters[nodeStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let scalarStart = YAMLNodeStart.index(in: characters, startingAt: nodeStart) else { return nil }
+        let literalForms = [
+            (Array(activeName), 0),
+            (Array("\"\(activeName)\""), 1),
+            (Array("'\(activeName)'"), 1)
+        ]
+        for (form, replacementOffset) in literalForms {
+            let end = scalarStart + form.count
+            guard end <= characters.count, Array(characters[scalarStart..<end]) == form else { continue }
+            if containsOnlyTrivia(characters[end...]) {
+                let start = scalarStart + replacementOffset
+                return YAMLProvenanceKeyMatch(range: start..<(start + activeName.count))
+            }
         }
-        for form in [activeName, "\"\(activeName)\"", "'\(activeName)'"] where candidate.hasPrefix(form) {
-            let suffix = candidate.dropFirst(form.count)
-            if containsOnlyTrivia(suffix) { return activeName }
+        guard characters[scalarStart] == "*" else { return nil }
+        var end = scalarStart + 1
+        while end < characters.count,
+              !characters[end].isWhitespace,
+              !"[]{} ,".contains(characters[end]) {
+            end += 1
         }
-        guard candidate.first == "*" else { return nil }
-        let token = String(candidate.prefix { !$0.isWhitespace && !"[]{} ,".contains($0) })
-        let name = String(token.dropFirst())
-        guard !name.isEmpty, activeAliases.contains(name), containsOnlyTrivia(candidate.dropFirst(token.count)) else {
-            return nil
+        let name = String(characters[(scalarStart + 1)..<end])
+        guard !name.isEmpty, activeAliases.contains(name), containsOnlyTrivia(characters[end...]) else { return nil }
+        return YAMLProvenanceKeyMatch(range: scalarStart..<end)
+    }
+
+    static func availableNeutralName(in text: String) -> String {
+        var candidate = neutralName
+        var suffix = 2
+        while text.contains(candidate) {
+            candidate = "\(neutralName)_\(suffix)"
+            suffix += 1
         }
-        return token
+        return candidate
     }
 
     static func isLiteralActiveNode(in characters: [Character], startingAt start: Int) -> Bool {
@@ -190,7 +241,7 @@ enum YAMLProvenanceKey {
         return false
     }
 
-    private static func containsOnlyTrivia<S: StringProtocol>(_ suffix: S) -> Bool {
+    private static func containsOnlyTrivia(_ suffix: ArraySlice<Character>) -> Bool {
         var inComment = false
         var previousWasWhitespace = false
         for character in suffix {
@@ -207,9 +258,28 @@ enum YAMLProvenanceKey {
         return true
     }
 
-    private static func isExplicitMappingEntry(_ content: String) -> Bool {
-        guard content.first == "?" else { return false }
-        let next = content.index(after: content.startIndex)
-        return next == content.endIndex || content[next].isWhitespace
+    private static func contentIndex(in characters: [Character], startingAt start: Int) -> Int? {
+        var inComment = false
+        for index in start..<characters.count {
+            let character = characters[index]
+            if inComment {
+                if character == "\n" || character == "\r" { inComment = false }
+            } else if character == "#" {
+                inComment = true
+            } else if !character.isWhitespace {
+                return index
+            }
+        }
+        return nil
     }
+
+    private static func isExplicitMappingEntry(at index: Int, in characters: [Character]) -> Bool {
+        guard characters[index] == "?" else { return false }
+        let next = index + 1
+        return next == characters.count || characters[next].isWhitespace
+    }
+}
+
+struct YAMLProvenanceKeyMatch {
+    let range: Range<Int>
 }

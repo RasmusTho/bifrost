@@ -18,6 +18,7 @@
 		C50000010000000000000001 /* VaultWriteProvenance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000110000000000000001 /* VaultWriteProvenance.swift */; };
 		C50000030000000000000003 /* YAMLProvenanceSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000130000000000000003 /* YAMLProvenanceSanitizer.swift */; };
 		C50000040000000000000004 /* YAMLBlockProvenanceSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000140000000000000004 /* YAMLBlockProvenanceSanitizer.swift */; };
+		C50000060000000000000006 /* YAMLProvenanceAnchorBindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000160000000000000006 /* YAMLProvenanceAnchorBindings.swift */; };
 		666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */; };
 		0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394547EDCD374141F3DFC604 /* NoteDetailView.swift */; };
 		11941E8256F7152EE531749C /* MimerShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435045F5470233E53111E5EC /* MimerShellView.swift */; };
@@ -110,6 +111,7 @@
 		C50000110000000000000001 /* VaultWriteProvenance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultWriteProvenance.swift; sourceTree = "<group>"; };
 		C50000130000000000000003 /* YAMLProvenanceSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YAMLProvenanceSanitizer.swift; sourceTree = "<group>"; };
 		C50000140000000000000004 /* YAMLBlockProvenanceSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YAMLBlockProvenanceSanitizer.swift; sourceTree = "<group>"; };
+		C50000160000000000000006 /* YAMLProvenanceAnchorBindings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YAMLProvenanceAnchorBindings.swift; sourceTree = "<group>"; };
 		90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRendererView.swift; sourceTree = "<group>"; };
 		394547EDCD374141F3DFC604 /* NoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDetailView.swift; sourceTree = "<group>"; };
 		435045F5470233E53111E5EC /* MimerShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerShellView.swift; sourceTree = "<group>"; };
@@ -247,6 +249,7 @@
 				C50000110000000000000001 /* VaultWriteProvenance.swift */,
 				C50000130000000000000003 /* YAMLProvenanceSanitizer.swift */,
 				C50000140000000000000004 /* YAMLBlockProvenanceSanitizer.swift */,
+				C50000160000000000000006 /* YAMLProvenanceAnchorBindings.swift */,
 			);
 			path = Vault;
 			sourceTree = "<group>";
@@ -554,6 +557,7 @@
 				C50000010000000000000001 /* VaultWriteProvenance.swift in Sources */,
 				C50000030000000000000003 /* YAMLProvenanceSanitizer.swift in Sources */,
 				C50000040000000000000004 /* YAMLBlockProvenanceSanitizer.swift in Sources */,
+				C50000060000000000000006 /* YAMLProvenanceAnchorBindings.swift in Sources */,
 				666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */,
 				0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */,
 				11941E8256F7152EE531749C /* MimerShellView.swift in Sources */,

@@ -83,7 +83,7 @@ extension VaultFileStoreTests {
                 "notes/mixed-alias-root.md",
                 "---\nbase: &ap agent_provenance\nagent_provenance: literal\n*ap: alias\n---\n",
                 "---\nbase: &ap agent_provenance\nformer_writer_attribution: literal\n"
-                    + "former_writer_attribution: alias\n---\n"
+                    + "former_writer_attribution_2: alias\n---\n"
             )
         ]
         let loggedFailures = MutationValueRecorder()
@@ -139,5 +139,95 @@ extension VaultFileStoreTests {
         XCTAssertEqual(saved, text)
         XCTAssertEqual(loggedFailures.values.count, 1)
         XCTAssertTrue(loggedFailures.values[0].contains("without refreshed provenance"))
+    }
+
+    func testTextualNeutralKeyCollisionsAllocateSuffixes() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            (
+                "notes/neutral-collision-block.md",
+                "---\nformer_writer_attribution: human\nagent_provenance: stale\n---\n",
+                "---\nformer_writer_attribution: human\nformer_writer_attribution_2: stale\n---\n"
+            ),
+            (
+                "notes/neutral-collision-flow.md",
+                "---\n{former_writer_attribution: human, agent_provenance: stale}\n---\n",
+                "---\n{former_writer_attribution: human, former_writer_attribution_2: stale}\n---\n"
+            )
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for (path, text, expected) in cases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, expected)
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+    }
+
+    func testComplexNullAndPlainTextAnchorsDoNotAuthorizeAliasRenames() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            "---\nbase: &ap\n  agent_provenance: nested\n*ap: value\n---\n",
+            "---\nbase: &ap\nagent_provenance: stale\n*ap: value\n---\n",
+            "---\nreal: &ap human-key\ntext: hello &ap agent_provenance\n*ap: foreign\n---\n",
+            "---\nreal: &ap human-key\ntext: |\n  field: &ap agent_provenance\n*ap: foreign\n---\n"
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for (index, text) in cases.enumerated() {
+            let path = "notes/non-scalar-anchor-\(index).md"
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            let expected = index == 1
+                ? text.replacingOccurrences(of: "agent_provenance", with: "former_writer_attribution")
+                : text
+            XCTAssertEqual(saved, expected)
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+    }
+
+    func testExplicitKeyReplacementNeverChangesRepeatedCommentText() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            (
+                "notes/repeated-literal-comment.md",
+                "---\n? agent_provenance # mention agent_provenance\n: old\n---\n",
+                "---\n? former_writer_attribution # mention agent_provenance\n: old\n---\n"
+            ),
+            (
+                "notes/repeated-alias-comment.md",
+                "---\nbase: &ap agent_provenance\n? *ap # mention *ap\n: old\n---\n",
+                "---\nbase: &ap agent_provenance\n? former_writer_attribution # mention *ap\n: old\n---\n"
+            ),
+            (
+                "notes/repeated-flow-comment.md",
+                "---\n{? agent_provenance # mention agent_provenance\n : old, next: Keep}\n---\n",
+                "---\n{? former_writer_attribution # mention agent_provenance\n : old, next: Keep}\n---\n"
+            )
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for (path, text, expected) in cases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, expected)
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
     }
 }
