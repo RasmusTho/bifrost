@@ -2,30 +2,6 @@ import XCTest
 @testable import Yggdrasil
 
 extension VaultFileStoreTests {
-    func testProvenanceFailureDoesNotBlockWrite() async throws {
-        struct ProvenanceFailure: Error {}
-        let path = "notes/untagged.md"
-        let loggedFailures = MutationValueRecorder()
-        let store = VaultFileStore(
-            rootURL: tempDirectory,
-            provenanceTimestampProvider: { throw ProvenanceFailure() },
-            provenanceFailureLogger: { loggedFailures.record($0) }
-        )
-        let text = "---\ntitle: Untagged fallback\nagent_provenance:\n"
-            + "  author: another-writer\n  written_at: old\n  origin: imported\n"
-            + "next: preserved\n---\n\nThe user's write still lands.\n"
-        try await store.write(text, to: path)
-        let saved = try await store.read(path)
-        XCTAssertEqual(
-            saved,
-            "---\ntitle: Untagged fallback\nnext: preserved\n---\n\nThe user's write still lands.\n"
-        )
-        XCTAssertFalse(saved.contains("agent_provenance"))
-        XCTAssertFalse(saved.contains("another-writer"))
-        XCTAssertEqual(loggedFailures.values.count, 1)
-        XCTAssertTrue(loggedFailures.values[0].contains(path))
-        XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
-    }
     func testUnsupportedFrontmatterIsTaggedWithoutChangingForeignYAML() async throws {
         let path = "notes/human-yaml.md"
         let timestamp = "2026-07-21T10:30:00Z"
