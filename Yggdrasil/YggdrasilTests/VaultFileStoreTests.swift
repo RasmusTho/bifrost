@@ -120,7 +120,7 @@ private final class StaleOnceDelayedCoordinator: VaultFileCoordinating, @uncheck
     }
 }
 
-private final class MutationValueRecorder: @unchecked Sendable {
+final class MutationValueRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var recordedValues: [String] = []
 
@@ -199,7 +199,7 @@ private final class AtomicReadProbe: @unchecked Sendable {
 }
 
 final class VaultFileStoreTests: XCTestCase {
-    private var tempDirectory = FileManager.default.temporaryDirectory
+    var tempDirectory = FileManager.default.temporaryDirectory
 
     private func genericallyTagged(_ text: String, writtenAt timestamp: String) throws -> String {
         let closing = try XCTUnwrap(text.range(of: "\n---\n"))
@@ -331,105 +331,6 @@ final class VaultFileStoreTests: XCTestCase {
     }
 }
 extension VaultFileStoreTests {
-    func testProvenanceFailureDoesNotBlockWrite() async throws {
-        struct ProvenanceFailure: Error {}
-        let path = "notes/untagged.md"
-        let loggedFailures = MutationValueRecorder()
-        let store = VaultFileStore(
-            rootURL: tempDirectory,
-            provenanceTimestampProvider: { throw ProvenanceFailure() },
-            provenanceFailureLogger: { loggedFailures.record($0) }
-        )
-        let text = "---\ntitle: Untagged fallback\n---\n\nThe user's write still lands.\n"
-        try await store.write(text, to: path)
-        let saved = try await store.read(path)
-        XCTAssertEqual(saved, text)
-        XCTAssertFalse(saved.contains("agent_provenance"))
-        XCTAssertEqual(loggedFailures.values.count, 1)
-        XCTAssertTrue(loggedFailures.values[0].contains(path))
-        XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
-    }
-    func testUnsupportedFrontmatterIsTaggedWithoutChangingForeignYAML() async throws {
-        let path = "notes/human-yaml.md"
-        let timestamp = "2026-07-21T10:30:00Z"
-        let loggedFailures = MutationValueRecorder()
-        let store = VaultFileStore(
-            rootURL: tempDirectory,
-            provenanceTimestampProvider: { timestamp },
-            provenanceFailureLogger: { loggedFailures.record($0) }
-        )
-        let text = """
-        ---
-        tags: [one, two] # keep
-        description: |
-          first line
-          second line
-        anchor: &kept value
-        alias: *kept
-        agent_provenance:
-          author: old-writer
-          written_at: 2025-01-01T00:00:00Z
-          origin: imported
-          model: old-model
-          trace: old-trace
-        ---
-
-        Body.
-        """
-        try await store.write(text, to: path)
-        let saved = try await store.read(path)
-        XCTAssertEqual(saved, """
-        ---
-        tags: [one, two] # keep
-        description: |
-          first line
-          second line
-        anchor: &kept value
-        alias: *kept
-        agent_provenance:
-          author: bifrost-ios
-          written_at: \(timestamp)
-          origin: direct-fs
-        ---
-
-        Body.
-        """)
-        XCTAssertTrue(loggedFailures.values.isEmpty)
-    }
-    func testAmbiguousExistingProvenanceIsPreservedAndLogged() async throws {
-        let cases = [
-            (
-                "notes/block-provenance.md",
-                "---\ntitle: Keep\nagent_provenance: |\n  legacy attribution\nnext: keep\n---\n\nBody.\n"
-            ),
-            (
-                "notes/separated-provenance.md",
-                "---\ntitle: Keep\nagent_provenance:\n  author: old\n\n"
-                    + "  written_at: old\n  origin: imported\nnext: keep\n---\n\nBody.\n"
-            ),
-            ("notes/empty-map.md", "---\n{}\n---\n\nBody.\n"),
-            ("notes/flow-map.md", "---\n{tags: [one, two]}\n---\n\nBody.\n"),
-            ("notes/sequence-mapping.md", "---\n-\tauthor: human\n  note: keep\n---\n\nBody.\n"),
-            ("notes/double-quoted.md", "---\n\"literal: scalar\"\n---\n\nBody.\n"),
-            ("notes/single-quoted.md", "---\n'literal: scalar'\n---\n\nBody.\n"),
-            ("notes/indentless-sequence.md", "---\nagent_provenance:\n-\tauthor: old\nnext: keep\n---\n")
-        ]
-        let loggedFailures = MutationValueRecorder()
-        let store = VaultFileStore(
-            rootURL: tempDirectory,
-            provenanceTimestampProvider: { "2026-07-21T10:30:00Z" },
-            provenanceFailureLogger: { loggedFailures.record($0) }
-        )
-        for (path, text) in cases {
-            try await store.write(text, to: path)
-            let saved = try await store.read(path)
-            XCTAssertEqual(saved, text)
-        }
-        XCTAssertEqual(loggedFailures.values.count, cases.count)
-        for (path, _) in cases {
-            XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
-        }
-    }
     @MainActor
     func testMainActorPublicPathsUseBackgroundCoordinatorAndPropagateErrors() async throws {
         let path = "notes/example.md"
