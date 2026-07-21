@@ -409,10 +409,10 @@ extension VaultFileStoreTests {
             ),
             ("notes/empty-map.md", "---\n{}\n---\n\nBody.\n"),
             ("notes/flow-map.md", "---\n{tags: [one, two]}\n---\n\nBody.\n"),
-            ("notes/sequence-mapping.md", "---\n- author: human\n  note: keep\n---\n\nBody.\n"),
+            ("notes/sequence-mapping.md", "---\n-\tauthor: human\n  note: keep\n---\n\nBody.\n"),
             ("notes/double-quoted.md", "---\n\"literal: scalar\"\n---\n\nBody.\n"),
             ("notes/single-quoted.md", "---\n'literal: scalar'\n---\n\nBody.\n"),
-            ("notes/indentless-sequence.md", "---\nagent_provenance:\n- author: old\nnext: keep\n---\n")
+            ("notes/indentless-sequence.md", "---\nagent_provenance:\n-\tauthor: old\nnext: keep\n---\n")
         ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(

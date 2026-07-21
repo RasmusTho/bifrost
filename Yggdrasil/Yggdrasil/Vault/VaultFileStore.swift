@@ -147,21 +147,22 @@ private enum VaultWriteProvenance {
                 end += 1
                 continue
             }
-            guard trimmed != "-", !trimmed.hasPrefix("- ") else {
+            guard !isSequenceEntry(trimmed) else {
                 throw InjectionError.unsafeFrontmatter
             }
             break
         }
         return end
     }
-
+    private static func isSequenceEntry(_ line: String) -> Bool {
+        line.first == "-" && (line.count == 1 || line.dropFirst().first?.isWhitespace == true)
+    }
     private static func insert(_ provenance: [String], into lines: inout [String], before closingIndex: Int) throws {
         guard acceptsBlockMappingInsertion(lines[1..<closingIndex]) else {
             throw InjectionError.unsafeFrontmatter
         }
         lines.insert(contentsOf: provenance, at: closingIndex)
     }
-
     private static func acceptsBlockMappingInsertion(_ lines: ArraySlice<String>) -> Bool {
         var sawMappingEntry = false
         for line in lines {
@@ -176,10 +177,9 @@ private enum VaultWriteProvenance {
         }
         return true
     }
-
     private static func isPlainBlockMappingEntry(_ line: String) -> Bool {
         guard let separator = line.indices.first(where: { index in
-            guard line[index] == ":", index != line.startIndex, !line.hasPrefix("- ") else { return false }
+            guard line[index] == ":", index != line.startIndex, !isSequenceEntry(line) else { return false }
             let next = line.index(after: index)
             return next == line.endIndex || line[next].isWhitespace
         }) else { return false }
