@@ -318,6 +318,23 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertEqual(coordinator.writeAttempts, 3)
     }
 
+    func testProvenanceFailureDoesNotBlockWrite() async throws {
+        struct ProvenanceFailure: Error {}
+
+        let path = "notes/untagged.md"
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() }
+        )
+        let text = "---\ntitle: Untagged fallback\n---\n\nThe user's write still lands.\n"
+
+        try await store.write(text, to: path)
+
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, text)
+        XCTAssertFalse(saved.contains("agent_provenance"))
+    }
+
     @MainActor
     func testMainActorPublicPathsUseBackgroundCoordinatorAndPropagateErrors() async throws {
         let path = "notes/example.md"

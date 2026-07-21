@@ -72,6 +72,8 @@ struct NSFileCoordinatorAccess: VaultFileCoordinating {
 /// security-scoped URL. Every `_heimdal/**` lens and the generic markdown
 /// renderer go through this one seam.
 struct VaultFileStore: Sendable {
+    typealias ProvenanceTimestampProvider = @Sendable () throws -> String
+
     private enum FileSnapshot: Sendable {
         case missing
         case contents(String)
@@ -92,13 +94,16 @@ struct VaultFileStore: Sendable {
 
     let rootURL: URL
     private let coordinator: VaultFileCoordinating
+    private let provenanceTimestampProvider: ProvenanceTimestampProvider
 
     init(
         rootURL: URL,
-        coordinator: VaultFileCoordinating = NSFileCoordinatorAccess()
+        coordinator: VaultFileCoordinating = NSFileCoordinatorAccess(),
+        provenanceTimestampProvider: @escaping ProvenanceTimestampProvider = { Date().ISO8601Format() }
     ) {
         self.rootURL = rootURL
         self.coordinator = coordinator
+        self.provenanceTimestampProvider = provenanceTimestampProvider
     }
 
     /// Public vault I/O never runs on SwiftUI's main actor. Security-scoped
@@ -148,7 +153,8 @@ struct VaultFileStore: Sendable {
                 let url = VaultPath.resolve(relativePath, in: rootURL)
                 try coordinator.coordinateWrite(at: url) { coordinatedURL in
                     try prepareParentDirectory(for: coordinatedURL)
-                    try Self.atomicReplace(text, at: coordinatedURL)
+                    let taggedText = applyingProvenance(to: text, relativePath: relativePath)
+                    try Self.atomicReplace(taggedText, at: coordinatedURL)
                 }
             }
         }
@@ -223,6 +229,7 @@ struct VaultFileStore: Sendable {
                         document = try FrontmatterDocument.parse(text)
                     }
                     mutate(&document)
+                    applyProvenance(to: &document, relativePath: relativePath)
 
                     let result = try writeIfUnchanged(
                         document.rendered(),
@@ -275,6 +282,40 @@ struct VaultFileStore: Sendable {
         } catch {
             throw VaultFileStoreError.writeFailed(relativePath, error)
         }
+    }
+
+    private func applyingProvenance(to text: String, relativePath: String) -> String {
+        var document: FrontmatterDocument
+        do {
+            document = try FrontmatterDocument.parse(text)
+        } catch FrontmatterDocument.ParseError.missingFrontmatter {
+            document = FrontmatterDocument(frontmatter: YAMLMap(), body: text)
+        } catch {
+            logProvenanceFailure(error, relativePath: relativePath)
+            return text
+        }
+
+        guard applyProvenance(to: &document, relativePath: relativePath) else {
+            return text
+        }
+        return document.rendered()
+    }
+
+    @discardableResult
+    private func applyProvenance(to document: inout FrontmatterDocument, relativePath: String) -> Bool {
+        do {
+            document.applyBifrostProvenance(writtenAt: try provenanceTimestampProvider())
+            return true
+        } catch {
+            logProvenanceFailure(error, relativePath: relativePath)
+            return false
+        }
+    }
+
+    private func logProvenanceFailure(_ error: Error, relativePath: String) {
+        let message = "Bifrost provenance tagging failed for \(relativePath); "
+            + "writing note without provenance: \(error.localizedDescription)"
+        NSLog("%@", message)
     }
 
     private func withReadAccess<T: Sendable>(

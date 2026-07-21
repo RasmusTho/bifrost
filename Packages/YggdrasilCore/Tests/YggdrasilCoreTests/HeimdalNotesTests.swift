@@ -96,4 +96,29 @@ final class HeimdalNotesTests: XCTestCase {
         XCTAssertTrue(note.document.body.contains("prior entry"))
         XCTAssertTrue(note.document.body.contains("added via Mimer"))
     }
+
+    func testEditPreservesForeignFieldsAndUpdatesProvenance() throws {
+        let text = """
+        ---
+        weights:
+          research: 0.5
+        backend_owned: preserve-me
+        agent_provenance:
+          author: old-writer
+          written_at: 2026-07-01T00:00:00Z
+          origin: direct-fs
+        ---
+        """
+        var note = InterestsNote(document: try FrontmatterDocument.parse(text))
+
+        note.setWeight(0.9, for: "research")
+        note.document.applyBifrostProvenance(writtenAt: "2026-07-21T10:15:30Z")
+
+        XCTAssertEqual(note.document.frontmatter["backend_owned"]?.stringValue, "preserve-me")
+        XCTAssertEqual(note.weights.first?.weight, 0.9)
+        let provenance = try XCTUnwrap(note.document.frontmatter["agent_provenance"]?.mapValue)
+        XCTAssertEqual(provenance["author"]?.stringValue, "bifrost-ios")
+        XCTAssertEqual(provenance["written_at"]?.stringValue, "2026-07-21T10:15:30Z")
+        XCTAssertEqual(provenance["origin"]?.stringValue, "direct-fs")
+    }
 }

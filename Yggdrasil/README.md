@@ -33,16 +33,17 @@ app) over iCloud — see "Vault write consistency" below.
 
 ## Vault write consistency (multi-writer over iCloud)
 
-This slice does not invent a new consistency model. It follows the same discipline the hub's Python
-backend (`app/heimdal/*`) already uses for every `_heimdal/**` note: **read-merge-write**, atomic
-per-file writes (`String.write(atomically: true)`), and idempotent appends (a duplicate override/decision
-write is a no-op, matching the backend's fold semantics). `VaultFileStore.readModifyWrite` and the
-`HeimdalNote` wrappers implement this directly. iCloud's own document coordination handles concurrent
-file replication between devices; this client does not add file coordination on top of that beyond the
-read-merge-write discipline above, which is the same posture the existing backend already relies on — so
-no new multi-writer design decision was required to land this slice. If a gap in that shared model
-surfaces in practice (e.g. lost updates under near-simultaneous edits from two devices), that is hub
-architecture work, not something to redesign inside this client.
+The hub's [ADR-0055](https://github.com/RasmusTho/agentic-pkm-mvp/blob/main/docs/adr/ADR-0055-vault-multiwriter-consistency-model.md) is the decided
+multi-writer model for this vault. Its item 4 requires every writer to tag writes with writer identity
+and timestamp; Bifrost records that attribution in each client-written note's `agent_provenance`
+frontmatter. Its item 5 mechanism is this client's coordinated file access through
+`NSFileCoordinator`.
+
+`VaultFileStore.readModifyWrite` and the `HeimdalNote` wrappers preserve unknown frontmatter through
+read-merge-write, use atomic replacement, and retry a known-stale snapshot. This is Bifrost's
+client-side complement to the hub posture, not a replacement consistency model. The applicable
+discipline is [`docs/contracts/MIMER_CLIENT_CONTRACT.md` §6](https://github.com/RasmusTho/agentic-pkm-mvp/blob/main/docs/contracts/MIMER_CLIENT_CONTRACT.md),
+especially W1–W8, until the ADR-0055 substrate mechanism is fully enacted.
 
 ## Known environment gap
 
