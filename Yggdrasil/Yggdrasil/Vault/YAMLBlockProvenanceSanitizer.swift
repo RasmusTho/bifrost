@@ -8,7 +8,8 @@ struct YAMLBlockProvenanceSanitization {
 enum YAMLBlockProvenanceSanitizer {
     static func neutralizingProvenance(
         in sourceLines: [String],
-        before closing: Int
+        before closing: Int,
+        aliases: YAMLProvenanceAnchorBindings
     ) -> YAMLBlockProvenanceSanitization {
         var lines = sourceLines
         guard let rootIndent = blockMappingRootIndent(in: lines[1..<closing]) else {
@@ -16,12 +17,17 @@ enum YAMLBlockProvenanceSanitizer {
         }
         var neutralized = false
         var index = 1
+        var frontmatterOffset = 0
         while index < closing {
+            let originalLine = lines[index]
             let content = rootContent(of: lines[index], rootIndent: rootIndent)
             if let content,
                let keyRange = implicitOrInlineExplicitKeyRange(in: content),
-               YAMLProvenanceKey.matches(String(content[keyRange])) {
-                lines[index] = rootIndent + replacingActiveKey(in: content, keyRange: keyRange)
+               let token = YAMLProvenanceKey.replacementToken(
+                   in: String(content[keyRange]),
+                   activeAliases: aliases.activeNames(before: frontmatterOffset)
+               ) {
+                lines[index] = rootIndent + replacingKeyToken(in: content, keyRange: keyRange, token: token)
                 neutralized = true
             } else if let content, isBareExplicitKeyIndicator(content),
                       let keyLine = multilineExplicitKeyLine(
@@ -30,9 +36,17 @@ enum YAMLBlockProvenanceSanitizer {
                           before: closing,
                           rootIndent: rootIndent
                       ) {
-                lines[keyLine] = replacingActiveKey(in: lines[keyLine])
-                neutralized = true
+                let keyOffset = frontmatterOffset + lines[index..<keyLine].reduce(0) { $0 + $1.count + 1 }
+                let token = YAMLProvenanceKey.replacementToken(
+                    in: lines[keyLine].trimmingCharacters(in: .whitespaces),
+                    activeAliases: aliases.activeNames(before: keyOffset)
+                )
+                if let token {
+                    lines[keyLine] = replacingKeyToken(in: lines[keyLine], token: token)
+                    neutralized = true
+                }
             }
+            frontmatterOffset += originalLine.count + 1
             index += 1
         }
         return YAMLBlockProvenanceSanitization(lines: lines, neutralized: neutralized)
@@ -75,9 +89,12 @@ enum YAMLBlockProvenanceSanitizer {
                 candidate += 1
                 continue
             }
+            if YAMLNodeStart.containsOnlyProperties(in: trimmed) {
+                candidate += 1
+                continue
+            }
             guard lines[candidate].hasPrefix(rootIndent),
-                  lines[candidate].dropFirst(rootIndent.count).first?.isWhitespace == true,
-                  YAMLProvenanceKey.matches(trimmed) else {
+                  lines[candidate].dropFirst(rootIndent.count).first?.isWhitespace == true else {
                 return nil
             }
             return candidate
@@ -85,13 +102,14 @@ enum YAMLBlockProvenanceSanitizer {
         return nil
     }
 
-    private static func replacingActiveKey(
+    private static func replacingKeyToken(
         in line: String,
-        keyRange: Range<String.Index>? = nil
+        keyRange: Range<String.Index>? = nil,
+        token: String
     ) -> String {
         let bounds = keyRange ?? line.startIndex..<line.endIndex
         guard let replacement = line.range(
-            of: YAMLProvenanceKey.activeName,
+            of: token,
             options: .backwards,
             range: bounds
         ) else { return line }
@@ -137,7 +155,7 @@ enum YAMLProvenanceKey {
     static let activeName = "agent_provenance"
     static let neutralName = "former_writer_attribution"
 
-    static func matches(_ key: String) -> Bool {
+    static func replacementToken(in key: String, activeAliases: Set<String>) -> String? {
         var candidate = key.trimmingCharacters(in: .whitespacesAndNewlines)
         if isExplicitMappingEntry(candidate) {
             candidate = String(candidate.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -148,7 +166,45 @@ enum YAMLProvenanceKey {
            nodeStart != start {
             candidate = String(characters[nodeStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        return candidate == activeName || candidate == "\"\(activeName)\"" || candidate == "'\(activeName)'"
+        for form in [activeName, "\"\(activeName)\"", "'\(activeName)'"] where candidate.hasPrefix(form) {
+            let suffix = candidate.dropFirst(form.count)
+            if containsOnlyTrivia(suffix) { return activeName }
+        }
+        guard candidate.first == "*" else { return nil }
+        let token = String(candidate.prefix { !$0.isWhitespace && !"[]{} ,".contains($0) })
+        let name = String(token.dropFirst())
+        guard !name.isEmpty, activeAliases.contains(name), containsOnlyTrivia(candidate.dropFirst(token.count)) else {
+            return nil
+        }
+        return token
+    }
+
+    static func isLiteralActiveNode(in characters: [Character], startingAt start: Int) -> Bool {
+        for form in [Array(activeName), Array("\"\(activeName)\""), Array("'\(activeName)'")] {
+            let end = start + form.count
+            guard end <= characters.count, Array(characters[start..<end]) == form else { continue }
+            if end == characters.count || characters[end].isWhitespace || "[]{} ,:".contains(characters[end]) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func containsOnlyTrivia<S: StringProtocol>(_ suffix: S) -> Bool {
+        var inComment = false
+        var previousWasWhitespace = false
+        for character in suffix {
+            if inComment {
+                if character == "\n" || character == "\r" { inComment = false }
+            } else if character == "#" {
+                guard previousWasWhitespace else { return false }
+                inComment = true
+            } else if !character.isWhitespace {
+                return false
+            }
+            previousWasWhitespace = character.isWhitespace
+        }
+        return true
     }
 
     private static func isExplicitMappingEntry(_ content: String) -> Bool {

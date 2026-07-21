@@ -150,8 +150,7 @@ enum VaultWriteProvenance {
             document.applyBifrostProvenance(writtenAt: try timestampProvider())
             return true
         } catch {
-            let neutralizedStaleAttribution = document.frontmatter["agent_provenance"] != nil
-            document.frontmatter["agent_provenance"] = nil
+            let neutralizedStaleAttribution = neutralizeStructuredProvenance(in: &document)
             logFailure(
                 error,
                 relativePath: relativePath,
@@ -160,6 +159,21 @@ enum VaultWriteProvenance {
             )
             return false
         }
+    }
+
+    private static func neutralizeStructuredProvenance(in document: inout FrontmatterDocument) -> Bool {
+        guard let prior = document.frontmatter[YAMLProvenanceKey.activeName] else { return false }
+        var neutralKey = YAMLProvenanceKey.neutralName
+        var suffix = 2
+        while document.frontmatter[neutralKey] != nil {
+            neutralKey = "\(YAMLProvenanceKey.neutralName)_\(suffix)"
+            suffix += 1
+        }
+        document.frontmatter = YAMLMap(document.frontmatter.pairs.map { key, value in
+            let isActive = key == YAMLProvenanceKey.activeName
+            return (isActive ? neutralKey : key, isActive ? prior : value)
+        })
+        return true
     }
 
     private static func logFailure(

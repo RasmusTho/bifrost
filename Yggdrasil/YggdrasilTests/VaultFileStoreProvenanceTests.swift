@@ -255,36 +255,6 @@ extension VaultFileStoreTests {
         }
     }
 
-    func testJSONCompatibleFlowKeysNeutralizeWithoutChangingValues() async throws {
-        struct ProvenanceFailure: Error {}
-        let cases = [
-            "{\"agent_provenance\":\"old\",\"title\":\"Keep\"}",
-            "{'agent_provenance':'old','title':'Keep'}",
-            "{\"agent_provenance\":! \"old\",\"title\":\"Keep\"}",
-            "{!<tag:agent_provenance> \"agent_provenance\": old, title: Keep}"
-        ]
-        let loggedFailures = MutationValueRecorder()
-        let store = VaultFileStore(
-            rootURL: tempDirectory,
-            provenanceTimestampProvider: { throw ProvenanceFailure() },
-            provenanceFailureLogger: { loggedFailures.record($0) }
-        )
-
-        for (index, frontmatter) in cases.enumerated() {
-            let path = "notes/json-flow-\(index).md"
-            let text = "---\n\(frontmatter)\n---\n\nBody.\n"
-            try await store.write(text, to: path)
-            let saved = try await store.read(path)
-            let keyOccurrence = frontmatter.range(of: "agent_provenance", options: .backwards)
-            let expectedFrontmatter = keyOccurrence.map {
-                frontmatter.replacingCharacters(in: $0, with: "former_writer_attribution")
-            }
-            XCTAssertEqual(saved, "---\n\(expectedFrontmatter ?? frontmatter)\n---\n\nBody.\n")
-        }
-        XCTAssertEqual(loggedFailures.values.count, cases.count)
-        XCTAssertTrue(loggedFailures.values.allSatisfy { $0.contains("neutralized stale attribution") })
-    }
-
     func testBlockRootNodePropertiesPreserveNestedSameNameField() async throws {
         struct ProvenanceFailure: Error {}
         let cases = [
@@ -360,6 +330,13 @@ extension VaultFileStoreTests {
                 "---\n? agent_provenance\n: {author: another-writer}\nnext: Keep\n---\n\nBody.\n",
                 "---\n? former_writer_attribution\n: {author: another-writer}\n"
                     + "next: Keep\n---\n\nBody.\n"
+            ),
+            (
+                "notes/commented-explicit-provenance-key.md",
+                "---\n? agent_provenance # key comment\n: {author: another-writer}\n"
+                    + "next: Keep\n---\n\nBody.\n",
+                "---\n? former_writer_attribution # key comment\n: {author: another-writer}\n"
+                    + "next: Keep\n---\n\nBody.\n"
             )
         ]
         let loggedFailures = MutationValueRecorder()
@@ -375,28 +352,6 @@ extension VaultFileStoreTests {
             XCTAssertTrue(saved.contains("another-writer"))
         }
         XCTAssertEqual(loggedFailures.values.count, cases.count)
-    }
-
-    func testMultilineExplicitRootKeyNeutralizesOnlyTheKeyToken() async throws {
-        struct ProvenanceFailure: Error {}
-        let path = "notes/multiline-explicit-provenance-key.md"
-        let text = "---\n?\n  !<tag:agent_provenance> \"agent_provenance\"\n"
-            + ": {author: another-writer}\nnext: Keep\n---\n\nBody.\n"
-        let expected = "---\n?\n  !<tag:agent_provenance> \"former_writer_attribution\"\n"
-            + ": {author: another-writer}\nnext: Keep\n---\n\nBody.\n"
-        let loggedFailures = MutationValueRecorder()
-        let store = VaultFileStore(
-            rootURL: tempDirectory,
-            provenanceTimestampProvider: { throw ProvenanceFailure() },
-            provenanceFailureLogger: { loggedFailures.record($0) }
-        )
-
-        try await store.write(text, to: path)
-
-        let saved = try await store.read(path)
-        XCTAssertEqual(saved, expected)
-        XCTAssertEqual(loggedFailures.values.count, 1)
-        XCTAssertTrue(loggedFailures.values[0].contains("neutralized stale attribution"))
     }
 
     func testBalancedInvalidFlowRootNeutralizesOnlyTheStaleKey() async throws {
@@ -467,12 +422,13 @@ extension VaultFileStoreTests {
         XCTAssertEqual(loggedFailures.values.count, cases.count)
     }
 
-    func testStructuredProvenanceFailureRemovesPriorWriter() async throws {
+    func testStructuredProvenanceFailurePreservesPriorWriterUnderNeutralKey() async throws {
         struct ProvenanceFailure: Error {}
         let path = "_heimdal/settings.md"
         let url = tempDirectory.appendingPathComponent(path)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try "---\nforeign: keep\nagent_provenance:\n  author: another-writer\n"
+        try "---\nforeign: keep\nformer_writer_attribution: human-owned\nagent_provenance:\n"
+            .appending("  author: another-writer\n")
             .appending("  written_at: old\n  origin: imported\n---\n")
             .write(to: url, atomically: true, encoding: .utf8)
         let loggedFailures = MutationValueRecorder()
@@ -490,8 +446,12 @@ extension VaultFileStoreTests {
         XCTAssertTrue(saved.contains("foreign: keep"))
         XCTAssertTrue(saved.contains("updated: true"))
         XCTAssertFalse(saved.contains("agent_provenance"))
-        XCTAssertFalse(saved.contains("another-writer"))
+        XCTAssertTrue(saved.contains("former_writer_attribution:"))
+        XCTAssertTrue(saved.contains("former_writer_attribution_2:"))
+        XCTAssertTrue(saved.contains("human-owned"))
+        XCTAssertTrue(saved.contains("another-writer"))
         XCTAssertEqual(loggedFailures.values.count, 1)
         XCTAssertTrue(loggedFailures.values[0].contains(path))
+        XCTAssertTrue(loggedFailures.values[0].contains("neutralized stale attribution"))
     }
 }

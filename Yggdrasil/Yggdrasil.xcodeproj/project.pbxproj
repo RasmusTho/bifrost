@@ -33,6 +33,7 @@
 		AFBD06499F7E0D5AEDD902DD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5CAEF267DA8A9A8592B0B826 /* Assets.xcassets */; };
 		049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */; };
 		C50000020000000000000002 /* VaultFileStoreProvenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000120000000000000002 /* VaultFileStoreProvenanceTests.swift */; };
+		C50000050000000000000005 /* VaultFileStoreProvenanceEdgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000150000000000000005 /* VaultFileStoreProvenanceEdgeTests.swift */; };
 		B1F100000000000000000001 /* VaultFileStoreBasicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F100000000000000000002 /* VaultFileStoreBasicTests.swift */; };
 		A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */; };
 		45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */; };
@@ -123,6 +124,7 @@
 		416399243593CE65ABBE7F18 /* NoteBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteBrowserView.swift; sourceTree = "<group>"; };
 		8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStoreTests.swift; sourceTree = "<group>"; };
 		C50000120000000000000002 /* VaultFileStoreProvenanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStoreProvenanceTests.swift; sourceTree = "<group>"; };
+		C50000150000000000000005 /* VaultFileStoreProvenanceEdgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStoreProvenanceEdgeTests.swift; sourceTree = "<group>"; };
 		B1F100000000000000000002 /* VaultFileStoreBasicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStoreBasicTests.swift; sourceTree = "<group>"; };
 		A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentionLensAuditTests.swift; sourceTree = "<group>"; };
 		75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggdrasilUITests.swift; sourceTree = "<group>"; };
@@ -341,6 +343,7 @@
 			children = (
 				8F9A3952B24254D7BE998C87 /* VaultFileStoreTests.swift */,
 				C50000120000000000000002 /* VaultFileStoreProvenanceTests.swift */,
+				C50000150000000000000005 /* VaultFileStoreProvenanceEdgeTests.swift */,
 				B1F100000000000000000002 /* VaultFileStoreBasicTests.swift */,
 				A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */,
 				A14000140000000000000004 /* HeimdalBoundaryTests.swift */,
@@ -584,6 +587,7 @@
 			files = (
 				049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */,
 				C50000020000000000000002 /* VaultFileStoreProvenanceTests.swift in Sources */,
+				C50000050000000000000005 /* VaultFileStoreProvenanceEdgeTests.swift in Sources */,
 				B1F100000000000000000001 /* VaultFileStoreBasicTests.swift in Sources */,
 				A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */,
 				A14000040000000000000004 /* HeimdalBoundaryTests.swift in Sources */,
