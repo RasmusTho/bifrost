@@ -39,6 +39,8 @@
 		A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000120000000000000002 /* CaptureRecorderTests.swift */; };
 		A15000030000000000000003 /* CaptureFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000130000000000000003 /* CaptureFileWriter.swift */; };
 		C16000020000000000000002 /* CaptureDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16000120000000000000002 /* CaptureDelivery.swift */; };
+		C20000010000000000000001 /* CaptureSidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000110000000000000001 /* CaptureSidecar.swift */; };
+		C20000020000000000000002 /* CaptureSidecarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000120000000000000002 /* CaptureSidecarTests.swift */; };
 		A14000040000000000000004 /* HeimdalBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000140000000000000004 /* HeimdalBoundaryTests.swift */; };
 		A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000150000000000000005 /* CaptureFolderBindingTests.swift */; };
 		A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000160000000000000006 /* CaptureSessionModelTests.swift */; };
@@ -99,6 +101,8 @@
 		A15000120000000000000002 /* CaptureRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRecorderTests.swift; sourceTree = "<group>"; };
 		A15000130000000000000003 /* CaptureFileWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFileWriter.swift; sourceTree = "<group>"; };
 		C16000120000000000000002 /* CaptureDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDelivery.swift; sourceTree = "<group>"; };
+		C20000110000000000000001 /* CaptureSidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSidecar.swift; sourceTree = "<group>"; };
+		C20000120000000000000002 /* CaptureSidecarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSidecarTests.swift; sourceTree = "<group>"; };
 		A14000140000000000000004 /* HeimdalBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalBoundaryTests.swift; sourceTree = "<group>"; };
 		A14000150000000000000005 /* CaptureFolderBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderBindingTests.swift; sourceTree = "<group>"; };
 		A14000160000000000000006 /* CaptureSessionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModelTests.swift; sourceTree = "<group>"; };
@@ -226,6 +230,7 @@
 				A15000130000000000000003 /* CaptureFileWriter.swift */,
 				A15000110000000000000001 /* CaptureRecorder.swift */,
 				C16000120000000000000002 /* CaptureDelivery.swift */,
+				C20000110000000000000001 /* CaptureSidecar.swift */,
 			);
 			path = Heimdal;
 			sourceTree = "<group>";
@@ -265,6 +270,7 @@
 				B10000100000000000000010 /* NoteInspectorModelTests.swift */,
 				A15000120000000000000002 /* CaptureRecorderTests.swift */,
 				C16000110000000000000001 /* CaptureDeliveryTests.swift */,
+				C20000120000000000000002 /* CaptureSidecarTests.swift */,
 			);
 			path = YggdrasilTests;
 			sourceTree = "<group>";
@@ -455,6 +461,7 @@
 				A15000030000000000000003 /* CaptureFileWriter.swift in Sources */,
 				A15000010000000000000001 /* CaptureRecorder.swift in Sources */,
 				C16000020000000000000002 /* CaptureDelivery.swift in Sources */,
+				C20000010000000000000001 /* CaptureSidecar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -471,6 +478,7 @@
 				B10000010000000000000010 /* NoteInspectorModelTests.swift in Sources */,
 				A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */,
 				C16000010000000000000001 /* CaptureDeliveryTests.swift in Sources */,
+				C20000020000000000000002 /* CaptureSidecarTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
