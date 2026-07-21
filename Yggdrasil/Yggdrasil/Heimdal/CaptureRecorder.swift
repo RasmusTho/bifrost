@@ -41,7 +41,7 @@ final class CaptureRecorder: ObservableObject {
     private let deviceID: String
     private let deviceShortID: String
     private let sourceSurface: CaptureSourceSurface
-    private let timeZone: TimeZone
+    private let timeZoneProvider: @Sendable () -> TimeZone
     private let now: () -> Date
     private let observeSessionNotifications: Bool
     private let mediaValidator: CaptureMediaValidating
@@ -58,7 +58,7 @@ final class CaptureRecorder: ObservableObject {
         deviceID: String? = nil,
         deviceShortID: String? = nil,
         sourceSurface: CaptureSourceSurface = .iphoneApp,
-        timeZone: TimeZone = .current,
+        timeZoneProvider: @escaping @Sendable () -> TimeZone = { .autoupdatingCurrent },
         now: @escaping () -> Date = Date.init,
         configuration: Configuration = .production,
         observeInterruptions: Bool = true,
@@ -71,7 +71,7 @@ final class CaptureRecorder: ObservableObject {
         self.deviceID = stableDeviceID
         self.deviceShortID = deviceShortID ?? String(stableDeviceID.prefix(8))
         self.sourceSurface = sourceSurface
-        self.timeZone = timeZone
+        self.timeZoneProvider = timeZoneProvider
         self.now = now
         self.configuration = configuration
         observeSessionNotifications = observeInterruptions
@@ -116,7 +116,7 @@ final class CaptureRecorder: ObservableObject {
                 generation: generation,
                 url: url,
                 recordedStartAt: now(),
-                timezone: timeZone.identifier,
+                timezone: timeZoneProvider().identifier,
                 interruptions: 0
             )
             activeCaptureGeneration = generation

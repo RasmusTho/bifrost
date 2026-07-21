@@ -10,15 +10,21 @@ final class CaptureSidecarTests: XCTestCase {
         let start = Date(timeIntervalSince1970: 1_783_493_331)
         let end = start.addingTimeInterval(449)
         let model = CaptureSessionModel()
+        let timeZoneProvider = SidecarTestTimeZoneProvider(timeZone: .gmt)
         let recorder = try makeRecorder(
-            sessionModel: model, stagingDirectory: stagingDirectory, start: start, end: end
+            sessionModel: model,
+            stagingDirectory: stagingDirectory,
+            start: start,
+            end: end,
+            timeZoneProvider: timeZoneProvider
         )
+        timeZoneProvider.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Stockholm"))
         recorder.start()
         await recorder.handleInterruption(type: .began, shouldResume: false)
         await recorder.stop()
 
-        let itemID = try XCTUnwrap(model.stagedItems.first?.id)
-        let source = try XCTUnwrap(model.stagedItems.first?.url)
+        let stagedItem = try XCTUnwrap(model.stagedItems.first)
+        XCTAssertEqual(stagedItem.captureMetadata?.timezone, "Europe/Stockholm")
         let sidecarWriter = RecordingSidecarWriter()
         let queue = CaptureDeliveryQueue(
             sessionModel: model,
@@ -26,10 +32,10 @@ final class CaptureSidecarTests: XCTestCase {
             sidecarWriter: sidecarWriter
         )
 
-        await queue.deliver(itemID: itemID, to: captureFolder)
+        await queue.deliver(itemID: stagedItem.id, to: captureFolder)
 
-        let audioURL = captureFolder.appendingPathComponent(source.lastPathComponent)
-        let sidecarURL = captureFolder.appendingPathComponent("\(source.lastPathComponent).capture.json")
+        let audioURL = captureFolder.appendingPathComponent(stagedItem.url.lastPathComponent)
+        let sidecarURL = captureFolder.appendingPathComponent("\(stagedItem.url.lastPathComponent).capture.json")
         XCTAssertTrue(FileManager.default.fileExists(atPath: audioURL.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: sidecarURL.path))
         XCTAssertTrue(sidecarWriter.sawFinalAudio)
@@ -52,7 +58,7 @@ final class CaptureSidecarTests: XCTestCase {
             with: Data(contentsOf: sidecarURL)
         ) as? [String: Any])
         XCTAssertEqual(json["source_surface"] as? String, "watch-relay")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagedItem.url.path))
     }
 
     func testLocationOmittedByDefault() throws {
@@ -106,7 +112,8 @@ final class CaptureSidecarTests: XCTestCase {
         sessionModel: CaptureSessionModel,
         stagingDirectory: URL,
         start: Date,
-        end: Date
+        end: Date,
+        timeZoneProvider: SidecarTestTimeZoneProvider
     ) throws -> CaptureRecorder {
         let clock = SidecarTestClock(values: [start, end])
         return CaptureRecorder(
@@ -116,7 +123,7 @@ final class CaptureSidecarTests: XCTestCase {
             deviceID: "2e54b80e-89da-433c-8a7d-6e6d1d4ec5b3",
             deviceShortID: "local-file-token",
             sourceSurface: .watchRelay,
-            timeZone: try XCTUnwrap(TimeZone(identifier: "Europe/Stockholm")),
+            timeZoneProvider: { timeZoneProvider.timeZone },
             now: { clock.next() },
             observeInterruptions: false,
             mediaValidator: SidecarValidMediaValidator()
@@ -183,5 +190,19 @@ private final class SidecarTestClock {
 
     func next() -> Date {
         values.removeFirst()
+    }
+}
+
+private final class SidecarTestTimeZoneProvider: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedTimeZone: TimeZone
+
+    var timeZone: TimeZone {
+        get { lock.withLock { storedTimeZone } }
+        set { lock.withLock { storedTimeZone = newValue } }
+    }
+
+    init(timeZone: TimeZone) {
+        storedTimeZone = timeZone
     }
 }
