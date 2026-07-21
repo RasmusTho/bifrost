@@ -50,6 +50,24 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertEqual(recorder.sessionModel.phase, .recording)
     }
 
+    func testAutomaticResumeFailureExposesManualRetry() async throws {
+        let writer = FakeCaptureWriter(resumeFailuresRemaining: 1)
+        let recorder = makeRecorder(writer: writer)
+        recorder.start()
+        let generation = try XCTUnwrap(recorder.activeCaptureGeneration)
+        await recorder.handleInterruption(type: .began, shouldResume: false)
+        await recorder.handleInterruption(type: .ended, shouldResume: true)
+        XCTAssertEqual(recorder.sessionModel.phase, .paused)
+        XCTAssertTrue(recorder.needsManualResume)
+        XCTAssertEqual(recorder.activeCaptureGeneration, generation)
+        XCTAssertTrue(recorder.sessionModel.stagedItems.isEmpty)
+        recorder.resume()
+        XCTAssertEqual(recorder.sessionModel.phase, .recording)
+        XCTAssertFalse(recorder.needsManualResume)
+        XCTAssertEqual(recorder.activeCaptureGeneration, generation)
+        XCTAssertEqual(writer.resumeAttempts, 2)
+    }
+
     func testNonResumableInterruptionThenStopClearsManualResumeState() async {
         let recorder = makeRecorder()
         recorder.start()
@@ -57,9 +75,7 @@ final class CaptureRecorderTests: XCTestCase {
         await recorder.handleInterruption(type: .ended, shouldResume: false)
         XCTAssertEqual(recorder.sessionModel.phase, .paused)
         XCTAssertTrue(recorder.needsManualResume)
-
         await recorder.stop()
-
         XCTAssertEqual(recorder.sessionModel.phase, .staged)
         XCTAssertFalse(recorder.needsManualResume)
         await recorder.handleInterruption(type: .ended, shouldResume: false)
@@ -376,10 +392,12 @@ private final class FakeCaptureWriter: CaptureFileWriting {
     ] = [:]
     private let autoComplete: Bool
     private let outputData: Data
+    private var resumeFailuresRemaining: Int
     private(set) var isWaitingToFinish = false
     private(set) var normalStopCount = 0
     private(set) var forcedStopCount = 0
     private(set) var startedGenerations: [UInt64] = []
+    private(set) var resumeAttempts = 0
     var lastOutputURL: URL? {
         guard let generation = startedGenerations.last else { return nil }
         return urls[generation]
@@ -387,10 +405,12 @@ private final class FakeCaptureWriter: CaptureFileWriting {
 
     init(
         autoComplete: Bool = true,
-        outputData: Data = CaptureTestAudio.validM4A
+        outputData: Data = CaptureTestAudio.validM4A,
+        resumeFailuresRemaining: Int = 0
     ) {
         self.autoComplete = autoComplete
         self.outputData = outputData
+        self.resumeFailuresRemaining = resumeFailuresRemaining
     }
 
     func start(
@@ -404,7 +424,13 @@ private final class FakeCaptureWriter: CaptureFileWriting {
     }
 
     func pause() {}
-    func resume() throws {}
+    func resume() throws {
+        resumeAttempts += 1
+        if resumeFailuresRemaining > 0 {
+            resumeFailuresRemaining -= 1
+            throw CaptureFileWriterFailure.encodingFailed("resume failed")
+        }
+    }
 
     func stop(generation: UInt64) throws {
         normalStopCount += 1

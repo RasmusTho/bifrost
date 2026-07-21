@@ -276,6 +276,7 @@ private extension CaptureRecorder {
             needsManualResume = false
             _ = sessionModel.transition(to: .recording)
         } catch {
+            needsManualResume = true
             lastError = error.localizedDescription
         }
     }
