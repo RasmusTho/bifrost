@@ -152,6 +152,57 @@ extension VaultFileStoreTests {
         XCTAssertEqual(loggedFailures.values.count, 1)
     }
 
+    func testPlainScalarDelimitersDoNotConsumeForeignFields() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            ("notes/plain-curly.md", "old { writer"),
+            ("notes/plain-square.md", "writer [legacy")
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        for (path, staleValue) in cases {
+            let text = "---\ntitle: Keep\nagent_provenance: \(staleValue)\n"
+                + "next: preserve-me\n---\n\nBody.\n"
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, "---\ntitle: Keep\nnext: preserve-me\n---\n\nBody.\n")
+            XCTAssertFalse(saved.contains("agent_provenance"))
+            XCTAssertFalse(saved.contains(staleValue))
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+        for (path, _) in cases {
+            XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
+        }
+    }
+
+    func testIndentedRootProvenanceFailurePreservesNestedSameNameField() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/indented-root.md"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let text = "---\n  title: Keep\n  nested:\n    agent_provenance: nested-human-data\n"
+            + "  agent_provenance:\n    author: another-writer\n    written_at: old\n"
+            + "  next: preserve-me\n---\n\nBody.\n"
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        XCTAssertEqual(
+            saved,
+            "---\n  title: Keep\n  nested:\n    agent_provenance: nested-human-data\n"
+                + "  next: preserve-me\n---\n\nBody.\n"
+        )
+        XCTAssertTrue(saved.contains("agent_provenance: nested-human-data"))
+        XCTAssertFalse(saved.contains("another-writer"))
+        XCTAssertEqual(loggedFailures.values.count, 1)
+    }
+
     func testFlowRootProvenanceFailurePreservesForeignYAML() async throws {
         struct ProvenanceFailure: Error {}
         let path = "notes/flow-root-provenance.md"
@@ -178,6 +229,33 @@ extension VaultFileStoreTests {
         XCTAssertFalse(saved.contains("agent_provenance"))
         XCTAssertFalse(saved.contains("another-writer"))
         XCTAssertEqual(loggedFailures.values.count, 1)
+    }
+
+    func testFlowRootNodePropertiesPreserveForeignYAML() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            ("notes/anchored-flow-root.md", "&root"),
+            ("notes/tagged-flow-root.md", "!!map")
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        for (path, property) in cases {
+            let text = "---\n\(property) {agent_provenance: {author: another-writer}, title: Keep}\n"
+                + "---\n\nBody.\n"
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, "---\n\(property) { title: Keep}\n---\n\nBody.\n")
+            XCTAssertFalse(saved.contains("agent_provenance"))
+            XCTAssertFalse(saved.contains("another-writer"))
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+        for (path, _) in cases {
+            XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
+        }
     }
 
     func testUnsafeUnprovenancedFrontmatterIsPreservedAndLogged() async throws {
