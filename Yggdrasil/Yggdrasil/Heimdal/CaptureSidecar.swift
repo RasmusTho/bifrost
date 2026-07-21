@@ -5,6 +5,7 @@ extension CaptureRecorder {
         let generation: UInt64
         let url: URL
         let recordedStartAt: Date
+        let timezone: String
         var interruptions: Int
     }
 
@@ -63,14 +64,15 @@ struct CaptureTimeMetadataSidecar: Codable, Equatable {
         case location
     }
 
-    init(item: CaptureSessionModel.StagedItem, settings: CaptureSidecarSettings) {
+    init?(item: CaptureSessionModel.StagedItem, settings: CaptureSidecarSettings) {
+        guard let metadata = item.captureMetadata else { return nil }
         sidecarVersion = Self.version
-        deviceID = item.deviceID
-        recordedStartAt = item.recordedStartAt
-        recordedEndAt = item.recordedEndAt
-        timezone = TimeZone.current.identifier
-        interruptions = item.interruptions
-        sourceSurface = item.sourceSurface
+        deviceID = metadata.deviceID
+        recordedStartAt = metadata.recordedStartAt
+        recordedEndAt = metadata.recordedEndAt
+        timezone = metadata.timezone
+        interruptions = metadata.interruptions
+        sourceSurface = metadata.sourceSurface
         location = settings.enabledLocation
     }
 }

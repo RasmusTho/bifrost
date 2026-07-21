@@ -168,6 +168,51 @@ final class CaptureDeliveryTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: finalURL), bytes)
     }
 
+    func testRecoveryDeliversAudioWithoutSidecarAndPreservesSidecarPlacedBeforeRestart() async throws {
+        let stagingDirectory = try makeDirectory()
+        let captureFolder = try makeDirectory()
+        let source = stagingDirectory.appendingPathComponent("heimdal-test.m4a")
+        let audioURL = captureFolder.appendingPathComponent(source.lastPathComponent)
+        let sidecarURL = captureFolder.appendingPathComponent(
+            "\(source.lastPathComponent).capture.json"
+        )
+        let audio = Data("complete recording".utf8)
+        let alreadyPlacedSidecar = Data("{\"sidecar_version\":1}".utf8)
+        try audio.write(to: source)
+        try audio.write(to: audioURL)
+        try alreadyPlacedSidecar.write(to: sidecarURL)
+
+        let model = CaptureSessionModel()
+        _ = CaptureRecorder(
+            sessionModel: model,
+            writer: InertCaptureWriter(),
+            stagingDirectory: stagingDirectory,
+            deviceID: "registered-device-id",
+            observeInterruptions: false,
+            mediaValidator: AlwaysValidCaptureMediaValidator()
+        )
+        let recovered = try XCTUnwrap(model.stagedItems.first)
+        XCTAssertTrue(recovered.wasRecoveredAfterRestart)
+        XCTAssertNil(recovered.captureMetadata)
+
+        let sidecarWriter = RejectingSidecarWriter()
+        let queue = CaptureDeliveryQueue(
+            sessionModel: model,
+            placer: CaptureDeliveryFilePlacer(coordinator: RecordingDeliveryCoordinator()),
+            sidecarWriter: sidecarWriter
+        )
+
+        await queue.deliver(itemID: recovered.id, to: captureFolder)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
+        XCTAssertEqual(try Data(contentsOf: audioURL), audio)
+        XCTAssertEqual(try Data(contentsOf: sidecarURL), alreadyPlacedSidecar)
+        XCTAssertEqual(sidecarWriter.writeCount, 0)
+        guard case .deliveredAwaitingSync = try XCTUnwrap(model.stagedItems.first?.deliveryState) else {
+            return XCTFail("Recovered audio should complete delivery without metadata fabrication")
+        }
+    }
+
     func testRebuildKeepsUnverifiableMediaOutOfDeliveryQueue() throws {
         let stagingDirectory = try makeDirectory()
         let validURL = stagingDirectory.appendingPathComponent("valid.m4a")
@@ -249,6 +294,15 @@ private final class RecordingBytesCopier: CaptureBytesCopying {
 private struct AlwaysFailingFilePlacer: CaptureFilePlacing {
     func place(stagedURL: URL, in folderURL: URL) throws -> URL {
         throw InjectedDeliveryError.failed
+    }
+}
+
+private final class RejectingSidecarWriter: CaptureSidecarWriting {
+    private(set) var writeCount = 0
+
+    func write(sidecar: CaptureTimeMetadataSidecar, alongside audioURL: URL) throws {
+        writeCount += 1
+        XCTFail("Recovered audio without capture facts must not synthesize a sidecar")
     }
 }
 

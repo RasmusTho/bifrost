@@ -1,63 +1,6 @@
 import AVFoundation
 import Combine
 import Foundation
-import UIKit
-
-struct ValidatedCaptureMedia: Equatable {
-    let duration: TimeInterval
-}
-
-enum CaptureMediaValidationFailure: LocalizedError, Equatable {
-    case invalidOrUnverifiableMedia
-
-    var errorDescription: String? {
-        "Heimdal could not verify the recording as complete, decodable audio."
-    }
-}
-
-protocol CaptureMediaValidating {
-    func validate(url: URL) -> Result<ValidatedCaptureMedia, CaptureMediaValidationFailure>
-}
-
-struct AVFoundationCaptureMediaValidator: CaptureMediaValidating {
-    func validate(url: URL) -> Result<ValidatedCaptureMedia, CaptureMediaValidationFailure> {
-        do {
-            let audioFile = try AVAudioFile(forReading: url)
-            let readableFrames = min(audioFile.length, AVAudioFramePosition(4_096))
-            guard readableFrames > 0,
-                  let buffer = AVAudioPCMBuffer(
-                      pcmFormat: audioFile.processingFormat,
-                      frameCapacity: AVAudioFrameCount(readableFrames)) else {
-                return .failure(.invalidOrUnverifiableMedia)
-            }
-
-            try audioFile.read(into: buffer, frameCount: AVAudioFrameCount(readableFrames))
-            guard buffer.frameLength > 0 else {
-                return .failure(.invalidOrUnverifiableMedia)
-            }
-
-            if audioFile.length > readableFrames {
-                audioFile.framePosition = audioFile.length - readableFrames
-                guard let tailBuffer = AVAudioPCMBuffer(
-                    pcmFormat: audioFile.processingFormat,
-                    frameCapacity: AVAudioFrameCount(readableFrames)) else {
-                    return .failure(.invalidOrUnverifiableMedia)
-                }
-                try audioFile.read(into: tailBuffer, frameCount: AVAudioFrameCount(readableFrames))
-                guard tailBuffer.frameLength > 0 else { return .failure(.invalidOrUnverifiableMedia) }
-            }
-
-            let sampleRate = audioFile.processingFormat.sampleRate
-            let duration = Double(audioFile.length) / sampleRate
-            guard sampleRate.isFinite, sampleRate > 0, duration.isFinite, duration > 0 else {
-                return .failure(.invalidOrUnverifiableMedia)
-            }
-            return .success(ValidatedCaptureMedia(duration: duration))
-        } catch {
-            return .failure(.invalidOrUnverifiableMedia)
-        }
-    }
-}
 
 @MainActor
 final class CaptureRecorder: ObservableObject {
@@ -95,7 +38,11 @@ final class CaptureRecorder: ObservableObject {
 
     private let writer: CaptureFileWriting
     private let stagingDirectory: URL
+    private let deviceID: String
     private let deviceShortID: String
+    private let sourceSurface: CaptureSourceSurface
+    private let timeZone: TimeZone
+    private let now: () -> Date
     private let observeSessionNotifications: Bool
     private let mediaValidator: CaptureMediaValidating
     private var activeCapture: ActiveCapture?
@@ -108,7 +55,11 @@ final class CaptureRecorder: ObservableObject {
         sessionModel: CaptureSessionModel? = nil,
         writer: CaptureFileWriting? = nil,
         stagingDirectory: URL? = nil,
+        deviceID: String? = nil,
         deviceShortID: String? = nil,
+        sourceSurface: CaptureSourceSurface = .iphoneApp,
+        timeZone: TimeZone = .current,
+        now: @escaping () -> Date = Date.init,
         configuration: Configuration = .production,
         observeInterruptions: Bool = true,
         mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
@@ -116,8 +67,12 @@ final class CaptureRecorder: ObservableObject {
         self.sessionModel = sessionModel ?? CaptureSessionModel()
         self.writer = writer ?? AVFoundationCaptureFileWriter()
         self.stagingDirectory = stagingDirectory ?? Self.defaultStagingDirectory()
-        self.deviceShortID = deviceShortID ?? UIDevice.current.identifierForVendor?
-            .uuidString.prefix(8).lowercased() ?? "device"
+        let stableDeviceID = deviceID ?? HeimdalDeviceIdentity().deviceID()
+        self.deviceID = stableDeviceID
+        self.deviceShortID = deviceShortID ?? String(stableDeviceID.prefix(8))
+        self.sourceSurface = sourceSurface
+        self.timeZone = timeZone
+        self.now = now
         self.configuration = configuration
         observeSessionNotifications = observeInterruptions
         self.mediaValidator = mediaValidator
@@ -160,7 +115,8 @@ final class CaptureRecorder: ObservableObject {
             activeCapture = ActiveCapture(
                 generation: generation,
                 url: url,
-                recordedStartAt: Date(),
+                recordedStartAt: now(),
+                timezone: timeZone.identifier,
                 interruptions: 0
             )
             activeCaptureGeneration = generation
@@ -384,10 +340,14 @@ private extension CaptureRecorder {
                     url: capture.url,
                     duration: media.duration,
                     capturedAt: capture.recordedStartAt,
-                    recordedStartAt: capture.recordedStartAt,
-                    recordedEndAt: Date(),
-                    interruptions: capture.interruptions,
-                    deviceID: deviceShortID
+                    captureMetadata: CaptureSessionModel.CaptureMetadata(
+                        recordedStartAt: capture.recordedStartAt,
+                        recordedEndAt: now(),
+                        timezone: capture.timezone,
+                        interruptions: capture.interruptions,
+                        deviceID: deviceID,
+                        sourceSurface: sourceSurface
+                    )
                 ) else { throw Error.incompleteFile }
                 finishTerminalCleanup()
             } catch {

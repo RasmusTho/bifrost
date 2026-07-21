@@ -1,10 +1,44 @@
 import Foundation
 import SwiftUI
 
+/// HCAP-04's locally persisted device identity. The same UUID is the stable
+/// filename used by `_heimdal/devices/{device_id}.md`; a shortened token is
+/// only a local audio filename convenience and is never provenance metadata.
+struct HeimdalDeviceIdentity {
+    static let defaultsKey = "heimdal.device_id"
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func deviceID() -> String {
+        if let existing = defaults.string(forKey: Self.defaultsKey), !existing.isEmpty {
+            return existing
+        }
+        let generated = UUID().uuidString.lowercased()
+        defaults.set(generated, forKey: Self.defaultsKey)
+        return generated
+    }
+}
+
 /// UI-independent capture and delivery progression. Durable custody remains on
 /// disk; these states explain the current process's view of each attempt.
 @MainActor
 final class CaptureSessionModel: ObservableObject {
+    /// Facts observed while a capture session was live. This is deliberately
+    /// absent for audio reconstructed after a process restart: filesystem
+    /// metadata cannot truthfully recreate these capture-time facts.
+    struct CaptureMetadata: Equatable {
+        let recordedStartAt: Date
+        let recordedEndAt: Date
+        let timezone: String
+        let interruptions: Int
+        let deviceID: String
+        let sourceSurface: CaptureSourceSurface
+    }
+
     enum Phase: Equatable {
         case idle
         case recording
@@ -46,11 +80,7 @@ final class CaptureSessionModel: ObservableObject {
         let capturedAt: Date
         /// Capture-time facts travel with the staged recording so delivery does
         /// not have to infer them from a filename or filesystem timestamps.
-        let recordedStartAt: Date
-        let recordedEndAt: Date
-        let interruptions: Int
-        let deviceID: String
-        let sourceSurface: CaptureSourceSurface
+        let captureMetadata: CaptureMetadata?
         /// `true` when the item was reconstructed from the local staging directory
         /// after the process was no longer able to retain its in-memory capture state.
         let wasRecoveredAfterRestart: Bool
@@ -74,11 +104,7 @@ final class CaptureSessionModel: ObservableObject {
         url: URL = URL(fileURLWithPath: "/dev/null"),
         duration: TimeInterval = 0,
         capturedAt: Date = Date(),
-        recordedStartAt: Date? = nil,
-        recordedEndAt: Date? = nil,
-        interruptions: Int = 0,
-        deviceID: String = "device",
-        sourceSurface: CaptureSourceSurface = .iphoneApp,
+        captureMetadata: CaptureMetadata? = nil,
         wasRecoveredAfterRestart: Bool = false
     ) -> Bool {
         guard phase == .finalizing else { return false }
@@ -87,11 +113,7 @@ final class CaptureSessionModel: ObservableObject {
             url: url,
             duration: duration,
             capturedAt: capturedAt,
-            recordedStartAt: recordedStartAt ?? capturedAt,
-            recordedEndAt: recordedEndAt ?? capturedAt,
-            interruptions: interruptions,
-            deviceID: deviceID,
-            sourceSurface: sourceSurface,
+            captureMetadata: captureMetadata,
             wasRecoveredAfterRestart: wasRecoveredAfterRestart,
             deliveryState: .staged
         ))
@@ -120,9 +142,7 @@ final class CaptureSessionModel: ObservableObject {
         id: UUID = UUID(),
         url: URL,
         duration: TimeInterval,
-        capturedAt: Date,
-        deviceID: String = "device",
-        sourceSurface: CaptureSourceSurface = .iphoneApp
+        capturedAt: Date
     ) {
         guard !stagedItems.contains(where: { $0.url == url }) else { return }
         stagedItems.append(StagedItem(
@@ -130,11 +150,7 @@ final class CaptureSessionModel: ObservableObject {
             url: url,
             duration: duration,
             capturedAt: capturedAt,
-            recordedStartAt: capturedAt.addingTimeInterval(-duration),
-            recordedEndAt: capturedAt,
-            interruptions: 0,
-            deviceID: deviceID,
-            sourceSurface: sourceSurface,
+            captureMetadata: nil,
             wasRecoveredAfterRestart: true,
             deliveryState: .staged
         ))

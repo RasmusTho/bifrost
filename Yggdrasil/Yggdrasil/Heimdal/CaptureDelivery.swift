@@ -211,9 +211,11 @@ final class CaptureDeliveryQueue: ObservableObject {
         do {
             try await Task.detached(priority: .utility) {
                 let placedAudioURL = try placer.place(stagedURL: item.url, in: folderURL)
-                // The sidecar is intentionally optional for consumers, but once this
-                // producer elects to write it, it follows the audio's final rename.
-                try sidecarWriter.write(sidecar: sidecar, alongside: placedAudioURL)
+                // Restart recovery has no truthful capture-time facts, so it delivers
+                // audio alone. When a sidecar exists, it is always placed after audio.
+                if let sidecar {
+                    try sidecarWriter.write(sidecar: sidecar, alongside: placedAudioURL)
+                }
                 // Placement has returned only after the final admissible name exists.
                 // Deletion is deliberately outside the placer and strictly after it.
                 try fileManager.removeItem(at: item.url)
