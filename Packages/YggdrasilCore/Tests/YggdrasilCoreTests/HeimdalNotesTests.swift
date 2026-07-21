@@ -107,6 +107,8 @@ final class HeimdalNotesTests: XCTestCase {
           author: old-writer
           written_at: 2026-07-01T00:00:00Z
           origin: direct-fs
+          model: old-writer-model
+          trace: old-writer-session
         ---
         """
         var note = InterestsNote(document: try FrontmatterDocument.parse(text))
@@ -120,5 +122,8 @@ final class HeimdalNotesTests: XCTestCase {
         XCTAssertEqual(provenance["author"]?.stringValue, "bifrost-ios")
         XCTAssertEqual(provenance["written_at"]?.stringValue, "2026-07-21T10:15:30Z")
         XCTAssertEqual(provenance["origin"]?.stringValue, "direct-fs")
+        XCTAssertNil(provenance["model"])
+        XCTAssertNil(provenance["trace"])
+        XCTAssertEqual(provenance.keys, ["author", "written_at", "origin"])
     }
 }

@@ -335,9 +335,11 @@ final class VaultFileStoreTests: XCTestCase {
         struct ProvenanceFailure: Error {}
 
         let path = "notes/untagged.md"
+        let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
             rootURL: tempDirectory,
-            provenanceTimestampProvider: { throw ProvenanceFailure() }
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
         )
         let text = "---\ntitle: Untagged fallback\n---\n\nThe user's write still lands.\n"
 
@@ -346,6 +348,9 @@ final class VaultFileStoreTests: XCTestCase {
         let saved = try await store.read(path)
         XCTAssertEqual(saved, text)
         XCTAssertFalse(saved.contains("agent_provenance"))
+        XCTAssertEqual(loggedFailures.values.count, 1)
+        XCTAssertTrue(loggedFailures.values[0].contains(path))
+        XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
     }
 
     @MainActor

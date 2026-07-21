@@ -74,7 +74,8 @@ private enum VaultWriteProvenance {
     static func applying(
         to text: String,
         relativePath: String,
-        timestampProvider: TimestampProvider
+        timestampProvider: TimestampProvider,
+        failureLogger: @Sendable (String) -> Void
     ) -> String {
         var document: FrontmatterDocument
         do {
@@ -82,11 +83,16 @@ private enum VaultWriteProvenance {
         } catch FrontmatterDocument.ParseError.missingFrontmatter {
             document = FrontmatterDocument(frontmatter: YAMLMap(), body: text)
         } catch {
-            logFailure(error, relativePath: relativePath)
+            logFailure(error, relativePath: relativePath, failureLogger: failureLogger)
             return text
         }
 
-        guard apply(to: &document, relativePath: relativePath, timestampProvider: timestampProvider) else {
+        guard apply(
+            to: &document,
+            relativePath: relativePath,
+            timestampProvider: timestampProvider,
+            failureLogger: failureLogger
+        ) else {
             return text
         }
         return document.rendered()
@@ -96,21 +102,26 @@ private enum VaultWriteProvenance {
     static func apply(
         to document: inout FrontmatterDocument,
         relativePath: String,
-        timestampProvider: TimestampProvider
+        timestampProvider: TimestampProvider,
+        failureLogger: @Sendable (String) -> Void
     ) -> Bool {
         do {
             document.applyBifrostProvenance(writtenAt: try timestampProvider())
             return true
         } catch {
-            logFailure(error, relativePath: relativePath)
+            logFailure(error, relativePath: relativePath, failureLogger: failureLogger)
             return false
         }
     }
 
-    private static func logFailure(_ error: Error, relativePath: String) {
+    private static func logFailure(
+        _ error: Error,
+        relativePath: String,
+        failureLogger: @Sendable (String) -> Void
+    ) {
         let message = "Bifrost provenance tagging failed for \(relativePath); "
             + "writing note without provenance: \(error.localizedDescription)"
-        NSLog("%@", message)
+        failureLogger(message)
     }
 }
 
@@ -139,15 +150,18 @@ struct VaultFileStore: Sendable {
     let rootURL: URL
     private let coordinator: VaultFileCoordinating
     private let provenanceTimestampProvider: @Sendable () throws -> String
+    private let provenanceFailureLogger: @Sendable (String) -> Void
 
     init(
         rootURL: URL,
         coordinator: VaultFileCoordinating = NSFileCoordinatorAccess(),
-        provenanceTimestampProvider: @escaping @Sendable () throws -> String = { Date().ISO8601Format() }
+        provenanceTimestampProvider: @escaping @Sendable () throws -> String = { Date().ISO8601Format() },
+        provenanceFailureLogger: @escaping @Sendable (String) -> Void = { NSLog("%@", $0) }
     ) {
         self.rootURL = rootURL
         self.coordinator = coordinator
         self.provenanceTimestampProvider = provenanceTimestampProvider
+        self.provenanceFailureLogger = provenanceFailureLogger
     }
 
     /// Public vault I/O never runs on SwiftUI's main actor. Security-scoped
@@ -200,7 +214,8 @@ struct VaultFileStore: Sendable {
                     let taggedText = VaultWriteProvenance.applying(
                         to: text,
                         relativePath: relativePath,
-                        timestampProvider: provenanceTimestampProvider
+                        timestampProvider: provenanceTimestampProvider,
+                        failureLogger: provenanceFailureLogger
                     )
                     try Self.atomicReplace(taggedText, at: coordinatedURL)
                 }
@@ -280,7 +295,8 @@ struct VaultFileStore: Sendable {
                     VaultWriteProvenance.apply(
                         to: &document,
                         relativePath: relativePath,
-                        timestampProvider: provenanceTimestampProvider
+                        timestampProvider: provenanceTimestampProvider,
+                        failureLogger: provenanceFailureLogger
                     )
 
                     let result = try writeIfUnchanged(
