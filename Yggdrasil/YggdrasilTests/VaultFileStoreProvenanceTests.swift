@@ -82,9 +82,9 @@ extension VaultFileStoreTests {
             ),
             (
                 "notes/separated-provenance.md",
-                "---\ntitle: Keep\nagent_provenance:\n  author: old\n\n"
+                "---\ntitle: Keep\nagent_provenance:\n  author: old\n# human explanation\n\n"
                     + "  written_at: old\n  origin: imported\nnext: keep\n---\n\nBody.\n",
-                "---\ntitle: Keep\nnext: keep\n---\n\nBody.\n"
+                "---\ntitle: Keep\n# human explanation\n\nnext: keep\n---\n\nBody.\n"
             ),
             (
                 "notes/indentless-sequence.md",
@@ -110,6 +110,74 @@ extension VaultFileStoreTests {
         for (path, _, _) in cases {
             XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
         }
+    }
+
+    func testMultilineFlowProvenanceFailurePreservesForeignYAML() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/multiline-flow-provenance.md"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let text = """
+        ---
+        title: Keep
+        agent_provenance: {
+          author: another-writer,
+        # retain this human comment
+          written_at: old,
+          origin: imported,
+          trace: "}, # still provenance"
+        }
+        tags: [one, two]
+        ---
+
+        Body.
+        """
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, """
+        ---
+        title: Keep
+        # retain this human comment
+        tags: [one, two]
+        ---
+
+        Body.
+        """)
+        XCTAssertFalse(saved.contains("agent_provenance"))
+        XCTAssertFalse(saved.contains("another-writer"))
+        XCTAssertEqual(loggedFailures.values.count, 1)
+    }
+
+    func testFlowRootProvenanceFailurePreservesForeignYAML() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/flow-root-provenance.md"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let text = """
+        ---
+        {title: "Keep # literal, { brace", # retain this human comment
+         agent_provenance: {author: another-writer, written_at: old, trace: "}, # provenance"},
+         tags: [one, two]}
+        ---
+
+        Body.
+        """
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        let expected = "---\n{title: \"Keep # literal, { brace\", # retain this human comment\n "
+            + "\n tags: [one, two]}\n---\n\nBody."
+        XCTAssertEqual(saved, expected)
+        XCTAssertFalse(saved.contains("agent_provenance"))
+        XCTAssertFalse(saved.contains("another-writer"))
+        XCTAssertEqual(loggedFailures.values.count, 1)
     }
 
     func testUnsafeUnprovenancedFrontmatterIsPreservedAndLogged() async throws {

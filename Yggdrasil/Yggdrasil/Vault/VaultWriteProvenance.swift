@@ -22,55 +22,8 @@ enum VaultWriteProvenance {
             return try injecting(into: text, writtenAt: timestampProvider())
         } catch {
             logFailure(error, relativePath: relativePath, failureLogger: failureLogger)
-            return removingExistingProvenance(from: text)
+            return YAMLProvenanceSanitizer.removingExistingProvenance(from: text)
         }
-    }
-
-    /// A failed tag attempt must not leave another writer attributed to the
-    /// bytes Bifrost is about to replace. This fallback removes only a
-    /// top-level `agent_provenance` value and otherwise preserves the
-    /// requested text byte-for-byte.
-    private static func removingExistingProvenance(from text: String) -> String {
-        let newline = text.hasPrefix("---\r\n") ? "\r\n" : "\n"
-        guard text.hasPrefix("---\(newline)") else { return text }
-        var lines = text.components(separatedBy: newline)
-        guard lines.first == "---",
-              var closingIndex = lines.dropFirst().firstIndex(of: "---") else {
-            return text
-        }
-
-        var index = 1
-        while index < closingIndex {
-            guard isAgentProvenanceEntry(lines[index]) else {
-                index += 1
-                continue
-            }
-            let endIndex = provenanceValueEnd(in: lines, after: index, before: closingIndex)
-            lines.removeSubrange(index..<endIndex)
-            closingIndex -= endIndex - index
-        }
-        return lines.joined(separator: newline)
-    }
-
-    private static func provenanceValueEnd(in lines: [String], after start: Int, before closing: Int) -> Int {
-        guard let separator = mappingSeparator(in: lines[start]) else { return start + 1 }
-        let remainder = lines[start][lines[start].index(after: separator)...]
-            .trimmingCharacters(in: .whitespaces)
-        let isBlockValue = remainder.isEmpty || remainder.hasPrefix("|") || remainder.hasPrefix(">")
-        guard isBlockValue else { return start + 1 }
-
-        var end = start + 1
-        while end < closing {
-            let line = lines[end]
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") || line.first?.isWhitespace == true
-                || (remainder.isEmpty && isSequenceEntry(trimmed)) {
-                end += 1
-                continue
-            }
-            break
-        }
-        return end
     }
 
     private static func injecting(into text: String, writtenAt: String) throws -> String {

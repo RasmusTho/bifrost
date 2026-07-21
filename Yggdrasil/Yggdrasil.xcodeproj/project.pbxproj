@@ -16,6 +16,7 @@
 		305E6D705207943FA747FFA3 /* VaultPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F1BCA55966245F10D18664 /* VaultPickerView.swift */; };
 		C39E432513AA34F77E12C916 /* VaultFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3383F4474E420445AA4358ED /* VaultFileStore.swift */; };
 		C50000010000000000000001 /* VaultWriteProvenance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000110000000000000001 /* VaultWriteProvenance.swift */; };
+		C50000030000000000000003 /* YAMLProvenanceSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000130000000000000003 /* YAMLProvenanceSanitizer.swift */; };
 		666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */; };
 		0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394547EDCD374141F3DFC604 /* NoteDetailView.swift */; };
 		11941E8256F7152EE531749C /* MimerShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435045F5470233E53111E5EC /* MimerShellView.swift */; };
@@ -105,6 +106,7 @@
 		A0F1BCA55966245F10D18664 /* VaultPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultPickerView.swift; sourceTree = "<group>"; };
 		3383F4474E420445AA4358ED /* VaultFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStore.swift; sourceTree = "<group>"; };
 		C50000110000000000000001 /* VaultWriteProvenance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultWriteProvenance.swift; sourceTree = "<group>"; };
+		C50000130000000000000003 /* YAMLProvenanceSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YAMLProvenanceSanitizer.swift; sourceTree = "<group>"; };
 		90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRendererView.swift; sourceTree = "<group>"; };
 		394547EDCD374141F3DFC604 /* NoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDetailView.swift; sourceTree = "<group>"; };
 		435045F5470233E53111E5EC /* MimerShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerShellView.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 				A0F1BCA55966245F10D18664 /* VaultPickerView.swift */,
 				3383F4474E420445AA4358ED /* VaultFileStore.swift */,
 				C50000110000000000000001 /* VaultWriteProvenance.swift */,
+				C50000130000000000000003 /* YAMLProvenanceSanitizer.swift */,
 			);
 			path = Vault;
 			sourceTree = "<group>";
@@ -543,6 +546,7 @@
 				305E6D705207943FA747FFA3 /* VaultPickerView.swift in Sources */,
 				C39E432513AA34F77E12C916 /* VaultFileStore.swift in Sources */,
 				C50000010000000000000001 /* VaultWriteProvenance.swift in Sources */,
+				C50000030000000000000003 /* YAMLProvenanceSanitizer.swift in Sources */,
 				666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */,
 				0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */,
 				11941E8256F7152EE531749C /* MimerShellView.swift in Sources */,
