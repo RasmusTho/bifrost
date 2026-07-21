@@ -87,18 +87,6 @@ final class CaptureRecorder: ObservableObject {
         )
     }
 
-    private struct ActiveCapture {
-        let generation: UInt64
-        let url: URL
-        let recordedStartAt: Date
-        var interruptions: Int
-    }
-
-    private enum FinalizationMode {
-        case delegateCompletion
-        case forcedCompletion
-    }
-
     let sessionModel: CaptureSessionModel
     let configuration: Configuration
     @Published private(set) var lastError: String?

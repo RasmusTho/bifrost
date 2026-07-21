@@ -1,5 +1,19 @@
 import Foundation
 
+extension CaptureRecorder {
+    struct ActiveCapture {
+        let generation: UInt64
+        let url: URL
+        let recordedStartAt: Date
+        var interruptions: Int
+    }
+
+    enum FinalizationMode {
+        case delegateCompletion
+        case forcedCompletion
+    }
+}
+
 enum CaptureSourceSurface: String, Codable, Equatable {
     case iphoneApp = "iphone-app"
     case watchRelay = "watch-relay"
