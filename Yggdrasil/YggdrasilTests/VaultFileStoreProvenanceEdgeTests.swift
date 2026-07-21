@@ -16,7 +16,6 @@ extension VaultFileStoreTests {
             provenanceTimestampProvider: { throw ProvenanceFailure() },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-
         for (index, frontmatter) in cases.enumerated() {
             let path = "notes/json-flow-\(index).md"
             let text = "---\n\(frontmatter)\n---\n\nBody.\n"
@@ -56,7 +55,6 @@ extension VaultFileStoreTests {
             provenanceTimestampProvider: { throw ProvenanceFailure() },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-
         for (path, text, expected) in cases {
             try await store.write(text, to: path)
             let saved = try await store.read(path)
@@ -92,7 +90,6 @@ extension VaultFileStoreTests {
             provenanceTimestampProvider: { throw ProvenanceFailure() },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-
         for (path, text, expected) in cases {
             try await store.write(text, to: path)
             let saved = try await store.read(path)
@@ -113,9 +110,7 @@ extension VaultFileStoreTests {
             provenanceTimestampProvider: { throw ProvenanceFailure() },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-
         try await store.write(text, to: path)
-
         let saved = try await store.read(path)
         XCTAssertEqual(saved, expected)
         XCTAssertEqual(loggedFailures.values.count, 1)
@@ -358,6 +353,14 @@ extension VaultFileStoreTests {
                     + "  &ap agent_provenance]\n*ap: old\n---\n",
                 "---\nbase: [ # collection\n  # anchor follows a comment\n"
                     + "  &ap agent_provenance]\nformer_writer_attribution: old\n---\n"
+            ),
+            (
+                "---\nactive: &ap agent_provenance\nforeign: [\"quoted\", &ap human-key]\n*ap: keep\n---\n",
+                "---\nactive: &ap agent_provenance\nforeign: [\"quoted\", &ap human-key]\n*ap: keep\n---\n"
+            ),
+            (
+                "---\nactive: &ap agent_provenance\nforeign: [!tag &ap human-key]\n*ap: keep\n---\n",
+                "---\nactive: &ap agent_provenance\nforeign: [!tag &ap human-key]\n*ap: keep\n---\n"
             )
         ]
         let loggedFailures = MutationValueRecorder()
@@ -366,7 +369,6 @@ extension VaultFileStoreTests {
             provenanceTimestampProvider: { throw ProvenanceFailure() },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-
         for (index, fixture) in cases.enumerated() {
             let path = "notes/flow-sequence-anchor-\(index).md"
             try await store.write(fixture.0, to: path)
@@ -387,19 +389,23 @@ extension VaultFileStoreTests {
             provenanceTimestampProvider: { throw ProvenanceFailure() },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-
         try await store.write(text, to: path)
-
         let saved = try await store.read(path)
         XCTAssertEqual(saved, expected)
         XCTAssertEqual(loggedFailures.values.count, 1)
     }
 
-    func testEscapedSemanticNeutralKeyCollisionFailsClosed() async throws {
+    func testEscapedSemanticNeutralKeyCollisionAllocatesDistinctKey() async throws {
         struct ProvenanceFailure: Error {}
         let cases = [
-            "---\n\"\\u0066ormer_writer_attribution\": human\nagent_provenance: stale\n---\n",
-            "---\n{\"\\x66ormer_writer_attribution\": human, agent_provenance: stale}\n---\n"
+            (
+                "---\n\"\\u0066ormer_writer_attribution\": human\nagent_provenance: stale\n---\n",
+                "---\n\"\\u0066ormer_writer_attribution\": human\nformer_writer_attribution_2: stale\n---\n"
+            ),
+            (
+                "---\n{\"\\x66ormer_writer_attribution\": human, agent_provenance: stale}\n---\n",
+                "---\n{\"\\x66ormer_writer_attribution\": human, former_writer_attribution_2: stale}\n---\n"
+            )
         ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
@@ -408,13 +414,85 @@ extension VaultFileStoreTests {
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
 
-        for (index, text) in cases.enumerated() {
+        for (index, fixture) in cases.enumerated() {
             let path = "notes/escaped-neutral-collision-\(index).md"
-            try await store.write(text, to: path)
+            try await store.write(fixture.0, to: path)
             let saved = try await store.read(path)
-            XCTAssertEqual(saved, text)
+            XCTAssertEqual(saved, fixture.1)
         }
         XCTAssertEqual(loggedFailures.values.count, cases.count)
-        XCTAssertTrue(loggedFailures.values.allSatisfy { $0.contains("without refreshed provenance") })
+        XCTAssertTrue(loggedFailures.values.allSatisfy { $0.contains("neutralized stale attribution") })
+    }
+
+    func testUnrelatedBackslashesDoNotBlockSafeNeutralization() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/unrelated-backslashes.md"
+        let text = "---\npath: 'C:\\vault\\note' # keep \\ literally\nagent_provenance: stale\n---\n"
+        let expected = "---\npath: 'C:\\vault\\note' # keep \\ literally\n"
+            + "former_writer_attribution: stale\n---\n"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, expected)
+        XCTAssertEqual(loggedFailures.values.count, 1)
+    }
+
+    func testEscapedActiveKeyIsNeutralizedSemantically() async throws {
+        let path = "notes/escaped-active-key.md"
+        let text = "---\n\"agent_\\u0070rovenance\": stale\ntitle: Keep\n---\n"
+        let expected = "---\n\"former_writer_attribution\": stale\ntitle: Keep\n---\n"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { "2026-07-21T10:30:00Z" },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, expected)
+        XCTAssertEqual(loggedFailures.values.count, 1)
+        XCTAssertTrue(loggedFailures.values[0].contains("neutralized stale attribution"))
+    }
+
+    func testRootAnchorAfterSiblingAndCommentRemainsActive() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/root-anchor-after-sibling.md"
+        let text = "---\ntitle: Keep\n# retain\n&ap agent_provenance: old\n*ap: second\n---\n"
+        let expected = "---\ntitle: Keep\n# retain\n&ap former_writer_attribution: old\n"
+            + "former_writer_attribution_2: second\n---\n"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, expected)
+        XCTAssertEqual(loggedFailures.values.count, 1)
+    }
+
+    func testSuccessfulRefreshPreservesExportedProvenanceAnchors() async throws {
+        let path = "notes/exported-provenance-anchor.md"
+        let text = "---\nagent_provenance:\n  author: &writer old\nforeign: *writer\n---\n"
+        let expected = "---\nformer_writer_attribution:\n  author: &writer old\nforeign: *writer\n---\n"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { "2026-07-21T10:30:00Z" },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        try await store.write(text, to: path)
+
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, expected)
+        XCTAssertEqual(loggedFailures.values.count, 1)
+        XCTAssertTrue(loggedFailures.values[0].contains("neutralized stale attribution"))
     }
 }

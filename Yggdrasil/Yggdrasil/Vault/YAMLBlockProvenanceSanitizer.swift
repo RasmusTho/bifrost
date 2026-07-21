@@ -217,12 +217,10 @@ enum YAMLProvenanceKey {
 
     static func replacementMatch(in key: String, activeAliases: Set<String>) -> YAMLProvenanceKeyMatch? {
         let characters = Array(key)
-        guard var nodeStart = contentIndex(in: characters, startingAt: 0) else { return nil }
-        if isExplicitMappingEntry(at: nodeStart, in: characters) {
-            guard let explicitNode = contentIndex(in: characters, startingAt: nodeStart + 1) else { return nil }
-            nodeStart = explicitNode
+        guard let scalarStart = scalarStart(in: characters) else { return nil }
+        if let range = escapedActiveNameRange(at: scalarStart, in: characters) {
+            return YAMLProvenanceKeyMatch(range: range)
         }
-        guard let scalarStart = YAMLNodeStart.index(in: characters, startingAt: nodeStart) else { return nil }
         let literalForms = [
             (Array(activeName), 0),
             (Array("\"\(activeName)\""), 1),
@@ -248,18 +246,45 @@ enum YAMLProvenanceKey {
         return YAMLProvenanceKeyMatch(range: scalarStart..<end)
     }
 
+    private static func scalarStart(in characters: [Character]) -> Int? {
+        guard var nodeStart = contentIndex(in: characters, startingAt: 0) else { return nil }
+        if isExplicitMappingEntry(at: nodeStart, in: characters) {
+            guard let explicitNode = contentIndex(
+                in: characters,
+                startingAt: nodeStart + 1
+            ) else { return nil }
+            nodeStart = explicitNode
+        }
+        return YAMLNodeStart.index(in: characters, startingAt: nodeStart)
+    }
+
     static func availableNeutralName(in text: String) -> String? {
-        // A backslash can hide an equivalent double-quoted YAML key (for example,
-        // "\u0066ormer_writer_attribution"). Without a full semantic key decoder,
-        // collision freedom is unprovable, so preserve the requested bytes unchanged.
-        guard !text.contains("\\") else { return nil }
+        guard let decodedKeys = YAMLSemanticKeyScanner.decodedDoubleQuotedKeys(in: text) else { return nil }
         var candidate = neutralName
         var suffix = 2
-        while text.contains(candidate) {
+        while text.contains(candidate) || decodedKeys.contains(candidate) {
             candidate = "\(neutralName)_\(suffix)"
             suffix += 1
         }
         return candidate
+    }
+
+    static func requiresSemanticKeyFallback(in text: String) -> Bool {
+        guard let decodedKeys = YAMLSemanticKeyScanner.decodedDoubleQuotedKeys(in: text) else { return true }
+        return decodedKeys.contains(activeName)
+    }
+
+    private static func escapedActiveNameRange(
+        at scalarStart: Int,
+        in characters: [Character]
+    ) -> Range<Int>? {
+        guard characters[scalarStart] == "\"",
+              let quoted = YAMLSemanticKeyScanner.decodedDoubleQuotedScalar(
+                  at: scalarStart,
+                  in: characters
+              ), quoted.value == activeName,
+              containsOnlyTrivia(characters[quoted.end...]) else { return nil }
+        return (scalarStart + 1)..<(quoted.end - 1)
     }
 
     static func isLiteralActiveNode(

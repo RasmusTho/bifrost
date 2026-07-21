@@ -67,19 +67,55 @@ struct YAMLProvenanceAnchorBindings {
     }
 
     private static func isFlowNodeBoundary(before index: Int, in characters: [Character]) -> Bool {
-        guard index > 0 else { return false }
-        var lineEnd = index
-        while true {
-            let start = lineStart(before: lineEnd, in: characters)
-            let line = String(characters[start..<lineEnd])
-            guard !line.contains("\"") && !line.contains("'") else { return false }
-            let withoutComment = line.split(separator: "#", maxSplits: 1).first.map(String.init) ?? line
-            if let candidate = withoutComment.last(where: { !$0.isWhitespace }) {
-                return "[{,:?".contains(candidate)
+        var state = YAMLAnchorScanState()
+        var boundary: Int?
+        for candidate in 0..<index {
+            let character = characters[candidate]
+            if state.consume(character, at: candidate, in: characters) { continue }
+            let wasInFlow = state.isInsideFlow
+            state.trackDepth(character)
+            if "[{,".contains(character) || (wasInFlow && character == ":") {
+                boundary = candidate
             }
-            guard start > 0 else { return false }
-            lineEnd = start - 1
         }
+        guard let boundary else { return false }
+        let suffix = removingComments(from: String(characters[(boundary + 1)..<index]))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return suffix.isEmpty || YAMLNodeStart.containsOnlyProperties(in: suffix)
+    }
+
+    private static func removingComments(from text: String) -> String {
+        var result = ""
+        var quote: Character?
+        var escaping = false
+        var inComment = false
+        var previousWasWhitespace = true
+        for character in text {
+            if inComment {
+                if character == "\n" || character == "\r" {
+                    inComment = false
+                    result.append(character)
+                }
+            } else if let activeQuote = quote {
+                result.append(character)
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+            } else if character == "\"" || character == "'" {
+                quote = character
+                result.append(character)
+            } else if character == "#", previousWasWhitespace {
+                inComment = true
+            } else {
+                result.append(character)
+            }
+            previousWasWhitespace = character.isWhitespace
+        }
+        return result
     }
 
     private static func isStandaloneNodeLine(at lineStart: Int, in characters: [Character]) -> Bool {
@@ -92,8 +128,9 @@ struct YAMLProvenanceAnchorBindings {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty, !trimmed.hasPrefix("#") {
                 let previousIndent = indentation(at: previousStart, in: characters)
-                if previousIndent == currentIndent, YAMLNodeStart.containsOnlyProperties(in: trimmed) {
-                    return true
+                if previousIndent == currentIndent {
+                    return YAMLNodeStart.containsOnlyProperties(in: trimmed)
+                        || hasMappingSeparator(in: trimmed)
                 }
                 guard previousIndent < currentIndent else { return false }
                 let withoutComment = line.split(separator: "#", maxSplits: 1).first.map(String.init) ?? line
@@ -102,6 +139,31 @@ struct YAMLProvenanceAnchorBindings {
             }
             guard previousStart > 0 else { break }
             previousEnd = previousStart - 1
+        }
+        return false
+    }
+
+    private static func hasMappingSeparator(in line: String) -> Bool {
+        var quote: Character?
+        var escaping = false
+        for index in line.indices {
+            let character = line[index]
+            if let activeQuote = quote {
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+                continue
+            }
+            if character == "\"" || character == "'" { quote = character; continue }
+            if character == "#" { return false }
+            if character == ":" {
+                let next = line.index(after: index)
+                if next == line.endIndex || line[next].isWhitespace { return true }
+            }
         }
         return false
     }
@@ -302,4 +364,122 @@ private struct YAMLAnchorScanState {
 private enum YAMLAnchorQuote {
     case single
     case double
+}
+
+enum YAMLSemanticKeyScanner {
+    static func decodedDoubleQuotedKeys(in text: String) -> Set<String>? {
+        let characters = Array(text)
+        var keys: Set<String> = []
+        var index = 0
+        var state = YAMLQuotedKeyScanState()
+        while index < characters.count {
+            let character = characters[index]
+            if state.consumeTrivia(character, at: index, in: characters) {
+                index += 1
+                continue
+            }
+            guard character == "\"" else {
+                index += 1
+                continue
+            }
+            guard let quoted = decodedDoubleQuotedScalar(at: index, in: characters) else { return nil }
+            if isMappingSeparator(after: quoted.end, in: characters) { keys.insert(quoted.value) }
+            index = quoted.end
+        }
+        return keys
+    }
+
+    static func decodedDoubleQuotedScalar(
+        at start: Int,
+        in characters: [Character]
+    ) -> (value: String, end: Int)? {
+        guard characters[start] == "\"" else { return nil }
+        var result = ""
+        var index = start + 1
+        while index < characters.count {
+            let character = characters[index]
+            if character == "\"" { return (result, index + 1) }
+            guard character == "\\" else {
+                result.append(character)
+                index += 1
+                continue
+            }
+            guard let escape = decodedEscape(at: index + 1, in: characters) else { return nil }
+            result.append(escape.character)
+            index = escape.end
+        }
+        return nil
+    }
+
+    private static func decodedEscape(
+        at start: Int,
+        in characters: [Character]
+    ) -> (character: Character, end: Int)? {
+        guard start < characters.count else { return nil }
+        let simple: [Character: Character] = [
+            "0": "\0", "a": "\u{7}", "b": "\u{8}", "t": "\t", "n": "\n",
+            "v": "\u{B}", "f": "\u{C}", "r": "\r", "e": "\u{1B}",
+            " ": " ", "\"": "\"", "/": "/", "\\": "\\"
+        ]
+        if let character = simple[characters[start]] { return (character, start + 1) }
+        let widths: [Character: Int] = ["x": 2, "u": 4, "U": 8]
+        guard let width = widths[characters[start]], start + width < characters.count else { return nil }
+        let digits = String(characters[(start + 1)...(start + width)])
+        guard let value = UInt32(digits, radix: 16), let scalar = UnicodeScalar(value) else { return nil }
+        return (Character(String(scalar)), start + width + 1)
+    }
+
+    private static func isMappingSeparator(after end: Int, in characters: [Character]) -> Bool {
+        var index = end
+        while index < characters.count {
+            while index < characters.count, characters[index].isWhitespace { index += 1 }
+            if index < characters.count, characters[index] == "#" {
+                while index < characters.count,
+                      characters[index] != "\n", characters[index] != "\r" { index += 1 }
+                continue
+            }
+            break
+        }
+        return index < characters.count && characters[index] == ":"
+    }
+}
+
+private struct YAMLQuotedKeyScanState {
+    private var inComment = false
+    private var inSingleQuote = false
+    private var skipNextSingleQuote = false
+
+    mutating func consumeTrivia(
+        _ character: Character,
+        at index: Int,
+        in characters: [Character]
+    ) -> Bool {
+        if skipNextSingleQuote {
+            skipNextSingleQuote = false
+            return true
+        }
+        if inComment {
+            if character == "\n" || character == "\r" { inComment = false }
+            return true
+        }
+        if inSingleQuote {
+            if character == "'" {
+                if index + 1 < characters.count, characters[index + 1] == "'" {
+                    skipNextSingleQuote = true
+                } else {
+                    inSingleQuote = false
+                }
+            }
+            return true
+        }
+        if character == "#", index == 0 || characters[index - 1].isWhitespace {
+            inComment = true
+            return true
+        }
+        if character == "'" {
+            inSingleQuote = true
+            return true
+        }
+        return false
+    }
 }

@@ -51,6 +51,11 @@ enum VaultWriteProvenance {
             throw InjectionError.unsafeFrontmatter
         }
 
+        let frontmatter = lines[1..<closingIndex].joined(separator: newline)
+        guard !YAMLProvenanceKey.requiresSemanticKeyFallback(in: frontmatter) else {
+            throw InjectionError.unsafeFrontmatter
+        }
+
         let candidates = lines[1..<closingIndex].indices.filter { index in
             let line = lines[index]
             guard line.first?.isWhitespace != true else { return false }
@@ -68,12 +73,32 @@ enum VaultWriteProvenance {
                 throw InjectionError.unsafeFrontmatter
             }
             let endIndex = try replacementEnd(in: lines, after: startIndex, before: closingIndex)
+            guard replacementPreservesAnchorReferences(
+                in: lines,
+                replacing: startIndex..<endIndex,
+                before: closingIndex
+            ) else {
+                throw InjectionError.unsafeFrontmatter
+            }
             lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
         } else {
             try insert(provenanceLines, into: &lines, before: closingIndex)
         }
         return lines.joined(separator: newline)
     }
+
+    private static func replacementPreservesAnchorReferences(
+        in lines: [String],
+        replacing range: Range<Int>,
+        before closing: Int
+    ) -> Bool {
+        let removed = lines[range].joined(separator: "\n")
+        guard removed.contains("&") else { return true }
+        let retained = (lines[1..<range.lowerBound] + lines[range.upperBound..<closing])
+            .joined(separator: "\n")
+        return !retained.contains("*")
+    }
+
     private static func replacementEnd(in lines: [String], after start: Int, before closing: Int) throws -> Int {
         var end = start + 1
         while end < closing {
