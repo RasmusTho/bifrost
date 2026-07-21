@@ -219,6 +219,9 @@ final class CaptureDeliveryQueue: ObservableObject {
                 // Placement has returned only after the final admissible name exists.
                 // Deletion is deliberately outside the placer and strictly after it.
                 try fileManager.removeItem(at: item.url)
+                // Watch relay metadata is local custody support for the optional
+                // sidecar. It stays until placement succeeds, then becomes cleanup-only.
+                try? WatchRelayMetadataStore(fileManager: fileManager).remove(for: item.url)
             }.value
             _ = sessionModel.updateDeliveryState(
                 for: itemID,

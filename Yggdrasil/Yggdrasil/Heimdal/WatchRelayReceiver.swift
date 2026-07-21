@@ -28,6 +28,7 @@ enum WatchRelayReceiveError: LocalizedError {
 final class WatchRelayFileStager {
     private let stagingDirectory: URL
     private let fileManager: FileManager
+    private let metadataStore: WatchRelayMetadataStore
 
     init(
         stagingDirectory: URL = CaptureStagingPaths.defaultDirectory(),
@@ -35,9 +36,13 @@ final class WatchRelayFileStager {
     ) {
         self.stagingDirectory = stagingDirectory
         self.fileManager = fileManager
+        metadataStore = WatchRelayMetadataStore(fileManager: fileManager)
     }
 
-    func stage(fileURL: URL) throws -> URL {
+    func stage(
+        fileURL: URL,
+        metadata: WatchRelayCaptureMetadata? = nil
+    ) throws -> URL {
         guard fileManager.fileExists(atPath: fileURL.path) else { throw WatchRelayReceiveError.missingFile }
         guard fileURL.pathExtension.lowercased() == "m4a" else {
             throw WatchRelayReceiveError.invalidExtension
@@ -48,6 +53,9 @@ final class WatchRelayFileStager {
             "watch-\(UUID().uuidString.lowercased()).m4a"
         )
         try fileManager.copyItem(at: fileURL, to: destinationURL)
+        if let metadata {
+            try metadataStore.write(metadata, for: destinationURL)
+        }
         return destinationURL
     }
 }
@@ -59,6 +67,7 @@ final class WatchRelayStagingReceiver {
     private let fileStager: WatchRelayFileStager
     private let mediaValidator: CaptureMediaValidating
     private let deviceID: String
+    private let metadataStore: WatchRelayMetadataStore
 
     init(
         sessionModel: CaptureSessionModel,
@@ -70,6 +79,7 @@ final class WatchRelayStagingReceiver {
         self.sessionModel = sessionModel
         self.mediaValidator = mediaValidator
         self.deviceID = deviceID ?? HeimdalDeviceIdentity().deviceID()
+        metadataStore = WatchRelayMetadataStore(fileManager: fileManager)
         fileStager = WatchRelayFileStager(
             stagingDirectory: stagingDirectory,
             fileManager: fileManager
@@ -83,7 +93,7 @@ final class WatchRelayStagingReceiver {
         capturedAt: Date = Date(),
         metadata: WatchRelayCaptureMetadata? = nil
     ) throws -> URL {
-        let stagedURL = try fileStager.stage(fileURL: fileURL)
+        let stagedURL = try fileStager.stage(fileURL: fileURL, metadata: metadata)
         register(stagedURL: stagedURL, capturedAt: capturedAt, metadata: metadata)
         return stagedURL
     }
@@ -98,13 +108,14 @@ final class WatchRelayStagingReceiver {
         capturedAt: Date = Date(),
         metadata: WatchRelayCaptureMetadata? = nil
     ) -> Bool {
+        let durableMetadata = metadata ?? metadataStore.read(for: stagedURL)
         switch mediaValidator.validate(url: stagedURL) {
         case let .success(media):
             sessionModel.recoverStagedItem(
                 url: stagedURL,
                 duration: media.duration,
-                capturedAt: metadata?.recordedStartAt ?? capturedAt,
-                captureMetadata: metadata.map {
+                capturedAt: durableMetadata?.recordedStartAt ?? capturedAt,
+                captureMetadata: durableMetadata.map {
                     CaptureSessionModel.CaptureMetadata(
                         recordedStartAt: $0.recordedStartAt,
                         recordedEndAt: $0.recordedEndAt,
@@ -185,8 +196,8 @@ final class WatchRelayReceiver: NSObject, ObservableObject, WCSessionDelegate {
         transferMetadata: [String: Any]? = nil
     ) -> Bool {
         do {
-            let stagedURL = try fileStager.stage(fileURL: fileURL)
             let metadata = WatchRelayCaptureMetadata.decode(transferMetadata: transferMetadata)
+            let stagedURL = try fileStager.stage(fileURL: fileURL, metadata: metadata)
             Task { @MainActor [weak self, stagingReceiver] in
                 guard !stagingReceiver.register(
                     stagedURL: stagedURL,
