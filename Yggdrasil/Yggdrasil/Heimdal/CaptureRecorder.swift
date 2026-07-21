@@ -3,16 +3,82 @@ import Combine
 import Foundation
 import UIKit
 
+struct ValidatedCaptureMedia: Equatable {
+    let duration: TimeInterval
+}
+
+enum CaptureMediaValidationFailure: LocalizedError, Equatable {
+    case invalidOrUnverifiableMedia
+
+    var errorDescription: String? {
+        "Heimdal could not verify the recording as complete, decodable audio."
+    }
+}
+
+protocol CaptureMediaValidating {
+    func validate(url: URL) -> Result<ValidatedCaptureMedia, CaptureMediaValidationFailure>
+}
+
+struct AVFoundationCaptureMediaValidator: CaptureMediaValidating {
+    func validate(url: URL) -> Result<ValidatedCaptureMedia, CaptureMediaValidationFailure> {
+        do {
+            let audioFile = try AVAudioFile(forReading: url)
+            let readableFrames = min(audioFile.length, AVAudioFramePosition(4_096))
+            guard readableFrames > 0,
+                  let buffer = AVAudioPCMBuffer(
+                      pcmFormat: audioFile.processingFormat,
+                      frameCapacity: AVAudioFrameCount(readableFrames)
+                  ) else {
+                return .failure(.invalidOrUnverifiableMedia)
+            }
+
+            try audioFile.read(into: buffer, frameCount: AVAudioFrameCount(readableFrames))
+            guard buffer.frameLength > 0 else {
+                return .failure(.invalidOrUnverifiableMedia)
+            }
+
+            if audioFile.length > readableFrames {
+                audioFile.framePosition = audioFile.length - readableFrames
+                guard let tailBuffer = AVAudioPCMBuffer(
+                    pcmFormat: audioFile.processingFormat,
+                    frameCapacity: AVAudioFrameCount(readableFrames)
+                ) else {
+                    return .failure(.invalidOrUnverifiableMedia)
+                }
+                try audioFile.read(
+                    into: tailBuffer,
+                    frameCount: AVAudioFrameCount(readableFrames)
+                )
+                guard tailBuffer.frameLength > 0 else {
+                    return .failure(.invalidOrUnverifiableMedia)
+                }
+            }
+
+            let sampleRate = audioFile.processingFormat.sampleRate
+            let duration = Double(audioFile.length) / sampleRate
+            guard sampleRate.isFinite, sampleRate > 0, duration.isFinite, duration > 0 else {
+                return .failure(.invalidOrUnverifiableMedia)
+            }
+            return .success(ValidatedCaptureMedia(duration: duration))
+        } catch {
+            return .failure(.invalidOrUnverifiableMedia)
+        }
+    }
+}
+
 @MainActor
 final class CaptureRecorder: ObservableObject {
     enum Error: LocalizedError {
         case couldNotStart
         case incompleteFile
+        case recoveryFailed
 
         var errorDescription: String? {
             switch self {
             case .couldNotStart: "Heimdal could not start recording."
             case .incompleteFile: "Heimdal could not finish the recording safely."
+            case .recoveryFailed:
+                "Heimdal kept one or more recordings that could not be verified after restart."
             }
         }
     }
@@ -48,6 +114,7 @@ final class CaptureRecorder: ObservableObject {
     private let stagingDirectory: URL
     private let deviceShortID: String
     private let observeSessionNotifications: Bool
+    private let mediaValidator: CaptureMediaValidating
     private var activeCapture: ActiveCapture?
     private var nextCaptureGeneration: UInt64 = 0
     private var finalizationGeneration: UInt64?
@@ -60,7 +127,8 @@ final class CaptureRecorder: ObservableObject {
         stagingDirectory: URL? = nil,
         deviceShortID: String? = nil,
         configuration: Configuration = .production,
-        observeInterruptions: Bool = true
+        observeInterruptions: Bool = true,
+        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
     ) {
         self.sessionModel = sessionModel ?? CaptureSessionModel()
         self.writer = writer ?? AVFoundationCaptureFileWriter()
@@ -69,6 +137,7 @@ final class CaptureRecorder: ObservableObject {
             .uuidString.prefix(8).lowercased() ?? "device"
         self.configuration = configuration
         observeSessionNotifications = observeInterruptions
+        self.mediaValidator = mediaValidator
         reconcileStagingDirectory()
     }
 
@@ -190,12 +259,11 @@ final class CaptureRecorder: ObservableObject {
 
     /// Rebuilds visible, accountable staged state after force-kill/relaunch.
     ///
-    /// AVAudioRecorder writes the capture file progressively. At launch there is no
-    /// reliable in-memory marker distinguishing a completed segment from one whose
-    /// process died before finalization, so every safely classifiable local `.m4a`
-    /// is retained as a pending, recovered item. We never delete or rename files in
-    /// this path. Empty files are deliberately excluded from `staged`: a staged item
-    /// promises a fully written file, while the bytes remain on disk for diagnosis.
+    /// AVAudioRecorder writes the capture file progressively, but nonzero size does
+    /// not prove that a force-killed MPEG-4 container was finalized. Only media that
+    /// AVFoundation can open and decode enters the pending delivery queue. Every
+    /// invalid or unverifiable `.m4a` remains untouched on disk and is surfaced as a
+    /// separate recovery failure so custody is never confused with completeness.
     func reconcileStagingDirectory() {
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: stagingDirectory,
@@ -214,14 +282,24 @@ final class CaptureRecorder: ObservableObject {
                       .fileSizeKey,
                       .contentModificationDateKey
                   ]),
-                  values.isRegularFile == true,
-                  (values.fileSize ?? 0) > 0 else { continue }
+                  values.isRegularFile == true else { continue }
 
-            sessionModel.recoverStagedItem(
-                url: url,
-                duration: recoveredDuration(for: url),
-                capturedAt: values.contentModificationDate ?? Date()
-            )
+            let detectedAt = values.contentModificationDate ?? Date()
+            switch mediaValidator.validate(url: url) {
+            case let .success(media):
+                sessionModel.recoverStagedItem(
+                    url: url,
+                    duration: media.duration,
+                    capturedAt: detectedAt
+                )
+            case .failure:
+                sessionModel.recordRecoveryFailure(
+                    url: url,
+                    detectedAt: detectedAt,
+                    reason: .invalidOrUnverifiableMedia
+                )
+                lastError = Error.recoveryFailed.localizedDescription
+            }
         }
     }
 }
@@ -306,15 +384,16 @@ private extension CaptureRecorder {
         }
 
         switch event.result {
-        case let .success(duration):
+        case .success:
             do {
                 guard FileManager.default.fileExists(atPath: capture.url.path),
                       (try capture.url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else {
                     throw Error.incompleteFile
                 }
+                let media = try mediaValidator.validate(url: capture.url).get()
                 guard sessionModel.stageCurrentItem(
                     url: capture.url,
-                    duration: duration,
+                    duration: media.duration,
                     capturedAt: Date()
                 ) else { throw Error.incompleteFile }
                 finishTerminalCleanup()
@@ -418,7 +497,4 @@ private extension CaptureRecorder {
             .appendingPathComponent("Heimdal/Staging", isDirectory: true)
     }
 
-    func recoveredDuration(for url: URL) -> TimeInterval {
-        (try? AVAudioPlayer(contentsOf: url).duration) ?? 0
-    }
 }

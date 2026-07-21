@@ -71,6 +71,25 @@ struct HeimdalShellView: View {
                         }
                     }
                 }
+
+                if !sessionModel.recoveryFailures.isEmpty {
+                    Section("Recovery Issues") {
+                        ForEach(sessionModel.recoveryFailures) { failure in
+                            VStack(alignment: .leading) {
+                                Label(
+                                    "Recording needs recovery",
+                                    systemImage: "exclamationmark.triangle.fill"
+                                )
+                                Text(failure.url.lastPathComponent)
+                                    .font(YggTheme.Typography.caption)
+                                Text(failure.reason.message)
+                                    .font(YggTheme.Typography.caption)
+                                    .foregroundStyle(YggTheme.Color.textSecondary)
+                            }
+                            .accessibilityIdentifier("heimdal.recoveryFailure")
+                        }
+                    }
+                }
             }
             .navigationTitle("Heimdal")
             .sheet(isPresented: $isFolderPickerPresented) {

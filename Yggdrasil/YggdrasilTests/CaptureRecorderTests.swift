@@ -2,6 +2,36 @@ import AVFoundation
 import XCTest
 @testable import Yggdrasil
 
+private enum CaptureTestAudio {
+    static let validM4A: Data = {
+        let base64 = """
+        AAAAHGZ0eXBNNEEgAAACAE00QSBpc29taXNvMgAAAAhmcmVlAAABeW1kYXTeAgBMYXZjNjIuMTEuMTAwAAJ8ZRfGgxVVmevz
+        +/tLuSSJEiEhEHnzwa7/pBrv+kGu/zgov84KL0wUAQCMTENkxVVTFVVMVVUxVVTFVVMVVUxVVTFVVMVSJiqqmJFUxVVTEhBy
+        7KpikqmLsqmKSo5SVTXSVTXSVHukqPdIg5SA90lR7pKj3Sb6bpN/hdJvpuk3+F0m+m6Tee6SPC6SMQxGfEMRnxDEZ8QxG2IY
+        jbEMRtiGIz4hiM+IYjPiGI+AATQyi+ZVVWOeft9+NS5CREIggDuh/MnQfMnQf4HuPge5fBs5fAzwv5gb3HwbPD8GzlkN7w5G
+        88ORvPDkbzw5G85ZDZ4cjeeHI3nhyN54cjeeHI3nhyN54cjeeHI3nhyN54X23YcjeeHI3nhyN54X288ORvPDkbzw5G88ORvP
+        C+27C+27C+27C+27C+3nhyN54cjeeF9t2F9t2F9t2F9t2F9t2F9t2F9t2F9t2F9t2F9t2HgAAAMCbW9vdgAAAGxtdmhkAAAA
+        AAAAAAAAAAAAAAAD6AAAAFAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAi10cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAAFAAAAAAAAAA
+        AAAAAAEBAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAkZWR0cwAAABxlbHN0AAAA
+        AAAAAAEAAABQAAAEAAABAAAAAAGlbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAfQAAABoBVxAAAAAAALWhkbHIAAAAAAAAA
+        AHNvdW4AAAAAAAAAAAAAAABTb3VuZEhhbmRsZXIAAAABUG1pbmYAAAAQc21oZAAAAAAAAAAAAAAAJGRpbmYAAAAcZHJlZgAA
+        AAAAAAABAAAADHVybCAAAAABAAABFHN0YmwAAABqc3RzZAAAAAAAAAABAAAAWm1wNGEAAAAAAAAAAQAAAAAAAAAAAAEAEAAA
+        AAAfQAAAAAAANmVzZHMAAAAAA4CAgCUAAQAEgICAF0AVAAAAAAA3cAAAN3AFgICABRWIVuUABoCAgAECAAAAIHN0dHMAAAAA
+        AAAAAgAAAAEAAAQAAAAAAQAAAoAAAAAcc3RzYwAAAAAAAAABAAAAAQAAAAIAAAABAAAAHHN0c3oAAAAAAAAAAAAAAAIAAAC+
+        AAAAswAAABRzdGNvAAAAAAAAAAEAAAAsAAAAGnNncGQBAAAAcm9sbAAAAAIAAAAB//8AAAAcc2JncAAAAAByb2xsAAAAAQAA
+        AAIAAAABAAAAYXVkdGEAAABZbWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAsaWxzdAAAACSp
+        dG9vAAAAHGRhdGEAAAABAAAAAExhdmY2Mi4zLjEwMA==
+        """.replacingOccurrences(of: "\n", with: "")
+        guard let data = Data(base64Encoded: base64) else {
+            fatalError("The production-format M4A fixture must decode")
+        }
+        return data
+    }()
+
+    static let truncatedM4A = Data(validM4A.prefix(validM4A.count / 2))
+}
+
 @MainActor
 final class CaptureRecorderTests: XCTestCase {
     func testBackgroundTransitionKeepsSessionRecording() {
@@ -74,11 +104,11 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertGreaterThan(try item.url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0, 0)
     }
 
-    func testRestartReconcilesOrphanedM4AIntoRecoveredPendingItem() throws {
+    func testRestartRecoversFinalizedDecodableM4AIntoPendingItem() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let orphan = directory.appendingPathComponent("heimdal-test-device-20260720-120000-orphan.m4a")
-        try Data("audio flushed before force kill".utf8).write(to: orphan)
+        try CaptureTestAudio.validM4A.write(to: orphan)
 
         let relaunchedRecorder = CaptureRecorder(
             writer: FakeCaptureWriter(),
@@ -93,15 +123,17 @@ final class CaptureRecorderTests: XCTestCase {
         XCTAssertEqual(recovered.deliveryState, .deliveryPending)
         XCTAssertTrue(recovered.wasRecoveredAfterRestart)
         XCTAssertTrue(FileManager.default.fileExists(atPath: orphan.path))
+        XCTAssertTrue(relaunchedRecorder.sessionModel.recoveryFailures.isEmpty)
     }
 
-    func testRestartLeavesUnsafeFilesOnDiskWithoutClaimingTheyAreStaged() throws {
+    func testRestartPreservesTruncatedM4AAsExplicitRecoveryFailure() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let truncatedM4A = directory.appendingPathComponent("heimdal-interrupted.m4a")
         let emptyM4A = directory.appendingPathComponent("heimdal-empty.m4a")
-        let nonAudio = directory.appendingPathComponent("notes.txt")
-        FileManager.default.createFile(atPath: emptyM4A.path, contents: nil)
-        try Data("not audio".utf8).write(to: nonAudio)
+        let truncatedBytes = CaptureTestAudio.truncatedM4A
+        try truncatedBytes.write(to: truncatedM4A)
+        XCTAssertTrue(FileManager.default.createFile(atPath: emptyM4A.path, contents: nil))
 
         let relaunchedRecorder = CaptureRecorder(
             writer: FakeCaptureWriter(),
@@ -111,8 +143,27 @@ final class CaptureRecorderTests: XCTestCase {
         )
 
         XCTAssertTrue(relaunchedRecorder.sessionModel.stagedItems.isEmpty)
+        let failures = relaunchedRecorder.sessionModel.recoveryFailures
+        XCTAssertEqual(Set(failures.map(\.url)), Set([truncatedM4A, emptyM4A]))
+        XCTAssertTrue(failures.allSatisfy { $0.reason == .invalidOrUnverifiableMedia })
+        XCTAssertTrue(relaunchedRecorder.lastError?.contains("could not be verified") == true)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: truncatedM4A.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: emptyM4A.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: nonAudio.path))
+        XCTAssertEqual(try Data(contentsOf: truncatedM4A), truncatedBytes)
+    }
+
+    func testTerminalSuccessPreservesUndecodableBytesWithoutStaging() async throws {
+        let writer = FakeCaptureWriter(outputData: CaptureTestAudio.truncatedM4A)
+        let recorder = makeRecorder(writer: writer)
+
+        recorder.start()
+        await recorder.stop()
+
+        XCTAssertEqual(recorder.sessionModel.phase, .failed)
+        XCTAssertTrue(recorder.sessionModel.stagedItems.isEmpty)
+        XCTAssertTrue(recorder.lastError?.contains("complete, decodable audio") == true)
+        let outputURL = try XCTUnwrap(writer.lastOutputURL)
+        XCTAssertEqual(try Data(contentsOf: outputURL), CaptureTestAudio.truncatedM4A)
     }
 
     func testRouteChangeFinalizesThroughCompletionBoundary() async {
@@ -315,13 +366,22 @@ private final class FakeCaptureWriter: CaptureFileWriting {
         UInt64: @MainActor @Sendable (CaptureFileWriterTerminalEvent) -> Void
     ] = [:]
     private let autoComplete: Bool
+    private let outputData: Data
     private(set) var isWaitingToFinish = false
     private(set) var normalStopCount = 0
     private(set) var forcedStopCount = 0
     private(set) var startedGenerations: [UInt64] = []
+    var lastOutputURL: URL? {
+        guard let generation = startedGenerations.last else { return nil }
+        return urls[generation]
+    }
 
-    init(autoComplete: Bool = true) {
+    init(
+        autoComplete: Bool = true,
+        outputData: Data = CaptureTestAudio.validM4A
+    ) {
         self.autoComplete = autoComplete
+        self.outputData = outputData
     }
 
     func start(
@@ -392,7 +452,7 @@ private final class FakeCaptureWriter: CaptureFileWriting {
         isWaitingToFinish = false
         do {
             if case .success = result {
-                try Data("captured audio".utf8).write(to: url)
+                try outputData.write(to: url)
             }
             handler(CaptureFileWriterTerminalEvent(generation: generation, result: result))
         } catch {

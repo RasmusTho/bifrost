@@ -20,6 +20,24 @@ final class CaptureSessionModel: ObservableObject {
         case failed
     }
 
+    enum RecoveryFailureReason: Equatable {
+        case invalidOrUnverifiableMedia
+
+        var message: String {
+            switch self {
+            case .invalidOrUnverifiableMedia:
+                "Heimdal could not verify this recording as complete audio. The original file was kept."
+            }
+        }
+    }
+
+    struct RecoveryFailure: Identifiable, Equatable {
+        let id: UUID
+        let url: URL
+        let detectedAt: Date
+        let reason: RecoveryFailureReason
+    }
+
     struct StagedItem: Identifiable, Equatable {
         let id: UUID
         let url: URL
@@ -33,6 +51,7 @@ final class CaptureSessionModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var stagedItems: [StagedItem] = []
+    @Published private(set) var recoveryFailures: [RecoveryFailure] = []
 
     @discardableResult
     func transition(to next: Phase) -> Bool {
@@ -96,6 +115,24 @@ final class CaptureSessionModel: ObservableObject {
         if phase == .idle {
             phase = .staged
         }
+    }
+
+    /// Preserves custody of a local file that cannot safely enter the delivery
+    /// queue. The file remains untouched on disk and is surfaced separately from
+    /// complete, deliverable staged audio.
+    func recordRecoveryFailure(
+        id: UUID = UUID(),
+        url: URL,
+        detectedAt: Date,
+        reason: RecoveryFailureReason
+    ) {
+        guard !recoveryFailures.contains(where: { $0.url == url }) else { return }
+        recoveryFailures.append(RecoveryFailure(
+            id: id,
+            url: url,
+            detectedAt: detectedAt,
+            reason: reason
+        ))
     }
 
     private func isValidTransition(from current: Phase, to next: Phase) -> Bool {
