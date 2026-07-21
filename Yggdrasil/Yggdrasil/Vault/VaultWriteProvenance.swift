@@ -156,7 +156,7 @@ enum VaultWriteProvenance {
         failureLogger: @Sendable (String) -> Void
     ) {
         let message = "Bifrost provenance tagging failed for \(relativePath); "
-            + "writing note without provenance: \(error.localizedDescription)"
+            + "writing requested bytes without refreshed provenance: \(error.localizedDescription)"
         failureLogger(message)
     }
 }

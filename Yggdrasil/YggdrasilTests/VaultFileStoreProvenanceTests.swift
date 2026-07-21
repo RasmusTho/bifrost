@@ -264,6 +264,84 @@ extension VaultFileStoreTests {
         }
     }
 
+    func testNonSpecificTagRootsRemoveStaleProvenance() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            (
+                "notes/non-specific-flow-root.md",
+                "---\n! {agent_provenance: {author: another-writer}, title: Keep}\n---\n\nBody.\n",
+                "---\n! { title: Keep}\n---\n\nBody.\n"
+            ),
+            (
+                "notes/non-specific-block-root.md",
+                "---\n!\n  agent_provenance:\n    author: another-writer\n  title: Keep\n---\n\nBody.\n",
+                "---\n!\n  title: Keep\n---\n\nBody.\n"
+            )
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        for (path, text, expected) in cases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, expected)
+            XCTAssertFalse(saved.contains("another-writer"))
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+    }
+
+    func testExplicitRootMappingsRemoveOnlyStaleRootProvenance() async throws {
+        struct ProvenanceFailure: Error {}
+        let cases = [
+            (
+                "notes/complex-key-before-provenance.md",
+                "---\n? [one, two]\n: complex\nagent_provenance:\n  author: another-writer\ntitle: Keep\n"
+                    + "---\n\nBody.\n",
+                "---\n? [one, two]\n: complex\ntitle: Keep\n---\n\nBody.\n"
+            ),
+            (
+                "notes/explicit-provenance-key.md",
+                "---\n? agent_provenance\n: {author: another-writer}\nnext: Keep\n---\n\nBody.\n",
+                "---\nnext: Keep\n---\n\nBody.\n"
+            )
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        for (path, text, expected) in cases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, expected)
+            XCTAssertFalse(saved.contains("another-writer"))
+        }
+        XCTAssertEqual(loggedFailures.values.count, cases.count)
+    }
+
+    func testInvalidFlowRootPreservesUnverifiableBytesAndLogs() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/invalid-flow-root.md"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let text = "---\n{agent_provenance: old title: Keep}\n---\n\nBody.\n"
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, text)
+        XCTAssertTrue(saved.contains("title: Keep"))
+        XCTAssertEqual(loggedFailures.values.count, 1)
+        XCTAssertTrue(loggedFailures.values[0].contains(path))
+        XCTAssertTrue(loggedFailures.values[0].contains("without refreshed provenance"))
+    }
+
     func testUnsafeUnprovenancedFrontmatterIsPreservedAndLogged() async throws {
         let cases = [
             ("notes/empty-map.md", "---\n{}\n---\n\nBody.\n"),

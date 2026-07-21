@@ -19,59 +19,8 @@ enum YAMLProvenanceSanitizer {
             closingIndex = 1 + replacement.count
         }
 
-        guard let rootIndent = blockMappingRootIndent(in: lines[1..<closingIndex]) else {
-            return lines.joined(separator: newline)
-        }
-        var index = 1
-        while index < closingIndex {
-            guard isAgentProvenanceEntry(lines[index], rootIndent: rootIndent) else {
-                index += 1
-                continue
-            }
-            let removalIndices = provenanceRemovalIndices(
-                in: lines,
-                at: index,
-                before: closingIndex,
-                rootIndent: rootIndent
-            )
-            for removalIndex in removalIndices.reversed() {
-                lines.remove(at: removalIndex)
-            }
-            closingIndex -= removalIndices.count
-        }
+        lines = YAMLBlockProvenanceSanitizer.removingProvenance(in: lines, before: closingIndex)
         return lines.joined(separator: newline)
-    }
-
-    private static func provenanceRemovalIndices(
-        in lines: [String],
-        at start: Int,
-        before closing: Int,
-        rootIndent: String
-    ) -> [Int] {
-        let content = String(lines[start].dropFirst(rootIndent.count))
-        guard let separator = mappingSeparator(in: content) else { return [start] }
-        let remainder = String(content[content.index(after: separator)...])
-        var continuation = YAMLFlowContinuation()
-        if let flowNode = YAMLNodeStart.flowCollection(in: remainder) { continuation.scan(flowNode) }
-        var indices = [start]
-        var candidate = start + 1
-        while candidate < closing {
-            let line = lines[candidate]
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") {
-                candidate += 1
-                continue
-            }
-            if continuation.isOpen || isNested(line, beneath: rootIndent)
-                || isRootSequenceEntry(line, rootIndent: rootIndent) {
-                indices.append(candidate)
-                continuation.scan(line)
-                candidate += 1
-                continue
-            }
-            break
-        }
-        return indices
     }
 
     private static func removingFlowRootProvenance(from frontmatter: String) -> String? {
@@ -148,7 +97,7 @@ enum YAMLProvenanceSanitizer {
             return nil
         }
         let key = String(characters[keyStart..<separator]).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard isAgentProvenanceKey(key) else { return nil }
+        guard YAMLProvenanceKey.matches(key) else { return nil }
 
         var removal = Array(keyStart..<entryEnd)
         if let followingComma {
@@ -161,13 +110,28 @@ enum YAMLProvenanceSanitizer {
 
     private static func flowMappingSeparator(in characters: [Character], range: Range<Int>) -> Int? {
         var state = YAMLFlowParseState()
+        var separator: Int?
         for index in range {
             let character = characters[index]
             if state.consume(character, context: characterContext(at: index, in: characters)) { continue }
-            if character == ":", state.isOutsideFlowCollection { return index }
+            if character == ":", state.isOutsideFlowCollection,
+               isFlowMappingSeparator(at: index, in: characters, before: range.upperBound) {
+                guard separator == nil else { return nil }
+                separator = index
+            }
             state.trackDepth(character)
         }
-        return nil
+        return separator
+    }
+
+    private static func isFlowMappingSeparator(
+        at index: Int,
+        in characters: [Character],
+        before end: Int
+    ) -> Bool {
+        let next = index + 1
+        guard next < end else { return true }
+        return characters[next].isWhitespace || "[]{},".contains(characters[next])
     }
 
     private static func firstYAMLContentIndex(
@@ -202,55 +166,9 @@ enum YAMLProvenanceSanitizer {
         return YAMLCharacterContext(previous: previous, next: next)
     }
 
-    private static func blockMappingRootIndent(in lines: ArraySlice<String>) -> String? {
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-            if YAMLNodeStart.containsOnlyProperties(in: line) { continue }
-            let indent = String(line.prefix(while: { $0.isWhitespace }))
-            let content = String(line.dropFirst(indent.count))
-            return mappingSeparator(in: content) == nil ? nil : indent
-        }
-        return nil
-    }
-
-    private static func isAgentProvenanceEntry(_ line: String, rootIndent: String) -> Bool {
-        guard line.hasPrefix(rootIndent) else { return false }
-        let content = String(line.dropFirst(rootIndent.count))
-        guard content.first?.isWhitespace != true,
-              let separator = mappingSeparator(in: content) else { return false }
-        let key = content[..<separator].trimmingCharacters(in: .whitespaces)
-        return isAgentProvenanceKey(key)
-    }
-
-    private static func isNested(_ line: String, beneath rootIndent: String) -> Bool {
-        guard line.hasPrefix(rootIndent) else { return false }
-        return line.dropFirst(rootIndent.count).first?.isWhitespace == true
-    }
-
-    private static func isRootSequenceEntry(_ line: String, rootIndent: String) -> Bool {
-        guard line.hasPrefix(rootIndent) else { return false }
-        return isSequenceEntry(String(line.dropFirst(rootIndent.count)))
-    }
-
-    private static func isAgentProvenanceKey(_ key: String) -> Bool {
-        key == "agent_provenance" || key == "\"agent_provenance\"" || key == "'agent_provenance'"
-    }
-
-    private static func mappingSeparator(in line: String) -> String.Index? {
-        line.indices.first(where: { index in
-            guard line[index] == ":", index != line.startIndex, !isSequenceEntry(line) else { return false }
-            let next = line.index(after: index)
-            return next == line.endIndex || line[next].isWhitespace
-        })
-    }
-
-    private static func isSequenceEntry(_ line: String) -> Bool {
-        line.first == "-" && (line.count == 1 || line.dropFirst().first?.isWhitespace == true)
-    }
 }
 
-private enum YAMLNodeStart {
+enum YAMLNodeStart {
     static func containsOnlyProperties(in text: String) -> Bool {
         let characters = Array(text)
         guard var nodeIndex = contentIndex(in: characters, range: characters.indices) else { return false }
@@ -291,6 +209,12 @@ private enum YAMLNodeStart {
     }
 
     private static func propertyEnd(in characters: [Character], startingAt start: Int) -> Int? {
+        if characters[start] == "!" {
+            let next = start + 1
+            if next == characters.count || characters[next].isWhitespace || characters[next] == "#" {
+                return next
+            }
+        }
         if characters[start] == "!", start + 1 < characters.count, characters[start + 1] == "<" {
             guard let closing = characters[(start + 2)...].firstIndex(of: ">") else { return nil }
             return closing + 1
@@ -325,7 +249,7 @@ private struct YAMLCharacterContext {
     let next: Character?
 }
 
-private struct YAMLFlowContinuation {
+struct YAMLFlowContinuation {
     private var state = YAMLFlowParseState()
 
     var isOpen: Bool {

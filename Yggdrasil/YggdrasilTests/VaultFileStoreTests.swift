@@ -353,7 +353,7 @@ extension VaultFileStoreTests {
         XCTAssertFalse(saved.contains("another-writer"))
         XCTAssertEqual(loggedFailures.values.count, 1)
         XCTAssertTrue(loggedFailures.values[0].contains(path))
-        XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
+        XCTAssertTrue(loggedFailures.values[0].contains("writing requested bytes without refreshed provenance"))
     }
 
     @MainActor
