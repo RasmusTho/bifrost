@@ -206,6 +206,7 @@ enum YAMLProvenanceSanitizer {
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+            if YAMLNodeStart.containsOnlyProperties(in: line) { continue }
             let indent = String(line.prefix(while: { $0.isWhitespace }))
             let content = String(line.dropFirst(indent.count))
             return mappingSeparator(in: content) == nil ? nil : indent
@@ -250,6 +251,21 @@ enum YAMLProvenanceSanitizer {
 }
 
 private enum YAMLNodeStart {
+    static func containsOnlyProperties(in text: String) -> Bool {
+        let characters = Array(text)
+        guard var nodeIndex = contentIndex(in: characters, range: characters.indices) else { return false }
+        var foundProperty = false
+        while nodeIndex < characters.count, characters[nodeIndex] == "!" || characters[nodeIndex] == "&" {
+            guard let propertyEnd = propertyEnd(in: characters, startingAt: nodeIndex) else { return false }
+            foundProperty = true
+            guard let next = contentIndex(in: characters, range: propertyEnd..<characters.count) else {
+                return true
+            }
+            nodeIndex = next
+        }
+        return foundProperty && nodeIndex == characters.count
+    }
+
     static func flowCollection(in text: String) -> String? {
         let characters = Array(text)
         guard let contentStart = contentIndex(in: characters, range: characters.indices),
