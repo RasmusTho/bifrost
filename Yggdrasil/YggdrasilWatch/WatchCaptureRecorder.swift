@@ -11,6 +11,7 @@ final class WatchKitHapticPlayer: WatchHapticPlaying {
         case .pausedForInterruption: haptic = .retry
         case .resumedAfterInterruption: haptic = .success
         case .stoppedAndFinalized: haptic = .stop
+        case .captureFailed: haptic = .failure
         case .relayFailed: haptic = .failure
         }
         WKInterfaceDevice.current().play(haptic)
@@ -25,16 +26,26 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
     private let custody: WatchRelayCustody
     private let relay: WatchConnectivityRelayTransport
     private let fileManager: FileManager
+    private let metadataStore: WatchRelayMetadataStore
+    private let now: () -> Date
+    private let timeZoneProvider: () -> TimeZone
     private var recorder: AVAudioRecorder?
     private var startedAt: Date?
+    private var captureTimezone: String?
+    private var interruptionCount = 0
     private var interruptionObserver: NSObjectProtocol?
 
     init(
         model: WatchCaptureSessionModel,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        now: @escaping () -> Date = Date.init,
+        timeZoneProvider: @escaping () -> TimeZone = { .autoupdatingCurrent }
     ) {
         self.model = model
         self.fileManager = fileManager
+        self.now = now
+        self.timeZoneProvider = timeZoneProvider
+        metadataStore = WatchRelayMetadataStore(fileManager: fileManager)
         custody = WatchRelayCustody(fileManager: fileManager)
         relay = WatchConnectivityRelayTransport()
         super.init()
@@ -53,7 +64,7 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
     }
 
     func start() {
-        guard model.start() else { return }
+        guard model.beginStart() else { return }
         do {
             try fileManager.createDirectory(at: recordingDirectory, withIntermediateDirectories: true)
             let url = recordingDirectory.appendingPathComponent("watch-\(UUID().uuidString.lowercased()).m4a")
@@ -69,18 +80,25 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
             recorder.prepareToRecord()
             guard recorder.record() else { throw WatchCaptureError.couldNotStart }
             self.recorder = recorder
-            startedAt = Date()
+            startedAt = now()
+            captureTimezone = timeZoneProvider().identifier
+            interruptionCount = 0
             lastError = nil
+            model.confirmStart()
         } catch {
             lastError = error.localizedDescription
-            _ = model.finalize()
-            model.completeFinalization(queuedRelayCount: custody.queuedCount)
+            model.failStart()
         }
     }
 
     func stop() {
-        guard model.finalize() else { return }
-        recorder?.stop()
+        guard model.beginFinalization() else { return }
+        guard let recorder else {
+            lastError = "The Watch could not finalize this recording. It remains on disk for recovery."
+            model.completeFinalization(queuedRelayCount: custody.queuedCount, succeeded: false)
+            return
+        }
+        recorder.stop()
     }
 
     func elapsedText(at date: Date) -> String {
@@ -90,21 +108,47 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
 
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         let fileURL = recorder.url
+        let recordedStartAt = startedAt
+        let timezone = captureTimezone
+        let recordedEndAt = now()
         self.recorder = nil
         startedAt = nil
+        captureTimezone = nil
         try? AVAudioSession.sharedInstance().setActive(false)
 
         guard flag else {
             lastError = "The Watch could not finalize this recording. It remains on disk for recovery."
-            model.completeFinalization(queuedRelayCount: custody.queuedCount)
+            model.completeFinalization(queuedRelayCount: custody.queuedCount, succeeded: false)
             return
         }
+
+        if let recordedStartAt, let timezone {
+            do {
+                try metadataStore.write(
+                    WatchRelayCaptureMetadata(
+                        recordedStartAt: recordedStartAt,
+                        recordedEndAt: recordedEndAt,
+                        timezone: timezone,
+                        interruptions: interruptionCount
+                    ),
+                    for: fileURL
+                )
+            } catch {
+                lastError = "The recording is safe, but its capture metadata could not be retained."
+            }
+        }
         let queued = custody.enqueue(fileURL: fileURL, using: relay)
-        if !queued {
+        let finalizedMediaIsValid = !custody.invalidFiles.contains(fileURL)
+        model.completeFinalization(
+            queuedRelayCount: custody.queuedCount,
+            succeeded: finalizedMediaIsValid
+        )
+        if !finalizedMediaIsValid {
+            lastError = custody.lastError
+        } else if !queued {
             lastError = custody.lastError
             model.recordRelayFailure()
         }
-        model.completeFinalization(queuedRelayCount: custody.queuedCount)
     }
 
     private var recordingDirectory: URL {
@@ -143,7 +187,7 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
         switch type {
         case .began:
             recorder?.pause()
-            _ = model.pauseForInterruption()
+            if model.pauseForInterruption() { interruptionCount += 1 }
         case .ended:
             let options = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             if AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume),

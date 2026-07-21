@@ -15,9 +15,15 @@ final class WatchConnectivityRelayTransport: NSObject, WatchRelayTransferring, W
         session.activate()
     }
 
-    func transfer(fileURL: URL) throws -> WatchRelayTransfer {
+    func transfer(
+        fileURL: URL,
+        metadata: WatchRelayCaptureMetadata?
+    ) throws -> WatchRelayTransfer {
         guard WCSession.isSupported() else { throw WatchRelayTransportError.unavailable }
-        let transfer = WCSession.default.transferFile(fileURL, metadata: nil)
+        let transfer = WCSession.default.transferFile(
+            fileURL,
+            metadata: try metadata?.transferMetadata()
+        )
         let token = WatchRelayTransfer(identifier: UUID(), fileURL: fileURL)
         transferIDs[ObjectIdentifier(transfer)] = token
         return token

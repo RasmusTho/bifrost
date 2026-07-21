@@ -43,6 +43,9 @@
 		C20000020000000000000002 /* CaptureSidecarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000120000000000000002 /* CaptureSidecarTests.swift */; };
 		C19001020000000000000002 /* CaptureMediaValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19001010000000000000001 /* CaptureMediaValidator.swift */; };
 		C19001030000000000000003 /* CaptureMediaValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19001010000000000000001 /* CaptureMediaValidator.swift */; };
+		C19001120000000000000012 /* WatchRelayMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19001110000000000000011 /* WatchRelayMetadata.swift */; };
+		C19001130000000000000013 /* WatchRelayMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19001110000000000000011 /* WatchRelayMetadata.swift */; };
+		C19001220000000000000022 /* WatchRelaySidecarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19001210000000000000021 /* WatchRelaySidecarTests.swift */; };
 		B19000010000000000000001 /* WatchCaptureSessionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19000110000000000000001 /* WatchCaptureSessionModel.swift */; };
 		B19000020000000000000002 /* WatchRelayCustody.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19000120000000000000002 /* WatchRelayCustody.swift */; };
 		B19000030000000000000003 /* WatchRelayReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19000130000000000000003 /* WatchRelayReceiver.swift */; };
@@ -125,6 +128,8 @@
 		C20000110000000000000001 /* CaptureSidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSidecar.swift; sourceTree = "<group>"; };
 		C20000120000000000000002 /* CaptureSidecarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSidecarTests.swift; sourceTree = "<group>"; };
 		C19001010000000000000001 /* CaptureMediaValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMediaValidator.swift; sourceTree = "<group>"; };
+		C19001110000000000000011 /* WatchRelayMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelayMetadata.swift; sourceTree = "<group>"; };
+		C19001210000000000000021 /* WatchRelaySidecarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelaySidecarTests.swift; sourceTree = "<group>"; };
 		B19000110000000000000001 /* WatchCaptureSessionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchCaptureSessionModel.swift; sourceTree = "<group>"; };
 		B19000120000000000000002 /* WatchRelayCustody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelayCustody.swift; sourceTree = "<group>"; };
 		B19000130000000000000003 /* WatchRelayReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelayReceiver.swift; sourceTree = "<group>"; };
@@ -280,6 +285,7 @@
 				C20000110000000000000001 /* CaptureSidecar.swift */,
 				B19000110000000000000001 /* WatchCaptureSessionModel.swift */,
 				B19000120000000000000002 /* WatchRelayCustody.swift */,
+				C19001110000000000000011 /* WatchRelayMetadata.swift */,
 				B19000130000000000000003 /* WatchRelayReceiver.swift */,
 			);
 			path = Heimdal;
@@ -334,6 +340,7 @@
 				C20000120000000000000002 /* CaptureSidecarTests.swift */,
 				B19000140000000000000004 /* WatchRelayCustodyTests.swift */,
 				B19000150000000000000005 /* WatchHapticsTests.swift */,
+				C19001210000000000000021 /* WatchRelaySidecarTests.swift */,
 			);
 			path = YggdrasilTests;
 			sourceTree = "<group>";
@@ -551,6 +558,7 @@
 				C20000010000000000000001 /* CaptureSidecar.swift in Sources */,
 				B19000010000000000000001 /* WatchCaptureSessionModel.swift in Sources */,
 				B19000020000000000000002 /* WatchRelayCustody.swift in Sources */,
+				C19001120000000000000012 /* WatchRelayMetadata.swift in Sources */,
 				B19000030000000000000003 /* WatchRelayReceiver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -571,6 +579,7 @@
 				C20000020000000000000002 /* CaptureSidecarTests.swift in Sources */,
 				B19000040000000000000004 /* WatchRelayCustodyTests.swift in Sources */,
 				B19000050000000000000005 /* WatchHapticsTests.swift in Sources */,
+				C19001220000000000000022 /* WatchRelaySidecarTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -595,6 +604,7 @@
 				B19000100000000000000010 /* WatchCaptureSessionModel.swift in Sources */,
 				B19000200000000000000020 /* WatchRelayCustody.swift in Sources */,
 				C19001030000000000000003 /* CaptureMediaValidator.swift in Sources */,
+				C19001130000000000000013 /* WatchRelayMetadata.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

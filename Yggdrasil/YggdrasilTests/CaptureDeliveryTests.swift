@@ -237,6 +237,7 @@ extension CaptureDeliveryTests {
         XCTAssertEqual(model.stagedItems.count, 1)
         XCTAssertGreaterThan(model.stagedItems[0].duration, 0)
         XCTAssertTrue(model.stagedItems[0].wasRecoveredAfterRestart)
+        XCTAssertNil(model.stagedItems[0].captureMetadata)
         XCTAssertFalse(FileManager.default.fileExists(atPath: stagedURL.path))
         XCTAssertEqual(
             try Data(contentsOf: captureFolder.appendingPathComponent(stagedURL.lastPathComponent)),

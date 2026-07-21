@@ -6,6 +6,7 @@ enum WatchHapticEvent: Equatable {
     case pausedForInterruption
     case resumedAfterInterruption
     case stoppedAndFinalized
+    case captureFailed
     case relayFailed
 }
 
@@ -17,6 +18,7 @@ protocol WatchHapticPlaying {
 final class WatchCaptureSessionModel: ObservableObject {
     enum Phase: Equatable {
         case idle
+        case starting
         case recording
         case paused
         case finalizing
@@ -32,11 +34,22 @@ final class WatchCaptureSessionModel: ObservableObject {
     }
 
     @discardableResult
-    func start() -> Bool {
+    func beginStart() -> Bool {
         guard phase == .idle else { return false }
+        phase = .starting
+        return true
+    }
+
+    func confirmStart() {
+        guard phase == .starting else { return }
         phase = .recording
         haptics.play(.recordStarted)
-        return true
+    }
+
+    func failStart() {
+        guard phase == .starting else { return }
+        phase = .idle
+        haptics.play(.captureFailed)
     }
 
     @discardableResult
@@ -56,16 +69,17 @@ final class WatchCaptureSessionModel: ObservableObject {
     }
 
     @discardableResult
-    func finalize() -> Bool {
+    func beginFinalization() -> Bool {
         guard phase == .recording || phase == .paused else { return false }
         phase = .finalizing
-        haptics.play(.stoppedAndFinalized)
         return true
     }
 
-    func completeFinalization(queuedRelayCount: Int) {
+    func completeFinalization(queuedRelayCount: Int, succeeded: Bool) {
+        guard phase == .finalizing else { return }
         phase = .idle
         self.queuedRelayCount = queuedRelayCount
+        haptics.play(succeeded ? .stoppedAndFinalized : .captureFailed)
     }
 
     func updateQueuedRelayCount(_ count: Int) {
@@ -75,4 +89,6 @@ final class WatchCaptureSessionModel: ObservableObject {
     func recordRelayFailure() {
         haptics.play(.relayFailed)
     }
+
+    var isActivelyRecording: Bool { phase == .recording }
 }

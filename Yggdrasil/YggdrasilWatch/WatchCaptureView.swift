@@ -16,7 +16,7 @@ struct WatchCaptureView: View {
                 .font(.headline)
                 .accessibilityIdentifier("watch.capture.status")
 
-            if model.phase == .recording || model.phase == .paused {
+            if model.isActivelyRecording {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(recorder.elapsedText(at: context.date))
                         .monospacedDigit()
@@ -24,12 +24,16 @@ struct WatchCaptureView: View {
                 }
                 Label("Recording", systemImage: "record.circle.fill")
                     .foregroundStyle(.red)
+            } else if model.phase == .paused {
+                Label("Paused", systemImage: "pause.circle.fill")
+                    .foregroundStyle(.orange)
             }
 
             Button(actionTitle) { recordButtonTapped() }
                 .buttonStyle(.borderedProminent)
                 .tint(model.phase == .recording || model.phase == .paused ? .red : .accentColor)
                 .accessibilityIdentifier("watch.capture.record")
+                .disabled(model.phase == .starting || model.phase == .finalizing)
 
             Text("\(model.queuedRelayCount) queued for phone relay")
                 .font(.footnote)
@@ -55,12 +59,17 @@ struct WatchCaptureView: View {
     }
 
     private var actionTitle: String {
-        model.phase == .recording || model.phase == .paused ? "Stop" : "Record"
+        switch model.phase {
+        case .recording, .paused: "Stop"
+        case .starting: "Starting…"
+        case .idle, .finalizing: "Record"
+        }
     }
 
     private var statusText: String {
         switch model.phase {
         case .idle: "Ready to capture"
+        case .starting: "Starting capture"
         case .recording: "Still capturing"
         case .paused: "Capture paused"
         case .finalizing: "Finalizing"
@@ -71,7 +80,7 @@ struct WatchCaptureView: View {
         switch model.phase {
         case .recording, .paused: recorder.stop()
         case .idle: recorder.start()
-        case .finalizing: break
+        case .starting, .finalizing: break
         }
     }
 }

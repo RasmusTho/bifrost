@@ -58,15 +58,18 @@ final class WatchRelayStagingReceiver {
     private let sessionModel: CaptureSessionModel
     private let fileStager: WatchRelayFileStager
     private let mediaValidator: CaptureMediaValidating
+    private let deviceID: String
 
     init(
         sessionModel: CaptureSessionModel,
         stagingDirectory: URL = CaptureStagingPaths.defaultDirectory(),
         fileManager: FileManager = .default,
-        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
+        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator(),
+        deviceID: String? = nil
     ) {
         self.sessionModel = sessionModel
         self.mediaValidator = mediaValidator
+        self.deviceID = deviceID ?? HeimdalDeviceIdentity().deviceID()
         fileStager = WatchRelayFileStager(
             stagingDirectory: stagingDirectory,
             fileManager: fileManager
@@ -75,9 +78,13 @@ final class WatchRelayStagingReceiver {
 
     @discardableResult
     @MainActor
-    func receive(fileURL: URL, capturedAt: Date = Date()) throws -> URL {
+    func receive(
+        fileURL: URL,
+        capturedAt: Date = Date(),
+        metadata: WatchRelayCaptureMetadata? = nil
+    ) throws -> URL {
         let stagedURL = try fileStager.stage(fileURL: fileURL)
-        register(stagedURL: stagedURL, capturedAt: capturedAt)
+        register(stagedURL: stagedURL, capturedAt: capturedAt, metadata: metadata)
         return stagedURL
     }
 
@@ -86,13 +93,27 @@ final class WatchRelayStagingReceiver {
     /// process kill before this main-actor bookkeeping can run.
     @discardableResult
     @MainActor
-    func register(stagedURL: URL, capturedAt: Date = Date()) -> Bool {
+    func register(
+        stagedURL: URL,
+        capturedAt: Date = Date(),
+        metadata: WatchRelayCaptureMetadata? = nil
+    ) -> Bool {
         switch mediaValidator.validate(url: stagedURL) {
         case let .success(media):
             sessionModel.recoverStagedItem(
                 url: stagedURL,
                 duration: media.duration,
-                capturedAt: capturedAt
+                capturedAt: metadata?.recordedStartAt ?? capturedAt,
+                captureMetadata: metadata.map {
+                    CaptureSessionModel.CaptureMetadata(
+                        recordedStartAt: $0.recordedStartAt,
+                        recordedEndAt: $0.recordedEndAt,
+                        timezone: $0.timezone,
+                        interruptions: $0.interruptions,
+                        deviceID: deviceID,
+                        sourceSurface: .watchRelay
+                    )
+                }
             )
             return true
         case .failure:
@@ -121,13 +142,15 @@ final class WatchRelayReceiver: NSObject, ObservableObject, WCSessionDelegate {
         sessionModel: CaptureSessionModel,
         stagingDirectory: URL = CaptureStagingPaths.defaultDirectory(),
         fileManager: FileManager = .default,
-        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
+        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator(),
+        deviceID: String? = nil
     ) {
         stagingReceiver = WatchRelayStagingReceiver(
             sessionModel: sessionModel,
             stagingDirectory: stagingDirectory,
             fileManager: fileManager,
-            mediaValidator: mediaValidator
+            mediaValidator: mediaValidator,
+            deviceID: deviceID
         )
         fileStager = WatchRelayFileStager(
             stagingDirectory: stagingDirectory,
@@ -150,17 +173,26 @@ final class WatchRelayReceiver: NSObject, ObservableObject, WCSessionDelegate {
     ) {}
 
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
-        receiveIncomingFile(at: file.fileURL)
+        receiveIncomingFile(at: file.fileURL, transferMetadata: file.metadata)
     }
 
     /// The delegate's synchronous callback-lifetime seam. The source is copied
     /// before returning; only model bookkeeping is deferred to the main actor.
     @discardableResult
-    func receiveIncomingFile(at fileURL: URL, capturedAt: Date = Date()) -> Bool {
+    func receiveIncomingFile(
+        at fileURL: URL,
+        capturedAt: Date = Date(),
+        transferMetadata: [String: Any]? = nil
+    ) -> Bool {
         do {
             let stagedURL = try fileStager.stage(fileURL: fileURL)
+            let metadata = WatchRelayCaptureMetadata.decode(transferMetadata: transferMetadata)
             Task { @MainActor [weak self, stagingReceiver] in
-                guard !stagingReceiver.register(stagedURL: stagedURL, capturedAt: capturedAt) else { return }
+                guard !stagingReceiver.register(
+                    stagedURL: stagedURL,
+                    capturedAt: capturedAt,
+                    metadata: metadata
+                ) else { return }
                 self?.lastReceiveError = CaptureMediaValidationFailure.invalidOrUnverifiableMedia
                     .localizedDescription
             }

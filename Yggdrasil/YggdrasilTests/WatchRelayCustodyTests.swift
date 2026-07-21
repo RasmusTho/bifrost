@@ -126,6 +126,34 @@ final class WatchRelayCustodyTests: XCTestCase {
         XCTAssertNotNil(custody.lastError)
     }
 
+    func testRelayCarriesPersistedCaptureMetadataAndDeletesItOnlyAfterConfirmation() throws {
+        let directory = try makeDirectory()
+        let fileURL = directory.appendingPathComponent("metadata.m4a")
+        try CaptureTestAudio.validM4A.write(to: fileURL)
+        let metadata = WatchRelayCaptureMetadata(
+            recordedStartAt: Date(timeIntervalSince1970: 1_700_000_000),
+            recordedEndAt: Date(timeIntervalSince1970: 1_700_000_020),
+            timezone: "Europe/Stockholm",
+            interruptions: 1
+        )
+        let store = WatchRelayMetadataStore()
+        try store.write(metadata, for: fileURL)
+        let transport = RecordingWatchRelayTransport()
+        let custody = WatchRelayCustody(metadataStore: store)
+
+        XCTAssertTrue(custody.enqueue(fileURL: fileURL, using: transport))
+        XCTAssertEqual(transport.transferredMetadata, [metadata])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.metadataURL(for: fileURL).path))
+
+        custody.complete(
+            transfer: WatchRelayTransfer(identifier: transport.transferIDs[0], fileURL: fileURL),
+            error: nil
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.metadataURL(for: fileURL).path))
+    }
+
     private func makeDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -137,28 +165,42 @@ private final class FakeWatchRelayTransport: WatchRelayTransferring {
     let transfer: WatchRelayTransfer
 
     init(transfer: WatchRelayTransfer) { self.transfer = transfer }
-    func transfer(fileURL: URL) throws -> WatchRelayTransfer { transfer }
+    func transfer(
+        fileURL: URL,
+        metadata: WatchRelayCaptureMetadata?
+    ) throws -> WatchRelayTransfer { transfer }
     func outstandingFileURLs() -> Set<URL> { [] }
 }
 
 private final class RecordingWatchRelayTransport: WatchRelayTransferring {
     private let outstandingURLs: Set<URL>
     private(set) var transferredURLs: [URL] = []
+    private(set) var transferredMetadata: [WatchRelayCaptureMetadata?] = []
+    private(set) var transferIDs: [UUID] = []
 
     init(outstandingURLs: Set<URL> = []) {
         self.outstandingURLs = outstandingURLs
     }
 
-    func transfer(fileURL: URL) throws -> WatchRelayTransfer {
+    func transfer(
+        fileURL: URL,
+        metadata: WatchRelayCaptureMetadata?
+    ) throws -> WatchRelayTransfer {
         transferredURLs.append(fileURL)
-        return WatchRelayTransfer(identifier: UUID(), fileURL: fileURL)
+        transferredMetadata.append(metadata)
+        let identifier = UUID()
+        transferIDs.append(identifier)
+        return WatchRelayTransfer(identifier: identifier, fileURL: fileURL)
     }
 
     func outstandingFileURLs() -> Set<URL> { outstandingURLs }
 }
 
 private struct OfflineWatchRelayTransport: WatchRelayTransferring {
-    func transfer(fileURL: URL) throws -> WatchRelayTransfer { throw FakeRelayError.failed }
+    func transfer(
+        fileURL: URL,
+        metadata: WatchRelayCaptureMetadata?
+    ) throws -> WatchRelayTransfer { throw FakeRelayError.failed }
     func outstandingFileURLs() -> Set<URL> { [] }
 }
 

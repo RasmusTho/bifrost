@@ -142,7 +142,8 @@ final class CaptureSessionModel: ObservableObject {
         id: UUID = UUID(),
         url: URL,
         duration: TimeInterval,
-        capturedAt: Date
+        capturedAt: Date,
+        captureMetadata: CaptureMetadata? = nil
     ) {
         guard !stagedItems.contains(where: { $0.url == url }) else { return }
         stagedItems.append(StagedItem(
@@ -150,7 +151,7 @@ final class CaptureSessionModel: ObservableObject {
             url: url,
             duration: duration,
             capturedAt: capturedAt,
-            captureMetadata: nil,
+            captureMetadata: captureMetadata,
             wasRecoveredAfterRestart: true,
             deliveryState: .staged
         ))

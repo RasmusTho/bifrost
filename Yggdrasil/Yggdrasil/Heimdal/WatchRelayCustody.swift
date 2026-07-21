@@ -12,7 +12,10 @@ struct WatchRelayTransfer: Equatable {
 }
 
 protocol WatchRelayTransferring {
-    func transfer(fileURL: URL) throws -> WatchRelayTransfer
+    func transfer(
+        fileURL: URL,
+        metadata: WatchRelayCaptureMetadata?
+    ) throws -> WatchRelayTransfer
     func outstandingFileURLs() -> Set<URL>
 }
 
@@ -26,14 +29,17 @@ final class WatchRelayCustody: ObservableObject {
 
     private let fileManager: FileManager
     private let mediaValidator: CaptureMediaValidating
+    private let metadataStore: WatchRelayMetadataStore
     private var transfers: [UUID: URL] = [:]
 
     init(
         fileManager: FileManager = .default,
-        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
+        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator(),
+        metadataStore: WatchRelayMetadataStore? = nil
     ) {
         self.fileManager = fileManager
         self.mediaValidator = mediaValidator
+        self.metadataStore = metadataStore ?? WatchRelayMetadataStore(fileManager: fileManager)
     }
 
     var queuedCount: Int { queuedFiles.count }
@@ -86,7 +92,10 @@ final class WatchRelayCustody: ObservableObject {
         if !queuedFiles.contains(fileURL) { queuedFiles.append(fileURL) }
 
         do {
-            let transfer = try transport.transfer(fileURL: fileURL)
+            let transfer = try transport.transfer(
+                fileURL: fileURL,
+                metadata: metadataStore.read(for: fileURL)
+            )
             transfers[transfer.identifier] = fileURL
             lastError = nil
             return true
@@ -107,13 +116,20 @@ final class WatchRelayCustody: ObservableObject {
 
         do {
             try fileManager.removeItem(at: fileURL)
-            queuedFiles.removeAll { $0 == fileURL }
-            lastError = nil
         } catch {
             // A confirmed transfer with a retained file is safe: it stays visible
             // until a later retry can reconcile custody.
             if !queuedFiles.contains(fileURL) { queuedFiles.append(fileURL) }
             lastError = error.localizedDescription
+            return
+        }
+
+        queuedFiles.removeAll { $0 == fileURL }
+        do {
+            try metadataStore.remove(for: fileURL)
+            lastError = nil
+        } catch {
+            lastError = "The transferred recording was removed, but its local relay metadata needs cleanup."
         }
     }
 
