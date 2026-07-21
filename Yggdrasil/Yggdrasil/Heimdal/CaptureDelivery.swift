@@ -8,6 +8,8 @@ enum CaptureDeliveryError: LocalizedError {
     case incompletePlacement
     case coordinationDidNotRun
     case noReachableCaptureFolder
+    case sidecarNameCollision
+    case incompleteSidecarPlacement
 
     var errorDescription: String? {
         switch self {
@@ -23,6 +25,10 @@ enum CaptureDeliveryError: LocalizedError {
             "The Files provider did not grant coordinated write access."
         case .noReachableCaptureFolder:
             "No reachable capture folder is bound. Pick the folder again, then retry."
+        case .sidecarNameCollision:
+            "A different capture sidecar already uses this recording name."
+        case .incompleteSidecarPlacement:
+            "Heimdal could not confirm the complete capture sidecar."
         }
     }
 }
@@ -164,15 +170,21 @@ struct CaptureDeliveryFilePlacer: CaptureFilePlacing {
 final class CaptureDeliveryQueue: ObservableObject {
     private let sessionModel: CaptureSessionModel
     private let placer: CaptureFilePlacing
+    private let sidecarWriter: CaptureSidecarWriting
+    private let sidecarSettings: CaptureSidecarSettings
     private let fileManager: FileManager
 
     init(
         sessionModel: CaptureSessionModel,
         placer: CaptureFilePlacing = CaptureDeliveryFilePlacer(),
+        sidecarWriter: CaptureSidecarWriting = CaptureSidecarWriter(),
+        sidecarSettings: CaptureSidecarSettings = .microphoneOnly,
         fileManager: FileManager = .default
     ) {
         self.sessionModel = sessionModel
         self.placer = placer
+        self.sidecarWriter = sidecarWriter
+        self.sidecarSettings = sidecarSettings
         self.fileManager = fileManager
     }
 
@@ -193,10 +205,15 @@ final class CaptureDeliveryQueue: ObservableObject {
         }
 
         let placer = self.placer
+        let sidecarWriter = self.sidecarWriter
+        let sidecar = CaptureTimeMetadataSidecar(item: item, settings: sidecarSettings)
         let fileManager = self.fileManager
         do {
             try await Task.detached(priority: .utility) {
-                _ = try placer.place(stagedURL: item.url, in: folderURL)
+                let placedAudioURL = try placer.place(stagedURL: item.url, in: folderURL)
+                // The sidecar is intentionally optional for consumers, but once this
+                // producer elects to write it, it follows the audio's final rename.
+                try sidecarWriter.write(sidecar: sidecar, alongside: placedAudioURL)
                 // Placement has returned only after the final admissible name exists.
                 // Deletion is deliberately outside the placer and strictly after it.
                 try fileManager.removeItem(at: item.url)

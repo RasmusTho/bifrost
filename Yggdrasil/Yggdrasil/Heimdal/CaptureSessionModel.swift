@@ -44,6 +44,13 @@ final class CaptureSessionModel: ObservableObject {
         let url: URL
         let duration: TimeInterval
         let capturedAt: Date
+        /// Capture-time facts travel with the staged recording so delivery does
+        /// not have to infer them from a filename or filesystem timestamps.
+        let recordedStartAt: Date
+        let recordedEndAt: Date
+        let interruptions: Int
+        let deviceID: String
+        let sourceSurface: CaptureSourceSurface
         /// `true` when the item was reconstructed from the local staging directory
         /// after the process was no longer able to retain its in-memory capture state.
         let wasRecoveredAfterRestart: Bool
@@ -67,6 +74,11 @@ final class CaptureSessionModel: ObservableObject {
         url: URL = URL(fileURLWithPath: "/dev/null"),
         duration: TimeInterval = 0,
         capturedAt: Date = Date(),
+        recordedStartAt: Date? = nil,
+        recordedEndAt: Date? = nil,
+        interruptions: Int = 0,
+        deviceID: String = "device",
+        sourceSurface: CaptureSourceSurface = .iphoneApp,
         wasRecoveredAfterRestart: Bool = false
     ) -> Bool {
         guard phase == .finalizing else { return false }
@@ -75,6 +87,11 @@ final class CaptureSessionModel: ObservableObject {
             url: url,
             duration: duration,
             capturedAt: capturedAt,
+            recordedStartAt: recordedStartAt ?? capturedAt,
+            recordedEndAt: recordedEndAt ?? capturedAt,
+            interruptions: interruptions,
+            deviceID: deviceID,
+            sourceSurface: sourceSurface,
             wasRecoveredAfterRestart: wasRecoveredAfterRestart,
             deliveryState: .staged
         ))
@@ -103,7 +120,9 @@ final class CaptureSessionModel: ObservableObject {
         id: UUID = UUID(),
         url: URL,
         duration: TimeInterval,
-        capturedAt: Date
+        capturedAt: Date,
+        deviceID: String = "device",
+        sourceSurface: CaptureSourceSurface = .iphoneApp
     ) {
         guard !stagedItems.contains(where: { $0.url == url }) else { return }
         stagedItems.append(StagedItem(
@@ -111,6 +130,11 @@ final class CaptureSessionModel: ObservableObject {
             url: url,
             duration: duration,
             capturedAt: capturedAt,
+            recordedStartAt: capturedAt.addingTimeInterval(-duration),
+            recordedEndAt: capturedAt,
+            interruptions: 0,
+            deviceID: deviceID,
+            sourceSurface: sourceSurface,
             wasRecoveredAfterRestart: true,
             deliveryState: .staged
         ))

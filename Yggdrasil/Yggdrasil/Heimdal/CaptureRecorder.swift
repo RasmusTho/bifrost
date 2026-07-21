@@ -90,6 +90,8 @@ final class CaptureRecorder: ObservableObject {
     private struct ActiveCapture {
         let generation: UInt64
         let url: URL
+        let recordedStartAt: Date
+        var interruptions: Int
     }
 
     private enum FinalizationMode {
@@ -167,7 +169,12 @@ final class CaptureRecorder: ObservableObject {
                 self?.handleWriterTerminal(event)
             }
 
-            activeCapture = ActiveCapture(generation: generation, url: url)
+            activeCapture = ActiveCapture(
+                generation: generation,
+                url: url,
+                recordedStartAt: Date(),
+                interruptions: 0
+            )
             activeCaptureGeneration = generation
             lastError = nil
             needsManualResume = false
@@ -220,6 +227,7 @@ final class CaptureRecorder: ObservableObject {
         guard captureGeneration == activeCapture?.generation else { return }
         switch type {
         case .began:
+            activeCapture?.interruptions += 1
             if sessionModel.phase == .finalizing {
                 finalizeCurrentSegment(
                     mode: .forcedCompletion,
@@ -387,7 +395,11 @@ private extension CaptureRecorder {
                 guard sessionModel.stageCurrentItem(
                     url: capture.url,
                     duration: media.duration,
-                    capturedAt: Date()
+                    capturedAt: capture.recordedStartAt,
+                    recordedStartAt: capture.recordedStartAt,
+                    recordedEndAt: Date(),
+                    interruptions: capture.interruptions,
+                    deviceID: deviceShortID
                 ) else { throw Error.incompleteFile }
                 finishTerminalCleanup()
             } catch {
