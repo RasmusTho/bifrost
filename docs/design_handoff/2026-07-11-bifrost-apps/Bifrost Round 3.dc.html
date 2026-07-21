@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&amp;family=Space+Grotesk:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.bunny.net/css?family=jetbrains-mono:400,500&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #070b12; }
+  a { color: #d4a843; text-decoration: none; }
+  a:hover { color: #dce8f0; text-decoration: underline; }
+  @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+</style>
+</helmet>
+<section style="background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding: 56px 64px 96px; display: flex; flex-direction: column; gap: 64px; min-width: fit-content;">
+
+  <!-- ============ HEADER ============ -->
+  <div id="1a-top" style="max-width: 980px; display: flex; flex-direction: column; gap: 16px;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #3d5570;">BIFROST · ROUND 3 · APP-LEVEL DESIGN · 2026-07-11</div>
+    <h1 style="font-family: 'EB Garamond', Georgia, serif; font-size: 44px; font-weight: 400; line-height: 1.15; letter-spacing: -0.02em; margin: 0;">Yggdrasil apps — screens, states, and the family system</h1>
+    <p style="font-size: 15px; line-height: 1.6; color: #7a9ab8; max-width: 760px; margin: 0;">Converged proposal (no relitigation of §2 rulings). Yggdrasil palette mapped onto native iOS structure: system components, SF-Symbol-weight icons, Dynamic-Type-relative scale — themed with the vault's own colors. Two variants only where the experience is still open: the iPad entity comparison (<a href="#1d-p2">P2</a>).</p>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+      <a href="#1a" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 14px;">1a · Design system</a>
+      <a href="#1b" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 14px;">1b · B1 grades</a>
+      <a href="#1c" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 14px;">1c · S1–S6 uplift</a>
+      <a href="#1d" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 14px;">1d · iPad P1–P3</a>
+      <a href="#1e" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 14px;">1e · Heimdal H1–H4</a>
+      <a href="#1f" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 14px;">1f · Stances + advisory flags</a>
+    </div>
+  </div>
+
+  <!-- ============ 1a DESIGN SYSTEM ============ -->
+  <div id="1a" style="display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid #152030; padding-bottom: 12px; max-width: 1400px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #070b12; background: #d4a843; border-radius: 4px; padding: 2px 8px;">1a</span>
+      <h2 style="font-family: 'EB Garamond', Georgia, serif; font-size: 30px; font-weight: 400; margin: 0;">Design system for the app family</h2>
+      <span style="font-size: 13px; color: #7a9ab8;">grounded in Theme.swift — keep · extend · replace</span>
+    </div>
+
+    <!-- keep / extend / replace -->
+    <div style="display: grid; grid-template-columns: repeat(3, 340px); gap: 20px;">
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #39e87d;">KEEP</div>
+        <div style="font-size: 13px; line-height: 1.65; color: #7a9ab8;">
+          <div><strong style="color: #dce8f0; font-weight: 500;">Spacing scale</strong> — xs 4 · sm 8 · md 16 · lg 24 · xl 32. Sound; dense by default.</div>
+          <div style="margin-top: 8px;"><strong style="color: #dce8f0; font-weight: 500;">Radii</strong> — card 14 / control 10. Native iOS geometry; do not import the web kit's sharper radii.</div>
+          <div style="margin-top: 8px;"><strong style="color: #dce8f0; font-weight: 500;">Dynamic Type</strong> — all styles stay system text styles. The theme colors below are asset-catalog colors, so dark mode holds by construction.</div>
+          <div style="margin-top: 8px;"><strong style="color: #dce8f0; font-weight: 500;">SF Symbols</strong> — kept. No custom icon set.</div>
+        </div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #d4a843;">EXTEND</div>
+        <div style="font-size: 13px; line-height: 1.65; color: #7a9ab8;">
+          <div><strong style="color: #dce8f0; font-weight: 500;">Type roles</strong> — add <span style="font-family: 'EB Garamond', serif; color: #dce8f0;">New York (serif)</span> for note titles and the wordmark only; add monospaced Dynamic Type for paths, uuids, timestamps — this user lives in markdown, metadata is first-class.</div>
+          <div style="margin-top: 8px;"><strong style="color: #dce8f0; font-weight: 500;">Component set</strong> — B1 has 4 components. Add the 8 below; every lens composes from these, nothing hand-rolled.</div>
+          <div style="margin-top: 8px;"><strong style="color: #dce8f0; font-weight: 500;">Lens scaffold</strong> — one shared load/empty/error/save container (right).</div>
+        </div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #ff3d3d;">REPLACE</div>
+        <div style="font-size: 13px; line-height: 1.65; color: #7a9ab8;">
+          <div><strong style="color: #dce8f0; font-weight: 500;">Color tokens</strong> — `accentColor`/orange/green become a named semantic palette (below): gold = principal's affordances, agent blue = machine-authored, vault green = record/sync, amber = staged, cyan = the two granted live bends. Never decorative.</div>
+          <div style="margin-top: 8px;"><strong style="color: #dce8f0; font-weight: 500;">Bare red error Text</strong> — replaced everywhere by the banner pattern with retry (O3).</div>
+          <div style="margin-top: 8px;"><strong style="color: #dce8f0; font-weight: 500;">Typed-id inputs</strong> — removed from the product (O1). Steering is a gesture on a visible item.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- palette + type -->
+    <div style="display: flex; gap: 20px; align-items: stretch;">
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px; width: 520px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #3d5570;">SEMANTIC PALETTE (asset catalog, dark values shown)</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12.5px;">
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #d4a843;"></span><span><strong style="color: #dce8f0; font-weight: 500;">gold</strong> <span style="color: #7a9ab8;">— principal acts here</span></span></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #4a9eff;"></span><span><strong style="color: #dce8f0; font-weight: 500;">agent</strong> <span style="color: #7a9ab8;">— machine-authored</span></span></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #39e87d;"></span><span><strong style="color: #dce8f0; font-weight: 500;">vault</strong> <span style="color: #7a9ab8;">— in the record / synced</span></span></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #f09030;"></span><span><strong style="color: #dce8f0; font-weight: 500;">amber</strong> <span style="color: #7a9ab8;">— staged, not yet the record</span></span></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #00d4e8;"></span><span><strong style="color: #dce8f0; font-weight: 500;">cyan</strong> <span style="color: #7a9ab8;">— live, not backed by a note</span></span></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #ff3d3d;"></span><span><strong style="color: #dce8f0; font-weight: 500;">destructive</strong> <span style="color: #7a9ab8;">— visible failure</span></span></div>
+        </div>
+        <div style="border-top: 1px solid #152030; padding-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-family: 'EB Garamond', serif; font-size: 26px; color: #dce8f0;">Yggdrasil — serif for the record's moments</div>
+          <div style="font-size: 15px; color: #dce8f0;">System sans for every piece of UI chrome and body copy.</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #7a9ab8;">mono for _heimdal/2026-07-10.md · uuid · 14:32:07</div>
+        </div>
+      </div>
+
+      <!-- component set -->
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px; flex: 1; min-width: 640px; max-width: 860px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #3d5570;">NEW COMPONENTS (added to YggCard / YggSectionHeader / YggEmptyState / YggPrimaryButton)</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+          <span style="background: #d4a843; color: #070b12; font-size: 14px; font-weight: 600; border-radius: 10px; padding: 9px 18px;">Primary</span>
+          <span style="border: 1px solid #1e3050; color: #dce8f0; font-size: 14px; font-weight: 500; border-radius: 10px; padding: 8px 18px;">YggSecondaryButton</span>
+          <span style="border: 1px solid rgba(255,61,61,0.4); color: #ff3d3d; font-size: 14px; font-weight: 500; border-radius: 10px; padding: 8px 18px;">YggDestructiveButton</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(74,158,255,0.45); color: #4a9eff; font-family: 'JetBrains Mono', monospace; font-size: 11px; border-radius: 9999px; padding: 4px 10px;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#4a9eff" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"></rect><path d="M6 1v2M10 1v2M6 13v2M10 13v2M1 6h2M1 10h2M13 6h2M13 10h2"></path></svg>
+            AGENT</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(0,212,232,0.45); color: #00d4e8; font-family: 'JetBrains Mono', monospace; font-size: 11px; border-radius: 9999px; padding: 4px 10px;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #00d4e8; animation: pulseDot 2s infinite;"></span>LIVE · NOT IN THE RECORD</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f09030; border: 1px solid rgba(240,144,48,0.4); background: rgba(240,144,48,0.08); border-radius: 9999px; padding: 4px 12px;">staged</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f09030; border: 1px solid rgba(240,144,48,0.4); background: rgba(240,144,48,0.08); border-radius: 9999px; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #f09030; animation: pulseDot 1.4s infinite;"></span>delivering</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #39e87d; border: 1px solid rgba(57,232,125,0.35); background: rgba(57,232,125,0.06); border-radius: 9999px; padding: 4px 12px;">delivered · awaiting sync</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ff3d3d; border: 1px solid rgba(255,61,61,0.4); background: rgba(255,61,61,0.07); border-radius: 9999px; padding: 4px 12px;">failed</span>
+          <span style="font-size: 12px; color: #3d5570;">YggStatusPill — the queue vocabulary, one component</span>
+        </div>
+        <!-- banner -->
+        <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,61,61,0.07); border: 1px solid rgba(255,61,61,0.35); border-radius: 10px; padding: 12px 14px; max-width: 560px;">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#ff3d3d" stroke-width="1.5"><path d="M10 2L1 18h18L10 2z" stroke-linejoin="round"></path><path d="M10 8v5"></path><circle cx="10" cy="15.5" r="0.8" fill="#ff3d3d"></circle></svg>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+            <div style="font-size: 13.5px; font-weight: 500; color: #dce8f0;">Vault unreachable. Showing last read from 14:02.</div>
+            <div style="font-size: 12px; color: #7a9ab8;">YggBanner — every load/save failure. Never a bare red line.</div>
+          </div>
+          <span style="border: 1px solid #1e3050; color: #dce8f0; font-size: 12.5px; font-weight: 500; border-radius: 8px; padding: 5px 12px;">Retry</span>
+        </div>
+        <!-- undo bar + source footer -->
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 14px; background: #111a2e; border: 1px solid #1e3050; border-radius: 10px; padding: 10px 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
+            <span style="font-size: 13px; color: #dce8f0;">Marked skipped · in the audit note</span>
+            <span style="font-size: 13px; font-weight: 600; color: #d4a843;">Undo</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #7a9ab8;">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#7a9ab8" stroke-width="1.5"><path d="M2 5h12v9H2z"></path><path d="M2 5l1.5-3h9L14 5"></path><path d="M6.5 8h3"></path></svg>
+            mimer/attention/2026-07-11.md
+            <span style="color: #d4a843;">Open in Obsidian ↗</span>
+            <span style="font-size: 11px; color: #3d5570;">— YggSourceFooter + YggUndoBar</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- lens scaffold + siblings -->
+    <div style="display: flex; gap: 20px; align-items: stretch;">
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px; width: 860px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #3d5570;">THE SHARED LENS SCAFFOLD — one visual language for load / empty / error / save (kills O2, O3, O4)</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+          <div style="border: 1px solid #152030; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11px; color: #3d5570; font-family: 'JetBrains Mono', monospace;">LOADING</div>
+            <div style="height: 10px; border-radius: 4px; background: #111a2e; width: 80%;"></div>
+            <div style="height: 10px; border-radius: 4px; background: #111a2e; width: 60%;"></div>
+            <div style="height: 10px; border-radius: 4px; background: #111a2e; width: 70%;"></div>
+            <div style="font-size: 11.5px; color: #7a9ab8;">Skeleton rows, no spinner. Pull-to-refresh on every lens (no push exists).</div>
+          </div>
+          <div style="border: 1px solid #152030; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11px; color: #3d5570; font-family: 'JetBrains Mono', monospace;">EMPTY</div>
+            <div style="font-size: 13px; color: #dce8f0; font-weight: 500;">Queue clear.</div>
+            <div style="font-size: 11.5px; color: #7a9ab8;">YggEmptyState everywhere — declarative, no cheerleading. Missing file = valid empty.</div>
+          </div>
+          <div style="border: 1px solid rgba(255,61,61,0.3); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11px; color: #ff3d3d; font-family: 'JetBrains Mono', monospace;">ERROR</div>
+            <div style="font-size: 13px; color: #dce8f0; font-weight: 500;">Banner + Retry, content kept on screen.</div>
+            <div style="font-size: 11.5px; color: #7a9ab8;">"Can't reach hub" is expected, framed calmly, with last-read time.</div>
+          </div>
+          <div style="border: 1px solid rgba(240,144,48,0.3); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11px; color: #f09030; font-family: 'JetBrains Mono', monospace;">SAVE / ACT</div>
+            <div style="font-size: 13px; color: #dce8f0; font-weight: 500;">Act → undo bar → audit line.</div>
+            <div style="font-size: 11.5px; color: #7a9ab8;">Every consequential action: one gesture to undo (O5). Failure keeps content + Retry / Copy.</div>
+          </div>
+        </div>
+        <div style="font-size: 12.5px; color: #7a9ab8; border-top: 1px solid #152030; padding-top: 10px;">Every lens header carries: title · <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px;">refreshed 14:32</span> · the YggSourceFooter naming the note the lens is a view of. The two bends (attention firehose, device telemetry) carry the cyan LIVE badge instead of a source footer — the absence of a note is stated, never implied away.</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px; flex: 1; min-width: 420px; max-width: 520px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #3d5570;">SIBLINGS, NOT TWINS</div>
+        <div style="border: 1px solid #152030; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-family: 'EB Garamond', serif; font-size: 20px; color: #dce8f0;">Mimer — the rich reader</div>
+          <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Serif note titles, generous reading measure, gold affordances, agent-blue attributions. Dense lists, deep navigation.</div>
+        </div>
+        <div style="border: 1px solid #152030; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 16px; font-weight: 600; color: #dce8f0;">Heimdal — the thin daemon</div>
+          <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">No serif, ever. Mono-forward status language, amber/green/red state pills, one screen deep. Same palette, same components, colder register — the shared shell, spacing, pills and banners are what make them visibly siblings.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 1b GRADES ============ -->
+  <div id="1b" style="display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid #152030; padding-bottom: 12px; max-width: 1400px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #070b12; background: #d4a843; border-radius: 4px; padding: 2px 8px;">1b</span>
+      <h2 style="font-family: 'EB Garamond', Georgia, serif; font-size: 30px; font-weight: 400; margin: 0;">As-built B1 — two-axis journey grades</h2>
+      <span style="font-size: 13px; color: #7a9ab8;">A = workflow intuitiveness · B = implementation quality</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 400px); gap: 16px;">
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 14px; font-weight: 600;">S1 Enter</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px;"><span style="color: #d4a843;">A: B+</span> · <span style="color: #7a9ab8;">B: B</span></span></div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Auth gate and visual vault picker are the strongest B1 screens — the dyslexia-safe pattern held. But landing dumps you into a raw list: no "where am I, what's new" orientation, no last-refresh anchor.</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid rgba(255,61,61,0.35); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 14px; font-weight: 600;">S2 Review attention</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px;"><span style="color: #ff3d3d;">A: D</span> · <span style="color: #7a9ab8;">B: C</span></span></div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Typing an item id into a text field (O1) violates the ruled no-typed-identifiers constraint outright, and the audit trail can misstate the human's act (D1) — a trust defect in the one journey that exists to build trust. Highest-leverage fix in the app.</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 14px; font-weight: 600;">S3 Steer interests</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px;"><span style="color: #f09030;">A: C</span> · <span style="color: #7a9ab8;">B: C+</span></span></div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Raw 0–1 sliders expose the model's internals without its reasoning — no "because you did X" evidence, so steering is blind. The Never list is a dead end (O6).</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 14px; font-weight: 600;">S4 Confirm entity</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px;"><span style="color: #f09030;">A: C−</span> · <span style="color: #7a9ab8;">B: B−</span></span></div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Merge silently takes the first candidate (O7) and nothing offers undo (O5) — both collide with reversible autonomy. Candidate IDs are shown as raw strings the user must mentally resolve.</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 14px; font-weight: 600;">S5 Read &amp; edit</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px;"><span style="color: #d4a843;">A: B</span> · <span style="color: #7a9ab8;">B: C+</span></span></div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Browse→render→edit→save works, but the editor has no dirty state, no cancel, no save confirmation — and D3 (leading-zero YAML mutation) is silent data change, against ruling 8. Conflict copies exist on disk with no surfacing.</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 14px; font-weight: 600;">S6 Consent glance</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px;"><span style="color: #d4a843;">A: B+</span> · <span style="color: #7a9ab8;">B: B</span></span></div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Deliberately light and honestly read-only — correct under posture A. Needs only the shared scaffold, provenance footer, and a clear statement of what "dormant in v1" means.</div>
+      </div>
+    </div>
+    <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 20px 24px; max-width: 860px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #3d5570;">UPLIFT MOVES, RANKED BY LEVERAGE</div>
+      <ol style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.9; color: #dce8f0;">
+        <li><strong>Steering as gestures on visible items</strong> (<a href="#1c-s2">S2</a>) — swipe attended/skipped on the item itself; truthful audit line per act. Removes O1, closes D1's surface.</li>
+        <li><strong>The shared lens scaffold</strong> — one load/empty/error/save container adopted by all six lenses. Removes O2, O3, O4 in a single component.</li>
+        <li><strong>Undo bar on every consequential act</strong> — merge/reject, mark attended/skipped, save. Makes ruling 7 visible. Removes O5.</li>
+        <li><strong>Explicit candidate choice on phone merge</strong> (<a href="#1c-s4">S4</a>) — merge disabled until a candidate is picked. Removes O7 (advisory: changes shipped B1 behaviour, see <a href="#1f">1f</a>).</li>
+        <li><strong>Editor honesty</strong> (<a href="#1c-s5">S5</a>) — dirty dot, cancel/discard, saving→saved progression, save-failure keeps text with Retry/Copy, conflict-copy banner; D3 surfaced as a pre-save warning, never silent.</li>
+        <li><strong>Identity layer</strong> — app icon, launch screen, the Yggdrasil dark theme verified (O8, O9).</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ============ 1c SURFACE 1 ============ -->
+  <div id="1c" style="display: flex; flex-direction: column; gap: 32px;">
+    <div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid #152030; padding-bottom: 12px; max-width: 1400px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #070b12; background: #d4a843; border-radius: 4px; padding: 2px 8px;">1c</span>
+      <h2 style="font-family: 'EB Garamond', Georgia, serif; font-size: 30px; font-weight: 400; margin: 0;">Surface 1 — Yggdrasil shell + Mimer-iPhone uplift</h2>
+      <span style="font-size: 13px; color: #7a9ab8;">same information architecture; S2 and S5 shown with full states</span>
+    </div>
+
+    <div id="1c-s1" style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+
+      <!-- S1 hero -->
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S1 · ENTER</span> — oriented landing: lead with what changed</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px 10px; border-bottom: 1px solid #152030;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7a9ab8" stroke-width="1.5"><path d="M1.5 4.5h5l1.5 2h6.5v6.5h-13z"></path></svg>
+              <span style="font-size: 13.5px; font-weight: 500; color: #dce8f0;">Alfheim vault</span>
+              <span style="display: inline-flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d; margin-left: 2px;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: #39e87d;"></span>synced</span>
+              <span style="margin-left: auto; font-size: 13px; color: #d4a843; font-weight: 500;">Switch</span>
+            </div>
+            <div style="padding: 18px 16px 6px; display: flex; align-items: baseline; gap: 10px;">
+              <span style="font-size: 28px; font-weight: 600; letter-spacing: -0.01em;">Today</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">refreshed 14:32</span>
+              <svg style="margin-left: auto;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#7a9ab8" stroke-width="1.5"><circle cx="10" cy="10" r="3"></circle><path d="M10 1.5v2.4M10 16.1v2.4M1.5 10h2.4M16.1 10h2.4M4 4l1.7 1.7M14.3 14.3L16 16M16 4l-1.7 1.7M5.7 14.3L4 16"></path></svg>
+            </div>
+            <div style="margin: 10px 16px 4px; background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 15px; line-height: 1.5; color: #dce8f0;">Since 09:12 — <strong style="color: #d4a843; font-weight: 600;">14 ingested</strong>, 3 skipped, <strong style="color: #d4a843; font-weight: 600;">2 entities</strong> await you.</div>
+              <div style="font-size: 12px; color: #7a9ab8; margin-top: 4px;">Nothing failed. Hub reachable over tailnet.</div>
+            </div>
+            <div style="padding: 14px 16px 6px; font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: #3d5570;">TODAY'S ATTENTION</div>
+            <div style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column;">
+              <div style="padding: 12px 0; border-bottom: 1px solid #152030; display: flex; flex-direction: column; gap: 3px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 500; flex: 1;">Site walkthrough with Anna — audio</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d; border: 1px solid rgba(57,232,125,0.35); border-radius: 9999px; padding: 2px 8px;">ingested</span></div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">_heimdal/2026-07-11-0912-walkthrough.md</div>
+                <div style="font-size: 12.5px; color: #4a9eff;">matches interest · timber construction</div>
+              </div>
+              <div style="padding: 12px 0; border-bottom: 1px solid #152030; display: flex; flex-direction: column; gap: 3px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 500; flex: 1;">Sensor-mesh sketch (voice memo)</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d; border: 1px solid rgba(57,232,125,0.35); border-radius: 9999px; padding: 2px 8px;">ingested</span></div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">_heimdal/2026-07-11-1104-sensor-mesh.md</div>
+                <div style="font-size: 12.5px; color: #4a9eff;">matches interest · event-driven architecture</div>
+              </div>
+              <div style="padding: 12px 0; display: flex; flex-direction: column; gap: 3px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 500; flex: 1; color: #7a9ab8;">Podcast clip — market roundup</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570; border: 1px solid #1e3050; border-radius: 9999px; padding: 2px 8px;">skipped</span></div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">_heimdal/2026-07-11-1237-podcast.md</div>
+                <div style="font-size: 12.5px; color: #4a9eff;">matched never · market news</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px; padding: 8px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #00d4e8;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: #00d4e8; animation: pulseDot 2s infinite;"></span>LIVE FEED · the record is mimer/attention/2026-07-11.md<span style="color: #d4a843;">↗</span></div>
+            <div style="display: flex; border-top: 1px solid #152030; padding: 10px 8px 30px; background: #0c1220;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #d4a843;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="2.2" fill="currentColor"></circle></svg><span style="font-size: 10px; font-weight: 500;">Today</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h14M3 14h14"></path><circle cx="8" cy="6" r="2" fill="#070b12"></circle><circle cx="13" cy="14" r="2" fill="#070b12"></circle></svg><span style="font-size: 10px;">Interests</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="4.5" r="2.2"></circle><circle cx="5" cy="15.5" r="2.2"></circle><circle cx="15" cy="10" r="2.2"></circle><path d="M5 7v6.5M5 9.5c2.5 0.8 5.5 0.5 7.8 0.5"></path></svg><span style="font-size: 10px;">Entities</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h14v9.5H3z"></path><path d="M3 7l1.5-3.5h11L17 7"></path><path d="M8 10.5h4"></path></svg><span style="font-size: 10px;">Vault</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="1.7" fill="currentColor"></circle><path d="M6.8 13.2a4.5 4.5 0 010-6.4M13.2 6.8a4.5 4.5 0 010 6.4M4.2 15.8a8.2 8.2 0 010-11.6M15.8 4.2a8.2 8.2 0 010 11.6"></path></svg><span style="font-size: 10px;">Heimdal</span></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">Orientation card leads with the answer. Consent + Settings move behind the gear (advisory, <a href="#1f">1f</a>) so Heimdal earns a tab without an 7-tab bar. Vault sync state lives in the switcher bar.</div>
+      </div>
+
+      <!-- S2 hero: gestures -->
+      <div id="1c-s2" style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S2 · REVIEW ATTENTION</span> — steering is a swipe on the item (kills O1)</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px 10px; border-bottom: 1px solid #152030;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7a9ab8" stroke-width="1.5"><path d="M1.5 4.5h5l1.5 2h6.5v6.5h-13z"></path></svg>
+              <span style="font-size: 13.5px; font-weight: 500;">Alfheim vault</span>
+              <span style="margin-left: auto; font-size: 13px; color: #d4a843; font-weight: 500;">Switch</span>
+            </div>
+            <div style="padding: 18px 16px 10px; display: flex; align-items: baseline; gap: 10px;">
+              <span style="font-size: 28px; font-weight: 600;">Today</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">refreshed 14:32</span>
+            </div>
+            <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+              <div style="padding: 12px 16px; border-bottom: 1px solid #152030; display: flex; flex-direction: column; gap: 3px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 500; flex: 1;">Site walkthrough with Anna — audio</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d; border: 1px solid rgba(57,232,125,0.35); border-radius: 9999px; padding: 2px 8px;">ingested</span></div>
+                <div style="font-size: 12.5px; color: #4a9eff;">matches interest · timber construction</div>
+              </div>
+              <!-- swiped-open row -->
+              <div style="border-bottom: 1px solid #152030; display: flex; align-items: stretch; overflow: hidden;">
+                <div style="flex: 1; padding: 12px 16px; display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 500; flex: 1; color: #7a9ab8; white-space: nowrap;">Podcast clip — market roundup</span></div>
+                  <div style="font-size: 12.5px; color: #4a9eff; white-space: nowrap;">matched never · market news</div>
+                </div>
+                <div style="width: 88px; background: #d4a843; color: #070b12; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#070b12" stroke-width="1.8"><path d="M3 10.5l4.5 4.5L17 5.5"></path></svg>Attend</div>
+                <div style="width: 74px; background: #111a2e; color: #7a9ab8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#7a9ab8" stroke-width="1.8"><path d="M5 5l10 10M15 5L5 15"></path></svg>Skip</div>
+              </div>
+              <!-- row with truthful audit line after an override -->
+              <div style="padding: 12px 16px; border-bottom: 1px solid #152030; display: flex; flex-direction: column; gap: 3px; background: rgba(212,168,67,0.04);">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 500; flex: 1;">Vendor call — HVAC options</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #d4a843; border: 1px solid rgba(212,168,67,0.45); border-radius: 9999px; padding: 2px 8px;">attended · you</span></div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">_heimdal/2026-07-11-1310-vendor-call.md</div>
+                <div style="font-size: 12.5px; color: #7a9ab8;">agent skipped (no interest match) — <span style="color: #d4a843;">you overrode at 14:31</span></div>
+              </div>
+              <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 3px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 500; flex: 1;">Sensor-mesh sketch (voice memo)</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d; border: 1px solid rgba(57,232,125,0.35); border-radius: 9999px; padding: 2px 8px;">ingested</span></div>
+                <div style="font-size: 12.5px; color: #4a9eff;">matches interest · event-driven architecture</div>
+              </div>
+            </div>
+            <div style="margin: 0 16px 10px; display: flex; align-items: center; gap: 14px; background: #111a2e; border: 1px solid #1e3050; border-radius: 10px; padding: 11px 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
+              <span style="font-size: 13px; flex: 1;">Marked attended — written to today's audit note</span>
+              <span style="font-size: 13.5px; font-weight: 600; color: #d4a843;">Undo</span>
+            </div>
+            <div style="display: flex; border-top: 1px solid #152030; padding: 10px 8px 30px; background: #0c1220;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #d4a843;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="2.2" fill="currentColor"></circle></svg><span style="font-size: 10px; font-weight: 500;">Today</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h14M3 14h14"></path><circle cx="8" cy="6" r="2" fill="#070b12"></circle><circle cx="13" cy="14" r="2" fill="#070b12"></circle></svg><span style="font-size: 10px;">Interests</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="4.5" r="2.2"></circle><circle cx="5" cy="15.5" r="2.2"></circle><circle cx="15" cy="10" r="2.2"></circle><path d="M5 7v6.5M5 9.5c2.5 0.8 5.5 0.5 7.8 0.5"></path></svg><span style="font-size: 10px;">Entities</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h14v9.5H3z"></path><path d="M3 7l1.5-3.5h11L17 7"></path><path d="M8 10.5h4"></path></svg><span style="font-size: 10px;">Vault</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="1.7" fill="currentColor"></circle><path d="M6.8 13.2a4.5 4.5 0 010-6.4M13.2 6.8a4.5 4.5 0 010 6.4M4.2 15.8a8.2 8.2 0 010-11.6M15.8 4.2a8.2 8.2 0 010 11.6"></path></svg><span style="font-size: 10px;">Heimdal</span></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">Swipe right = Attend (gold, principal's color), swipe left = Skip. The audit line states both truths: what the agent did and what you did, timestamped (closes D1's surface). Undo bar after every act.</div>
+      </div>
+
+      <!-- S2 state tiles -->
+      <div style="display: flex; flex-direction: column; gap: 14px; width: 360px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S2 · STATES</span> — via the shared scaffold</div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">LOADING</div>
+          <div style="height: 12px; border-radius: 4px; background: #111a2e; width: 75%;"></div>
+          <div style="height: 12px; border-radius: 4px; background: #111a2e; width: 55%;"></div>
+          <div style="height: 12px; border-radius: 4px; background: #111a2e; width: 65%;"></div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">EMPTY</div>
+          <div style="font-size: 15px; font-weight: 500; color: #dce8f0;">Nothing new since 09:12.</div>
+          <div style="font-size: 12.5px; color: #7a9ab8;">Pull to refresh. The audit note for today is empty — that is the record.</div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">CAN'T REACH HUB — expected, not an error edge</div>
+          <div style="display: flex; align-items: center; gap: 10px; background: rgba(240,144,48,0.07); border: 1px solid rgba(240,144,48,0.35); border-radius: 10px; padding: 10px 12px;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#f09030" stroke-width="1.5"><circle cx="10" cy="10" r="1.5" fill="#f09030"></circle><path d="M6.8 13.2a4.5 4.5 0 010-6.4M13.2 6.8a4.5 4.5 0 010 6.4"></path><path d="M3 17L17 3"></path></svg>
+            <div style="flex: 1; font-size: 13px; color: #dce8f0;">Hub unreachable. Showing the vault's copy, read 14:02.</div>
+            <span style="border: 1px solid #1e3050; font-size: 12px; font-weight: 500; border-radius: 8px; padding: 4px 10px; color: #dce8f0;">Retry</span>
+          </div>
+          <div style="font-size: 12.5px; color: #7a9ab8;">The list below stays readable (it is a note). Only the live firehose dims.</div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">WHAT THE AUDIT NOTE RECEIVES (truthful, appended)</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7; color: #7a9ab8; background: #070b12; border: 1px solid #152030; border-radius: 8px; padding: 12px;">- 14:31 <span style="color: #d4a843;">principal</span> marked attended<br>&nbsp;&nbsp;item: 2026-07-11-1310-vendor-call<br>&nbsp;&nbsp;agent had: skipped (no interest match)<br>- 14:32 <span style="color: #d4a843;">principal</span> undid the above</div>
+          <div style="font-size: 12.5px; color: #7a9ab8;">Undo is also appended — history is never edited (ruling 7).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S3 + S4 row -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+      <div id="1c-s3" style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S3 · STEER INTERESTS</span> — evidence first, one-tap steering</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px 10px; border-bottom: 1px solid #152030;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7a9ab8" stroke-width="1.5"><path d="M1.5 4.5h5l1.5 2h6.5v6.5h-13z"></path></svg>
+              <span style="font-size: 13.5px; font-weight: 500;">Alfheim vault</span>
+              <span style="margin-left: auto; font-size: 13px; color: #d4a843; font-weight: 500;">Switch</span>
+            </div>
+            <div style="padding: 18px 16px 10px; display: flex; align-items: baseline; gap: 10px;">
+              <span style="font-size: 28px; font-weight: 600;">Interests</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">refreshed 14:32</span>
+            </div>
+            <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+              <div style="padding: 12px 16px; border-bottom: 1px solid #152030; display: flex; flex-direction: column; gap: 7px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 15px; font-weight: 500; flex: 1;">timber construction</span>
+                  <div style="display: flex; border: 1px solid #1e3050; border-radius: 8px; overflow: hidden; font-size: 12px; font-weight: 500;">
+                    <span style="padding: 5px 11px; color: #d4a843; border-right: 1px solid #1e3050;">More</span><span style="padding: 5px 11px; color: #7a9ab8; border-right: 1px solid #1e3050;">Less</span><span style="padding: 5px 11px; color: #7a9ab8;">Never</span>
+                  </div>
+                </div>
+                <div style="height: 4px; border-radius: 4px; background: #111a2e;"><div style="height: 4px; border-radius: 4px; background: #d4a843; width: 85%;"></div></div>
+                <div style="font-size: 12.5px; color: #4a9eff;">because you attended 6 walkthrough notes this week</div>
+              </div>
+              <div style="padding: 12px 16px; border-bottom: 1px solid #152030; display: flex; flex-direction: column; gap: 7px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 15px; font-weight: 500; flex: 1;">event-driven architecture</span>
+                  <div style="display: flex; border: 1px solid #1e3050; border-radius: 8px; overflow: hidden; font-size: 12px; font-weight: 500;">
+                    <span style="padding: 5px 11px; color: #d4a843; border-right: 1px solid #1e3050;">More</span><span style="padding: 5px 11px; color: #7a9ab8; border-right: 1px solid #1e3050;">Less</span><span style="padding: 5px 11px; color: #7a9ab8;">Never</span>
+                  </div>
+                </div>
+                <div style="height: 4px; border-radius: 4px; background: #111a2e;"><div style="height: 4px; border-radius: 4px; background: #d4a843; width: 68%;"></div></div>
+                <div style="font-size: 12.5px; color: #4a9eff;">because you promoted 2 sensor-mesh notes into projects</div>
+              </div>
+              <div style="padding: 14px 16px 6px; font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: #3d5570;">WATCHING</div>
+              <div style="padding: 4px 16px 12px; display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid #152030;">
+                <span style="border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 12px; font-size: 13px;">mass timber suppliers <span style="color: #3d5570;">×</span></span>
+                <span style="border: 1px solid #1e3050; border-radius: 9999px; padding: 5px 12px; font-size: 13px;">LangGraph <span style="color: #3d5570;">×</span></span>
+                <span style="border: 1px dashed #1e3050; border-radius: 9999px; padding: 5px 12px; font-size: 13px; color: #d4a843;">+ Add</span>
+              </div>
+              <div style="padding: 14px 16px 6px; font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: #3d5570;">NEVER</div>
+              <div style="padding: 0 16px;">
+                <div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #152030;"><span style="font-size: 14px; color: #7a9ab8; flex: 1;">market news</span><span style="font-size: 12.5px; color: #d4a843;">Restore</span></div>
+                <div style="display: flex; align-items: center; padding: 10px 0;"><span style="font-size: 14px; color: #7a9ab8; flex: 1;">crypto</span><span style="font-size: 12.5px; color: #d4a843;">Restore</span></div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px; padding: 8px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7a9ab8;">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#7a9ab8" stroke-width="1.5"><path d="M2 5h12v9H2z"></path><path d="M2 5l1.5-3h9L14 5"></path></svg>
+              mimer/interests.md <span style="color: #d4a843;">Open in Obsidian ↗</span>
+            </div>
+            <div style="display: flex; border-top: 1px solid #152030; padding: 10px 8px 30px; background: #0c1220;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="2.2" fill="currentColor"></circle></svg><span style="font-size: 10px;">Today</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #d4a843;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h14M3 14h14"></path><circle cx="8" cy="6" r="2" fill="#070b12"></circle><circle cx="13" cy="14" r="2" fill="#070b12"></circle></svg><span style="font-size: 10px; font-weight: 500;">Interests</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="4.5" r="2.2"></circle><circle cx="5" cy="15.5" r="2.2"></circle><circle cx="15" cy="10" r="2.2"></circle><path d="M5 7v6.5M5 9.5c2.5 0.8 5.5 0.5 7.8 0.5"></path></svg><span style="font-size: 10px;">Entities</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h14v9.5H3z"></path><path d="M3 7l1.5-3.5h11L17 7"></path><path d="M8 10.5h4"></path></svg><span style="font-size: 10px;">Vault</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="1.7" fill="currentColor"></circle><path d="M6.8 13.2a4.5 4.5 0 010-6.4M13.2 6.8a4.5 4.5 0 010 6.4M4.2 15.8a8.2 8.2 0 010-11.6M15.8 4.2a8.2 8.2 0 010 11.6"></path></svg><span style="font-size: 10px;">Heimdal</span></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">The weight slider becomes a read-only bar + More/Less/Never — the model's number is evidence, the steering verbs are the interface. Every row states "because you did X" (agent blue). Never list gets Restore (O6).</div>
+      </div>
+
+      <div id="1c-s4" style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S4 · CONFIRM ENTITY (JE, phone form)</span> — explicit choice, reversible</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px 10px; border-bottom: 1px solid #152030;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7a9ab8" stroke-width="1.5"><path d="M1.5 4.5h5l1.5 2h6.5v6.5h-13z"></path></svg>
+              <span style="font-size: 13.5px; font-weight: 500;">Alfheim vault</span>
+              <span style="margin-left: auto; font-size: 13px; color: #d4a843; font-weight: 500;">Switch</span>
+            </div>
+            <div style="padding: 18px 16px 10px; display: flex; align-items: baseline; gap: 10px;">
+              <span style="font-size: 28px; font-weight: 600;">Entities</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">2 pending</span>
+            </div>
+            <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 0 16px; gap: 12px;">
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; align-items: baseline; gap: 8px;">
+                  <span style="font-family: 'EB Garamond', serif; font-size: 22px;">"Anna L."</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a9ab8;">confidence 82%</span>
+                </div>
+                <div style="font-size: 13px; color: #7a9ab8; line-height: 1.55; border-left: 2px solid #1e3050; padding-left: 10px;">"…walked the frame with <span style="color: #dce8f0;">Anna L.</span> and agreed to move the service core…"</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">_heimdal/2026-07-11-0912-walkthrough.md</div>
+              </div>
+              <div style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: #3d5570;">WHO IS THIS? PICK A CANDIDATE</div>
+              <div style="border: 1.5px solid #d4a843; background: rgba(212,168,67,0.06); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px;">
+                <span style="width: 18px; height: 18px; border-radius: 9999px; border: 1.5px solid #d4a843; display: flex; align-items: center; justify-content: center;"><span style="width: 9px; height: 9px; border-radius: 9999px; background: #d4a843;"></span></span>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 15px; font-weight: 500;">Anna Lindqvist</span>
+                  <span style="font-size: 12.5px; color: #7a9ab8;">architect · Byggnad AB · 12 mentions</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">people/anna-lindqvist.md</span>
+                </div>
+              </div>
+              <div style="border: 1px solid #152030; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px;">
+                <span style="width: 18px; height: 18px; border-radius: 9999px; border: 1.5px solid #3d5570;"></span>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 15px; font-weight: 500;">Anna Larsen</span>
+                  <span style="font-size: 12.5px; color: #7a9ab8;">contractor · 3 mentions</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">people/anna-larsen.md</span>
+                </div>
+              </div>
+              <div style="border: 1px dashed #1e3050; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px;">
+                <span style="width: 18px; height: 18px; border-radius: 9999px; border: 1.5px solid #3d5570;"></span>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 15px; font-weight: 500; color: #7a9ab8;">Someone new</span>
+                  <span style="font-size: 12.5px; color: #3d5570;">no note yet — creates people/anna-l.md</span>
+                </div>
+              </div>
+            </div>
+            <div style="padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; gap: 10px;">
+                <span style="flex: 1; text-align: center; background: #d4a843; color: #070b12; font-size: 15px; font-weight: 600; border-radius: 10px; padding: 12px;">Merge into Anna Lindqvist</span>
+                <span style="width: 96px; text-align: center; border: 1px solid #1e3050; color: #dce8f0; font-size: 15px; font-weight: 500; border-radius: 10px; padding: 12px;">Reject</span>
+              </div>
+              <div style="font-size: 11.5px; color: #3d5570; text-align: center;">appends a reversible decision to the entity log — undo anytime</div>
+            </div>
+            <div style="display: flex; border-top: 1px solid #152030; padding: 10px 8px 30px; background: #0c1220;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="2.2" fill="currentColor"></circle></svg><span style="font-size: 10px;">Today</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h14M3 14h14"></path><circle cx="8" cy="6" r="2" fill="#070b12"></circle><circle cx="13" cy="14" r="2" fill="#070b12"></circle></svg><span style="font-size: 10px;">Interests</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #d4a843;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="4.5" r="2.2"></circle><circle cx="5" cy="15.5" r="2.2"></circle><circle cx="15" cy="10" r="2.2"></circle><path d="M5 7v6.5M5 9.5c2.5 0.8 5.5 0.5 7.8 0.5"></path></svg><span style="font-size: 10px; font-weight: 500;">Entities</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h14v9.5H3z"></path><path d="M3 7l1.5-3.5h11L17 7"></path><path d="M8 10.5h4"></path></svg><span style="font-size: 10px;">Vault</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="1.7" fill="currentColor"></circle><path d="M6.8 13.2a4.5 4.5 0 010-6.4M13.2 6.8a4.5 4.5 0 010 6.4M4.2 15.8a8.2 8.2 0 010-11.6M15.8 4.2a8.2 8.2 0 010 11.6"></path></svg><span style="font-size: 10px;">Heimdal</span></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">Merge is disabled until a candidate is picked; the button then names the choice ("Merge into Anna Lindqvist") — no first-candidate default (O7, advisory in <a href="#1f">1f</a>). "Someone new" is a first-class honest option. Names shown, ids only as mono paths.</div>
+      </div>
+
+      <!-- S6 -->
+      <div id="1c-s6" style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S6 · CONSENT GLANCE</span> — read-only, deliberately light</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #152030;">
+              <svg width="11" height="18" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 14px; color: #d4a843;">Settings</span>
+              <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">read-only</span>
+            </div>
+            <div style="padding: 18px 16px 10px;">
+              <span style="font-size: 28px; font-weight: 600;">Consent</span>
+            </div>
+            <div style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#39e87d" stroke-width="1.5"><path d="M10 2l6.5 2.5v5c0 4-2.8 6.9-6.5 8.5-3.7-1.6-6.5-4.5-6.5-8.5v-5L10 2z"></path><path d="M7 10l2 2 4-4"></path></svg>
+                  <span style="font-size: 15px; font-weight: 500; flex: 1;">Standing grant — active</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 92px 1fr; gap: 6px 12px; font-size: 13px;">
+                  <span style="color: #3d5570;">scope</span><span>discrete audio capture, single-party (posture A)</span>
+                  <span style="color: #3d5570;">basis</span><span>operator self-consent</span>
+                  <span style="color: #3d5570;">granted</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;">2026-06-02 · by owner, hub-side</span>
+                  <span style="color: #3d5570;">devices</span><span>iPhone (this device) · Watch</span>
+                </div>
+              </div>
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: #3d5570;">DORMANT IN V1 — DEFINED, NOT YET OPERATIVE</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570; border: 1px solid #152030; border-radius: 9999px; padding: 4px 10px;">withhold-review</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570; border: 1px solid #152030; border-radius: 9999px; padding: 4px 10px;">erasure</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570; border: 1px solid #152030; border-radius: 9999px; padding: 4px 10px;">per-person grants</span>
+                </div>
+                <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">These mechanisms exist in the grant note so posture B-full can inherit them. They do nothing under posture A.</div>
+              </div>
+              <div style="font-size: 13px; color: #7a9ab8; line-height: 1.6; padding: 0 2px;">Granting and revoking happen in the vault, hub-side — never here. This screen only reads the note.</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px; padding: 10px 16px 34px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7a9ab8;">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#7a9ab8" stroke-width="1.5"><path d="M2 5h12v9H2z"></path><path d="M2 5l1.5-3h9L14 5"></path></svg>
+              consent/grants.md <span style="color: #d4a843;">Open in Obsidian ↗</span>
+            </div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">Reached from the gear (advisory: leaves the tab bar). Read-only stated twice: in the chrome and in prose. The dormant flags are visible so B-full lands in a place that already exists.</div>
+      </div>
+    </div>
+
+    <!-- S5 row -->
+    <div id="1c-s5" style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S5 · READ</span> — the note as the hero, provenance stated</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #152030;">
+              <svg width="11" height="18" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 14px; color: #d4a843;">_heimdal</span>
+              <span style="margin-left: auto; font-size: 14px; font-weight: 500; color: #d4a843;">Edit</span>
+            </div>
+            <div style="flex: 1; overflow: hidden; padding: 18px 18px 0; display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-family: 'EB Garamond', serif; font-size: 27px; line-height: 1.2;">Site walkthrough with Anna</div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">
+                <span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(74,158,255,0.45); color: #4a9eff; border-radius: 9999px; padding: 2px 8px;">
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#4a9eff" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"></rect><path d="M6 1v2M10 1v2M6 13v2M10 13v2M1 6h2M1 10h2M13 6h2M13 10h2"></path></svg>
+                  hub-authored</span>
+                <span>zone _heimdal</span><span>·</span><span>modified 12:14</span>
+              </div>
+              <div style="font-size: 15px; line-height: 1.65; color: #dce8f0;">Walked the frame at level 3 with Anna. Agreed to move the service core 600 mm east to clear the CLT panel seam.</div>
+              <div style="font-size: 17px; font-weight: 600; margin-top: 2px;">Decisions</div>
+              <div style="font-size: 15px; line-height: 1.65; color: #dce8f0; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; gap: 10px;"><span style="color: #3d5570;">•</span><span>Service core moves east — Anna confirms with structure by Friday.</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #3d5570;">•</span><span>HVAC riser stays; vendor call notes attached.</span></div>
+              </div>
+              <div style="border-left: 2px solid #1e3050; padding: 2px 0 2px 12px; font-size: 14.5px; line-height: 1.6; color: #7a9ab8; font-style: italic;">"If the seam moves again we re-run the acoustic check." — Anna</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px; padding: 12px 16px 34px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7a9ab8; border-top: 1px solid #152030;">
+              _heimdal/2026-07-11-0912-walkthrough.md <span style="color: #d4a843;">Open in Obsidian ↗</span>
+            </div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">Serif for the note title only — the record's voice. Hub-authored provenance is a visible agent-blue chip, not frontmatter trivia.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S5 · EDIT</span> — honest editor: dirty, cancel, warn before mutating</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #152030;">
+              <span style="font-size: 14px; color: #7a9ab8;">Cancel</span>
+              <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f09030;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #f09030;"></span>edited</span>
+              <span style="background: #d4a843; color: #070b12; font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 6px 16px;">Save</span>
+            </div>
+            <div style="flex: 1; overflow: hidden; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.75; color: #dce8f0;">
+              <span style="color: #3d5570;">---</span><br>
+              <span style="color: #7a9ab8;">uuid:</span> 8f2c-…-a1<br>
+              <span style="color: #7a9ab8;">zone:</span> _heimdal<br>
+              <span style="color: #7a9ab8;">case:</span> <span style="background: rgba(240,144,48,0.15); border-radius: 3px; padding: 0 3px;">007</span><br>
+              <span style="color: #3d5570;">---</span><br>
+              # Site walkthrough with Anna<br><br>
+              Walked the frame at level 3 with Anna. Agreed to move the service core <span style="background: rgba(212,168,67,0.2); border-radius: 3px; padding: 0 3px;">600 mm east</span> to clear the CLT panel seam.<br><br>
+              ## Decisions<br>
+              - Service core moves east — Anna confirms<span style="display: inline-block; width: 2px; height: 15px; background: #d4a843; vertical-align: text-bottom; margin-left: 1px;"></span>
+            </div>
+            <div style="margin: 0 16px 12px; display: flex; align-items: flex-start; gap: 10px; background: rgba(240,144,48,0.07); border: 1px solid rgba(240,144,48,0.35); border-radius: 10px; padding: 11px 13px;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#f09030" stroke-width="1.5" style="margin-top: 1px;"><path d="M10 2L1 18h18L10 2z" stroke-linejoin="round"></path><path d="M10 8v5"></path></svg>
+              <div style="flex: 1; font-size: 12.5px; line-height: 1.55; color: #dce8f0;">Saving would rewrite <span style="font-family: 'JetBrains Mono', monospace;">case: 007</span> as <span style="font-family: 'JetBrains Mono', monospace;">7</span>.<div style="display: flex; gap: 14px; margin-top: 6px;"><span style="color: #d4a843; font-weight: 500;">Keep as "007"</span><span style="color: #7a9ab8;">Save anyway</span></div></div>
+            </div>
+            <div style="height: 34px;"></div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">Amber "edited" dot, Cancel with discard confirm, and D3 surfaced as a pre-save decision — the app never silently mutates the record (ruling 8).</div>
+      </div>
+
+      <!-- S5 state tiles -->
+      <div style="display: flex; flex-direction: column; gap: 14px; width: 360px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">S5 · SAVE STATES</span></div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">SAVING → SAVED</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #f09030; animation: pulseDot 1.2s infinite;"></span>Saving…</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #39e87d;"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#39e87d" stroke-width="1.8"><path d="M3 10.5l4.5 4.5L17 5.5"></path></svg>Saved 14:40 · in the vault</div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid rgba(255,61,61,0.3); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #ff3d3d;">SAVE FAILED — content stays on screen</div>
+          <div style="font-size: 13.5px; color: #dce8f0; line-height: 1.55;">Could not write to the vault. Your edits are still here.</div>
+          <div style="display: flex; gap: 10px;">
+            <span style="border: 1px solid #1e3050; font-size: 12.5px; font-weight: 500; border-radius: 8px; padding: 5px 12px;">Retry</span>
+            <span style="border: 1px solid #1e3050; font-size: 12.5px; font-weight: 500; border-radius: 8px; padding: 5px 12px; color: #7a9ab8;">Copy text</span>
+          </div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid rgba(240,144,48,0.3); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #f09030;">CONFLICT COPY — surfaced, not buried</div>
+          <div style="font-size: 13.5px; color: #dce8f0; line-height: 1.55;">This note has a conflict copy from another writer.</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a9ab8;">walkthrough (conflict 2026-07-10 22:41).md</div>
+          <div style="display: flex; gap: 14px; font-size: 12.5px;"><span style="color: #d4a843; font-weight: 500;">Compare</span><span style="color: #7a9ab8;">Later</span></div>
+          <div style="font-size: 12px; color: #7a9ab8;">Banner appears on open — resolving means choosing in the vault; the app never merges silently.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 1d IPAD ============ -->
+  <div id="1d" style="display: flex; flex-direction: column; gap: 32px;">
+    <div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid #152030; padding-bottom: 12px; max-width: 1400px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #070b12; background: #d4a843; border-radius: 4px; padding: 2px 8px;">1d</span>
+      <h2 style="font-family: 'EB Garamond', Georgia, serif; font-size: 30px; font-weight: 400; margin: 0;">Surface 2 — Mimer iPad thinking canvas</h2>
+      <span style="font-size: 13px; color: #7a9ab8;">spec-fixed structure (three-column split view) · regular width landscape · P2 in two variants</span>
+    </div>
+
+    <!-- P1 -->
+    <div id="1d-p1" style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">P1 · BROWSE AND READ</span> — sidebar · folder · note, inspector open (⌘I)</div>
+      <div style="width: 1194px; height: 850px; border-radius: 26px; background: #000; padding: 15px; box-sizing: border-box; box-shadow: 0 40px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);">
+        <div style="height: 100%; border-radius: 12px; overflow: hidden; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; padding: 6px 18px 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a9ab8;">
+            <span>14:32 · Fri Jul 11</span>
+            <span style="margin-left: auto; display: flex; align-items: center; gap: 8px;">Alfheim vault · tailnet <span style="color: #39e87d;">●</span> 100% ▮</span>
+          </div>
+          <div style="flex: 1; display: flex; min-height: 0;">
+            <!-- sidebar -->
+            <div style="width: 224px; background: #0c1220; border-right: 1px solid #152030; display: flex; flex-direction: column; padding: 14px 10px;">
+              <div style="font-family: 'EB Garamond', serif; font-size: 21px; padding: 2px 10px 14px; color: #dce8f0;">Yggdrasil</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #7a9ab8; font-size: 14px;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="2.2" fill="currentColor"></circle></svg>Today</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #7a9ab8; font-size: 14px;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h14M3 14h14"></path><circle cx="8" cy="6" r="2" fill="#0c1220"></circle><circle cx="13" cy="14" r="2" fill="#0c1220"></circle></svg>Interests</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #7a9ab8; font-size: 14px;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="4.5" r="2.2"></circle><circle cx="5" cy="15.5" r="2.2"></circle><circle cx="15" cy="10" r="2.2"></circle><path d="M5 7v6.5M5 9.5c2.5 0.8 5.5 0.5 7.8 0.5"></path></svg>Entities<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #d4a843;">2</span></div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #7a9ab8; font-size: 14px;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2l6.5 2.5v5c0 4-2.8 6.9-6.5 8.5-3.7-1.6-6.5-4.5-6.5-8.5v-5L10 2z"></path></svg>Consent</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; background: #111a2e; color: #dce8f0; font-size: 14px; font-weight: 500; border: 1px solid #1e3050;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#d4a843" stroke-width="1.6"><path d="M3 7h14v9.5H3z"></path><path d="M3 7l1.5-3.5h11L17 7"></path><path d="M8 10.5h4"></path></svg>Vault</div>
+              <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 9px 10px; color: #7a9ab8; font-size: 14px;"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="3"></circle><path d="M10 1.5v2.4M10 16.1v2.4M1.5 10h2.4M16.1 10h2.4M4 4l1.7 1.7M14.3 14.3L16 16M16 4l-1.7 1.7M5.7 14.3L4 16"></path></svg>Settings</div>
+            </div>
+            <!-- content column -->
+            <div style="width: 330px; border-right: 1px solid #152030; display: flex; flex-direction: column;">
+              <div style="padding: 14px 16px 8px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px; font-weight: 600; flex: 1;">_heimdal</span>
+                <div style="display: flex; align-items: center; gap: 6px; border: 1px solid #152030; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; color: #3d5570;"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#3d5570" stroke-width="1.6"><circle cx="9" cy="9" r="6"></circle><path d="M13.5 13.5L17.5 17.5"></path></svg>Filter <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; border: 1px solid #152030; border-radius: 4px; padding: 1px 4px;">⌘F</span></div>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570; padding: 0 16px 10px;">14 notes · hub-authored</div>
+              <div style="flex: 1; overflow: hidden;">
+                <div style="padding: 11px 16px; background: #111a2e; border-left: 2px solid #d4a843; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 14px; font-weight: 500;">2026-07-11-0912 — Site walkthrough with Anna</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">modified 12:14 · 1.2 KB</span>
+                </div>
+                <div style="padding: 11px 16px; border-top: 1px solid #152030; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 14px; color: #7a9ab8;">2026-07-11-1104 — Sensor-mesh sketch</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">modified 11:31 · 0.8 KB</span>
+                </div>
+                <div style="padding: 11px 16px; border-top: 1px solid #152030; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 14px; color: #7a9ab8;">2026-07-11-1310 — Vendor call, HVAC options</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">modified 13:26 · 2.1 KB</span>
+                </div>
+                <div style="padding: 11px 16px; border-top: 1px solid #152030; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 14px; color: #7a9ab8;">2026-07-10-1745 — Acoustic check follow-up</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">modified yesterday · 1.6 KB</span>
+                </div>
+              </div>
+              <div style="padding: 10px 16px; border-top: 1px solid #152030; font-size: 11.5px; color: #3d5570;">↑↓ move · Tab next column · ⏎ open</div>
+            </div>
+            <!-- detail -->
+            <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+              <div style="padding: 24px 32px 0; display: flex; flex-direction: column; gap: 12px; flex: 1; overflow: hidden;">
+                <div style="font-family: 'EB Garamond', serif; font-size: 32px; line-height: 1.15;">Site walkthrough with Anna</div>
+                <div style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">
+                  <span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(74,158,255,0.45); color: #4a9eff; border-radius: 9999px; padding: 2px 9px;">hub-authored</span>
+                  <span>zone _heimdal · modified 12:14</span>
+                  <span style="margin-left: auto; color: #d4a843; font-family: 'Space Grotesk', sans-serif; font-size: 13px;">Open in Obsidian ↗</span>
+                </div>
+                <div style="font-size: 15.5px; line-height: 1.7; max-width: 60ch;">Walked the frame at level 3 with Anna. Agreed to move the service core 600 mm east to clear the CLT panel seam.</div>
+                <div style="font-size: 18px; font-weight: 600;">Decisions</div>
+                <div style="font-size: 15.5px; line-height: 1.7; max-width: 60ch; display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; gap: 10px;"><span style="color: #3d5570;">•</span><span>Service core moves east — Anna confirms with structure by Friday.</span></div>
+                  <div style="display: flex; gap: 10px;"><span style="color: #3d5570;">•</span><span>HVAC riser stays; vendor call notes attached.</span></div>
+                </div>
+                <div style="border-left: 2px solid #1e3050; padding-left: 14px; font-size: 15px; font-style: italic; color: #7a9ab8; max-width: 60ch;">"If the seam moves again we re-run the acoustic check." — Anna</div>
+              </div>
+              <div style="padding: 10px 32px 14px; font-size: 11.5px; color: #3d5570; border-top: 1px solid #152030;">⌘I inspector · annotate with Scribble or keyboard — commits as an attributed callout</div>
+            </div>
+            <!-- inspector -->
+            <div style="width: 268px; background: #0c1220; border-left: 1px solid #152030; display: flex; flex-direction: column; padding: 18px 16px; gap: 14px;">
+              <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 13px; font-weight: 600; letter-spacing: 0.04em; flex: 1;">INSPECTOR</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570; border: 1px solid #152030; border-radius: 4px; padding: 1px 5px;">⌘I</span></div>
+              <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">UUID</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #7a9ab8; word-break: break-all;">8f2c4e10-91ab-4f6e-b2d3-77c9a1</span></div>
+              <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">ZONE / ORIGIN</span><span style="font-size: 13px;">_heimdal · capture pipeline</span></div>
+              <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">PROVENANCE</span><span style="font-size: 13px;">transcribed hub-side from iPhone capture, 09:12–09:47</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #4a9eff;">asr: whisper-large · run 4412</span></div>
+              <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">MODIFIED</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #7a9ab8;">2026-07-11 12:14</span></div>
+              <div style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid #152030; padding-top: 12px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">ATTRIBUTION</span><span style="font-size: 13px; color: #7a9ab8;">No speaker attribution recorded for this note.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6; max-width: 1000px;">Fixed spec structure honoured. The inspector states absence ("no speaker attribution recorded") rather than hiding the field. Reading measure capped at 60ch — the canvas is for thinking, not stretching text.</div>
+    </div>
+
+    <!-- P2 variants -->
+    <div id="1d-p2" style="display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">P2 · ENTITY DECISION — VARIANT 1 "ALIGNED LEDGER"</span> — mention pinned left, candidates as aligned cards</div>
+        <div style="width: 1194px; height: 780px; border-radius: 26px; background: #000; padding: 15px; box-sizing: border-box; box-shadow: 0 40px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);">
+          <div style="height: 100%; border-radius: 12px; overflow: hidden; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; display: flex;">
+            <!-- icon rail -->
+            <div style="width: 60px; background: #0c1220; border-right: 1px solid #152030; display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 16px;">
+              <span style="font-family: 'EB Garamond', serif; font-size: 17px; color: #d4a843;">Y</span>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#3d5570" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="2.2" fill="#3d5570"></circle></svg>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#3d5570" stroke-width="1.6"><path d="M3 6h14M3 14h14"></path><circle cx="8" cy="6" r="2" fill="#0c1220"></circle><circle cx="13" cy="14" r="2" fill="#0c1220"></circle></svg>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#d4a843" stroke-width="1.6"><circle cx="5" cy="4.5" r="2.2"></circle><circle cx="5" cy="15.5" r="2.2"></circle><circle cx="15" cy="10" r="2.2"></circle><path d="M5 7v6.5M5 9.5c2.5 0.8 5.5 0.5 7.8 0.5"></path></svg>
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#3d5570" stroke-width="1.6"><path d="M3 7h14v9.5H3z"></path><path d="M3 7l1.5-3.5h11L17 7"></path></svg>
+            </div>
+            <!-- pending list -->
+            <div style="width: 280px; border-right: 1px solid #152030; display: flex; flex-direction: column;">
+              <div style="padding: 16px 16px 10px; font-size: 17px; font-weight: 600;">Pending <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #d4a843; font-weight: 400;">2</span></div>
+              <div style="padding: 11px 16px; background: #111a2e; border-left: 2px solid #d4a843;">
+                <div style="font-size: 14px; font-weight: 500;">"Anna L."</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">walkthrough · conf 82%</div>
+              </div>
+              <div style="padding: 11px 16px; border-top: 1px solid #152030;">
+                <div style="font-size: 14px; color: #7a9ab8;">"the Byggnad rep"</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">vendor call · conf 41%</div>
+              </div>
+              <div style="margin-top: auto; padding: 12px 16px; border-top: 1px solid #152030; display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">DECIDED TODAY</div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #7a9ab8;"><span style="color: #39e87d;">merged</span> "J. Berg" → Johan Berg <span style="margin-left: auto; color: #d4a843; font-weight: 500;">Undo</span></div>
+              </div>
+            </div>
+            <!-- comparison -->
+            <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+              <div style="flex: 1; display: flex; gap: 20px; padding: 20px 24px; min-height: 0;">
+                <!-- mention -->
+                <div style="width: 300px; background: #0c1220; border: 1px solid #1e3050; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">THE MENTION</div>
+                  <div style="font-family: 'EB Garamond', serif; font-size: 28px;">"Anna L."</div>
+                  <div style="font-size: 13px; color: #7a9ab8; line-height: 1.6; border-left: 2px solid #1e3050; padding-left: 10px;">"…walked the frame with <span style="color: #dce8f0;">Anna L.</span> and agreed to move the service core…"</div>
+                  <div style="display: grid; grid-template-columns: 80px 1fr; gap: 8px 10px; font-size: 12.5px; border-top: 1px solid #152030; padding-top: 12px;">
+                    <span style="color: #3d5570;">heard as</span><span style="background: rgba(57,232,125,0.1); border-radius: 4px; padding: 1px 5px;">Anna L.</span>
+                    <span style="color: #3d5570;">context</span><span style="background: rgba(57,232,125,0.1); border-radius: 4px; padding: 1px 5px;">site walkthrough</span>
+                    <span style="color: #3d5570;">org hint</span><span style="background: rgba(57,232,125,0.1); border-radius: 4px; padding: 1px 5px;">Byggnad AB</span>
+                    <span style="color: #3d5570;">first seen</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7a9ab8;">2026-07-11 09:12</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570; margin-top: auto;">_heimdal/2026-07-11-0912-walkthrough.md</div>
+                </div>
+                <!-- candidates -->
+                <div style="flex: 1; display: flex; gap: 16px; min-width: 0;">
+                  <div style="flex: 1; background: rgba(212,168,67,0.05); border: 1.5px solid #d4a843; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="width: 18px; height: 18px; border-radius: 9999px; border: 1.5px solid #d4a843; display: flex; align-items: center; justify-content: center;"><span style="width: 9px; height: 9px; border-radius: 9999px; background: #d4a843;"></span></span>
+                      <span style="font-size: 17px; font-weight: 600;">Anna Lindqvist</span>
+                      <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7a9ab8;">12 mentions</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 80px 1fr; gap: 8px 10px; font-size: 12.5px; border-top: 1px solid rgba(212,168,67,0.25); padding-top: 12px;">
+                      <span style="color: #3d5570;">name</span><span style="background: rgba(57,232,125,0.1); border-radius: 4px; padding: 1px 5px;">Anna Lindqvist <span style="color: #39e87d;">≈ match</span></span>
+                      <span style="color: #3d5570;">projects</span><span style="background: rgba(57,232,125,0.1); border-radius: 4px; padding: 1px 5px;">site walkthroughs ×6 <span style="color: #39e87d;">≈ match</span></span>
+                      <span style="color: #3d5570;">org</span><span style="background: rgba(57,232,125,0.1); border-radius: 4px; padding: 1px 5px;">Byggnad AB <span style="color: #39e87d;">= match</span></span>
+                      <span style="color: #3d5570;">role</span><span>architect</span>
+                    </div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570; margin-top: auto;">people/anna-lindqvist.md</div>
+                  </div>
+                  <div style="flex: 1; background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="width: 18px; height: 18px; border-radius: 9999px; border: 1.5px solid #3d5570;"></span>
+                      <span style="font-size: 17px; font-weight: 600; color: #7a9ab8;">Anna Larsen</span>
+                      <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">3 mentions</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 80px 1fr; gap: 8px 10px; font-size: 12.5px; color: #7a9ab8; border-top: 1px solid #152030; padding-top: 12px;">
+                      <span style="color: #3d5570;">name</span><span>Anna Larsen <span style="color: #3d5570;">~ partial</span></span>
+                      <span style="color: #3d5570;">projects</span><span>groundwork QA</span>
+                      <span style="color: #3d5570;">org</span><span>Larsen Bygg <span style="color: #3d5570;">≠</span></span>
+                      <span style="color: #3d5570;">role</span><span>contractor</span>
+                    </div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570; margin-top: auto;">people/anna-larsen.md</div>
+                  </div>
+                  <div style="width: 190px; border: 1px dashed #1e3050; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start;">
+                    <span style="width: 18px; height: 18px; border-radius: 9999px; border: 1.5px solid #3d5570;"></span>
+                    <span style="font-size: 15px; font-weight: 500; color: #7a9ab8;">Someone new</span>
+                    <span style="font-size: 12px; color: #3d5570; line-height: 1.55;">No note yet. Merging here creates people/anna-l.md with this mention as its first evidence.</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 14px 24px 18px; border-top: 1px solid #152030;">
+                <span style="background: #d4a843; color: #070b12; font-size: 14.5px; font-weight: 600; border-radius: 10px; padding: 10px 22px;">Merge into Anna Lindqvist</span>
+                <span style="border: 1px solid #1e3050; font-size: 14.5px; font-weight: 500; border-radius: 10px; padding: 10px 20px;">Reject</span>
+                <span style="font-size: 12px; color: #3d5570; margin-left: 8px;">appends a reversible decision — history is never edited</span>
+                <span style="margin-left: auto; font-size: 11.5px; color: #3d5570;">↑↓ pick candidate · ⏎ merge · ⌫ reject</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6; max-width: 1100px;">Attribute rows share one order across mention and candidates; matches glow vault-green (the MDM pattern read left→right). The mention pane never moves — your anchor while comparing. Undo lives with the decided item, on screen.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">P2 · ENTITY DECISION — VARIANT 2 "DECISION MATRIX"</span> — one table, attributes as rows</div>
+        <div style="width: 1194px; height: 780px; border-radius: 26px; background: #000; padding: 15px; box-sizing: border-box; box-shadow: 0 40px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);">
+          <div style="height: 100%; border-radius: 12px; overflow: hidden; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; display: flex; flex-direction: column;">
+            <div style="padding: 20px 28px 8px; display: flex; align-items: baseline; gap: 14px;">
+              <span style="font-family: 'EB Garamond', serif; font-size: 26px;">Who is "Anna L."?</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">1 of 2 pending · conf 82%</span>
+              <span style="margin-left: auto; font-size: 13px; color: #7a9ab8;">"…walked the frame with <span style="color: #dce8f0;">Anna L.</span>…" <span style="color: #d4a843;">show source ↗</span></span>
+            </div>
+            <div style="flex: 1; padding: 12px 28px; min-height: 0;">
+              <div style="display: grid; grid-template-columns: 150px 1fr 1fr 1fr; border: 1px solid #152030; border-radius: 12px; overflow: hidden; height: 100%;">
+                <div style="background: #0c1220; border-right: 1px solid #152030; padding: 14px;"></div>
+                <div style="background: rgba(212,168,67,0.07); border-right: 1px solid #152030; border-top: 2px solid #d4a843; padding: 14px; display: flex; flex-direction: column; gap: 3px;">
+                  <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 16px; height: 16px; border-radius: 9999px; border: 1.5px solid #d4a843; display: inline-flex; align-items: center; justify-content: center;"><span style="width: 8px; height: 8px; border-radius: 9999px; background: #d4a843;"></span></span><span style="font-size: 15px; font-weight: 600;">Anna Lindqvist</span></div>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">people/anna-lindqvist.md · 12 mentions</span>
+                </div>
+                <div style="border-right: 1px solid #152030; padding: 14px; display: flex; flex-direction: column; gap: 3px;">
+                  <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 16px; height: 16px; border-radius: 9999px; border: 1.5px solid #3d5570;"></span><span style="font-size: 15px; font-weight: 600; color: #7a9ab8;">Anna Larsen</span></div>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">people/anna-larsen.md · 3 mentions</span>
+                </div>
+                <div style="padding: 14px; display: flex; flex-direction: column; gap: 3px;">
+                  <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 16px; height: 16px; border-radius: 9999px; border: 1.5px solid #3d5570;"></span><span style="font-size: 15px; font-weight: 500; color: #7a9ab8;">Someone new</span></div>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">creates people/anna-l.md</span>
+                </div>
+
+                <div style="background: #0c1220; border-right: 1px solid #152030; border-top: 1px solid #152030; padding: 12px 14px; font-size: 12.5px; color: #3d5570;">name heard<br><span style="color: #dce8f0; font-size: 13.5px;">Anna L.</span></div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; background: rgba(57,232,125,0.07);">Anna Lindqvist <span style="color: #39e87d; font-size: 11px;">≈</span></div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #7a9ab8;">Anna Larsen <span style="color: #3d5570; font-size: 11px;">~</span></div>
+                <div style="border-top: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #3d5570;">—</div>
+
+                <div style="background: #0c1220; border-right: 1px solid #152030; border-top: 1px solid #152030; padding: 12px 14px; font-size: 12.5px; color: #3d5570;">org hint<br><span style="color: #dce8f0; font-size: 13.5px;">Byggnad AB</span></div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; background: rgba(57,232,125,0.07);">Byggnad AB <span style="color: #39e87d; font-size: 11px;">=</span></div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #7a9ab8;">Larsen Bygg <span style="color: #3d5570; font-size: 11px;">≠</span></div>
+                <div style="border-top: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #3d5570;">—</div>
+
+                <div style="background: #0c1220; border-right: 1px solid #152030; border-top: 1px solid #152030; padding: 12px 14px; font-size: 12.5px; color: #3d5570;">context<br><span style="color: #dce8f0; font-size: 13.5px;">site walkthrough</span></div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; background: rgba(57,232,125,0.07);">walkthroughs ×6 <span style="color: #39e87d; font-size: 11px;">≈</span></div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #7a9ab8;">groundwork QA</div>
+                <div style="border-top: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #3d5570;">—</div>
+
+                <div style="background: #0c1220; border-right: 1px solid #152030; border-top: 1px solid #152030; padding: 12px 14px; font-size: 12.5px; color: #3d5570;">role</div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px;">architect</div>
+                <div style="border-top: 1px solid #152030; border-right: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #7a9ab8;">contractor</div>
+                <div style="border-top: 1px solid #152030; padding: 12px 14px; font-size: 13.5px; color: #3d5570;">—</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 28px 18px;">
+              <span style="background: #d4a843; color: #070b12; font-size: 14.5px; font-weight: 600; border-radius: 10px; padding: 10px 22px;">Merge into Anna Lindqvist</span>
+              <span style="border: 1px solid #1e3050; font-size: 14.5px; font-weight: 500; border-radius: 10px; padding: 10px 20px;">Reject</span>
+              <span style="margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #7a9ab8;"><span style="color: #39e87d;">merged</span> "J. Berg" → Johan Berg · 14:20 <span style="color: #d4a843; font-weight: 500;">Undo</span></span>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6; max-width: 1100px;">One question as the title, one scan direction: down a column to judge a candidate, across a row to compare. Denser than V1; strongest when candidates are ≥3. Weaker anchor to the source context (kept as a one-line quote + link). <strong style="color: #dce8f0;">Recommendation: V1</strong> — the pinned mention pane keeps the evidence in view, which matters more than density for a queue of 2–5.</div>
+      </div>
+    </div>
+
+    <!-- P3 -->
+    <div id="1d-p3" style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">P3 · CURATE</span> — annotation + drag-promotion, both append-only</div>
+      <div style="width: 1194px; height: 780px; border-radius: 26px; background: #000; padding: 15px; box-sizing: border-box; box-shadow: 0 40px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);">
+        <div style="height: 100%; border-radius: 12px; overflow: hidden; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; display: flex;">
+          <div style="width: 300px; border-right: 1px solid #152030; display: flex; flex-direction: column; background: #0c1220;">
+            <div style="padding: 16px 16px 10px; font-size: 16px; font-weight: 600;">Today's attention</div>
+            <div style="padding: 10px 16px; border-top: 1px solid #152030; opacity: 0.35;">
+              <div style="font-size: 13.5px; font-weight: 500;">Vendor call — HVAC options</div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">_heimdal/…-1310-vendor-call.md</div>
+            </div>
+            <div style="padding: 10px 16px; border-top: 1px solid #152030;">
+              <div style="font-size: 13.5px; font-weight: 500; color: #7a9ab8;">Sensor-mesh sketch</div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">_heimdal/…-1104-sensor-mesh.md</div>
+            </div>
+            <div style="margin-top: auto; padding: 12px 16px; font-size: 11.5px; color: #3d5570; border-top: 1px solid #152030;">drag any row onto the note →</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative;">
+            <div style="padding: 22px 30px 0; display: flex; flex-direction: column; gap: 11px; flex: 1; min-height: 0;">
+              <div style="font-family: 'EB Garamond', serif; font-size: 28px;">Level 3 service core — decision log</div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">projects/service-core.md · zone projects · yours</div>
+              <div style="font-size: 15px; line-height: 1.7; max-width: 62ch;">Core position is now fixed 600 mm east of grid C. Downstream: acoustic re-check, riser coordination, CLT seam detail.</div>
+              <!-- committed annotation -->
+              <div style="border: 1px solid rgba(212,168,67,0.35); background: rgba(212,168,67,0.05); border-radius: 10px; padding: 12px 16px; max-width: 62ch; display: flex; flex-direction: column; gap: 4px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #d4a843;">ANNOTATION · principal · 14:52</div>
+                <div style="font-size: 14.5px; line-height: 1.6;">Check whether the seam shift invalidates the acoustic model before Friday.</div>
+              </div>
+              <!-- drop target promotion block -->
+              <div style="border: 1.5px dashed #d4a843; border-radius: 10px; padding: 12px 16px; max-width: 62ch; display: flex; align-items: center; gap: 10px; background: rgba(212,168,67,0.04);">
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#d4a843" stroke-width="1.6"><path d="M10 3v10M5.5 8.5L10 13l4.5-4.5"></path><path d="M3 16.5h14"></path></svg>
+                <span style="font-size: 13.5px; color: #d4a843;">Drop to append: promoted from [[2026-07-11-1310 vendor call]]</span>
+              </div>
+            </div>
+            <!-- drag ghost -->
+            <div style="position: absolute; right: 120px; top: 300px; transform: rotate(-2deg); background: #111a2e; border: 1px solid #1e3050; border-radius: 10px; padding: 10px 14px; box-shadow: 0 12px 32px rgba(0,0,0,0.6); width: 250px;">
+              <div style="font-size: 13.5px; font-weight: 500;">Vendor call — HVAC options</div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">_heimdal/…-1310-vendor-call.md</div>
+            </div>
+            <!-- annotation input bar -->
+            <div style="margin: 12px 30px 18px; display: flex; align-items: center; gap: 12px; background: #0c1220; border: 1px solid #1e3050; border-radius: 12px; padding: 12px 16px;">
+              <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#7a9ab8" stroke-width="1.6"><path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z"></path></svg>
+              <span style="flex: 1; font-size: 14px; color: #7a9ab8;">Annotate — Scribble or type; commits as an attributed callout<span style="display: inline-block; width: 2px; height: 15px; background: #d4a843; vertical-align: text-bottom; margin-left: 2px;"></span></span>
+              <span style="background: #d4a843; color: #070b12; font-size: 13px; font-weight: 600; border-radius: 8px; padding: 6px 16px;">Commit</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6; max-width: 1100px;">Annotation is plain text (Scribble or keyboard), committed as an attributed, timestamped callout — Obsidian-readable markdown. Drag-promotion shows exactly the block it will append before you let go. Neither ever reorders existing content.</div>
+    </div>
+  </div>
+
+  <!-- ============ 1e HEIMDAL ============ -->
+  <div id="1e" style="display: flex; flex-direction: column; gap: 32px;">
+    <div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid #152030; padding-bottom: 12px; max-width: 1400px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #070b12; background: #d4a843; border-radius: 4px; padding: 2px 8px;">1e</span>
+      <h2 style="font-family: 'EB Garamond', Georgia, serif; font-size: 30px; font-weight: 400; margin: 0;">Surface 3 — Heimdal capture client</h2>
+      <span style="font-size: 13px; color: #7a9ab8;">the anti-app: no serif, no transcript, nothing lost · H1–H3 with full states</span>
+    </div>
+
+    <div id="1e-h1" style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+      <!-- H1 record -->
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">H1 · CAPTURE (J0)</span> — recording, screen may lock</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="padding: 16px 16px 6px; display: flex; align-items: baseline; gap: 10px;">
+              <span style="font-size: 28px; font-weight: 600;">Heimdal</span>
+              <span style="display: inline-flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: #39e87d;"></span>registered · consent active</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 0 24px;">
+              <div style="width: 168px; height: 168px; border-radius: 9999px; border: 2px solid rgba(255,61,61,0.5); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 40px rgba(255,61,61,0.12);">
+                <div style="width: 72px; height: 72px; border-radius: 16px; background: #ff3d3d;"></div>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 30px; letter-spacing: 0.04em;">12:47</div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <div style="display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: #dce8f0;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #ff3d3d; animation: pulseDot 1.2s infinite;"></span>Recording — continues if the screen locks</div>
+                <div style="font-size: 12.5px; color: #7a9ab8; text-align: center; line-height: 1.6;">Audio only. It is transcribed on your hub, later.<br>Nothing is written on this phone but the file.</div>
+              </div>
+            </div>
+            <div style="margin: 0 16px 10px; display: flex; align-items: center; gap: 10px; background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 12px 14px;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f09030;">2 staged</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #39e87d;">6 delivered today</span>
+              <span style="margin-left: auto; font-size: 13px; color: #d4a843; font-weight: 500;">Queue</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px; padding: 0 16px 10px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #00d4e8;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: #00d4e8; animation: pulseDot 2s infinite;"></span>LIVE · mic ok · 38% battery · 41 GB free</div>
+            <div style="display: flex; border-top: 1px solid #152030; padding: 10px 8px 30px; background: #0c1220;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="2.2" fill="currentColor"></circle></svg><span style="font-size: 10px;">Today</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h14M3 14h14"></path><circle cx="8" cy="6" r="2" fill="#070b12"></circle><circle cx="13" cy="14" r="2" fill="#070b12"></circle></svg><span style="font-size: 10px;">Interests</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="4.5" r="2.2"></circle><circle cx="5" cy="15.5" r="2.2"></circle><circle cx="15" cy="10" r="2.2"></circle><path d="M5 7v6.5M5 9.5c2.5 0.8 5.5 0.5 7.8 0.5"></path></svg><span style="font-size: 10px;">Entities</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #3d5570;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h14v9.5H3z"></path><path d="M3 7l1.5-3.5h11L17 7"></path><path d="M8 10.5h4"></path></svg><span style="font-size: 10px;">Vault</span></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #d4a843;"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="1.7" fill="currentColor"></circle><path d="M6.8 13.2a4.5 4.5 0 010-6.4M13.2 6.8a4.5 4.5 0 010 6.4M4.2 15.8a8.2 8.2 0 010-11.6M15.8 4.2a8.2 8.2 0 010 11.6"></path></svg><span style="font-size: 10px; font-weight: 500;">Heimdal</span></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">No waveform theater, no "transcribing…" — the copy says exactly what happens and where. Interruption (call/Siri) pauses and shows a Resume affordance in the same spot as the stop square.</div>
+      </div>
+
+      <!-- H1 queue -->
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">H1/H3 · DELIVERY QUEUE</span> — every item accountably in one place</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #152030;">
+              <svg width="11" height="18" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 14px; color: #d4a843;">Heimdal</span>
+              <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3d5570;">refreshed 14:32 · pull to refresh</span>
+            </div>
+            <div style="padding: 18px 16px 4px; display: flex; align-items: baseline; gap: 10px;">
+              <span style="font-size: 28px; font-weight: 600;">Queue</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f09030;">oldest pending 41 min</span>
+            </div>
+            <div style="padding: 4px 16px 10px; font-size: 12.5px; color: #7a9ab8; line-height: 1.55;">"Delivered" means placed in the capture folder — the hub admits it on its own schedule.</div>
+            <div style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #0c1220; border: 1px solid rgba(255,61,61,0.35); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; flex: 1;">rec-1351 · 12 min 40 s</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #ff3d3d; border: 1px solid rgba(255,61,61,0.4); background: rgba(255,61,61,0.07); border-radius: 9999px; padding: 2px 9px;">failed</span></div>
+                <div style="font-size: 12.5px; color: #7a9ab8;">Capture folder unreachable since 13:51. The file is safe on this phone.</div>
+                <div style="display: flex; gap: 10px;"><span style="border: 1px solid #1e3050; font-size: 12px; font-weight: 500; border-radius: 8px; padding: 4px 12px;">Retry</span><span style="border: 1px solid #1e3050; font-size: 12px; font-weight: 500; border-radius: 8px; padding: 4px 12px; color: #7a9ab8;">Re-choose folder</span></div>
+              </div>
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; flex: 1;">rec-1412 · 3 min 05 s</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f09030; border: 1px solid rgba(240,144,48,0.4); background: rgba(240,144,48,0.08); border-radius: 9999px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: #f09030; animation: pulseDot 1.4s infinite;"></span>delivering</span>
+              </div>
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; flex: 1;">rec-1408 · 0 min 48 s</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f09030; border: 1px solid rgba(240,144,48,0.4); background: rgba(240,144,48,0.08); border-radius: 9999px; padding: 2px 9px;">staged</span>
+              </div>
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; flex: 1; color: #7a9ab8;">rec-1340 · 22 min 10 s</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d; border: 1px solid rgba(57,232,125,0.35); background: rgba(57,232,125,0.06); border-radius: 9999px; padding: 2px 9px;">delivered · awaiting sync</span>
+              </div>
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 8px; opacity: 0.6;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; flex: 1; color: #7a9ab8;">rec-0912 · 35 min 12 s</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d; border: 1px solid rgba(57,232,125,0.35); border-radius: 9999px; padding: 2px 9px;">delivered 09:48</span>
+              </div>
+            </div>
+            <div style="padding: 10px 16px 34px; font-size: 11.5px; color: #3d5570;">Relaunch rebuilds this list from files on disk — the queue is the folder, not app memory.</div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">Failure sits on top, calm and red-bordered, with the two honest exits (Retry, Re-choose folder — a visual pick). Timestamps and durations in mono. Wording never overclaims.</div>
+      </div>
+
+      <!-- H2 device -->
+      <div id="1e-h2" style="display: flex; flex-direction: column; gap: 10px; width: 402px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">H2 · JC + JD · DEVICE</span> — identity, consent, live health</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', system-ui, sans-serif; padding-top: 62px; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #152030;">
+              <svg width="11" height="18" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#d4a843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 14px; color: #d4a843;">Heimdal</span>
+            </div>
+            <div style="padding: 18px 16px 10px;"><span style="font-size: 28px; font-weight: 600;">This device</span></div>
+            <div style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#39e87d" stroke-width="1.5"><path d="M10 2l6.5 2.5v5c0 4-2.8 6.9-6.5 8.5-3.7-1.6-6.5-4.5-6.5-8.5v-5L10 2z"></path><path d="M7 10l2 2 4-4"></path></svg>
+                  <span style="font-size: 15px; font-weight: 500; flex: 1;">Registered — iphone-owner</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 90px 1fr; gap: 5px 12px; font-size: 13px;">
+                  <span style="color: #3d5570;">consent</span><span>standing grant · posture A · single-party</span>
+                  <span style="color: #3d5570;">registered</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;">2026-06-02 · hub-side</span>
+                </div>
+                <div style="font-size: 12px; color: #7a9ab8; line-height: 1.55;">Granting and revoking are done on the hub. This screen reads the grant note; it cannot change it.</div>
+              </div>
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #00d4e8;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: #00d4e8; animation: pulseDot 2s infinite;"></span>LIVE GLANCE · persists nothing</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                  <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #3d5570;">recording</span><span style="font-size: 14px; font-weight: 500;">idle</span></div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #3d5570;">queue</span><span style="font-size: 14px; font-weight: 500;">2 · oldest 41 min</span></div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #3d5570;">battery</span><span style="font-size: 14px; font-weight: 500;">38%</span></div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #3d5570;">storage free</span><span style="font-size: 14px; font-weight: 500;">41 GB</span></div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #3d5570;">microphone</span><span style="font-size: 14px; font-weight: 500; color: #39e87d;">allowed</span></div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #3d5570;">capture folder</span><span style="font-size: 14px; font-weight: 500; color: #39e87d;">bound</span></div>
+                </div>
+              </div>
+              <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">FUTURE MODE — POSTURE B (GATED, NOT A TOGGLE)</div>
+                <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.6;">Continuous wearable capture exists in the design but is behind five activation gates. When it arrives, per-person grants and withheld spans appear here — in this same card, not a new surface.</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px; padding: 10px 16px 34px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7a9ab8;">durable facts → devices/iphone-owner.md <span style="color: #d4a843;">Open in Obsidian ↗</span></div>
+          </div>
+        </x-import>
+        <div style="font-size: 12px; color: #7a9ab8; line-height: 1.6;">The one telemetry bend, clearly badged LIVE. Gap log and last-known snapshot land in the device note — named at the foot. B-full shown as a legible future, not a switch.</div>
+      </div>
+
+      <!-- H3 tiles -->
+      <div style="display: flex; flex-direction: column; gap: 14px; width: 360px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">H1/H2/H3 · STATES</span></div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">FIRST RUN — BIND THE CAPTURE FOLDER</div>
+          <div style="font-size: 13.5px; color: #dce8f0; line-height: 1.55;">Choose where captures land. You will pick the folder — never type a path.</div>
+          <span style="align-self: flex-start; background: #d4a843; color: #070b12; font-size: 13px; font-weight: 600; border-radius: 9px; padding: 8px 16px;">Choose capture folder</span>
+          <div style="font-size: 12px; color: #7a9ab8;">Opens the system folder picker; kept as a security-scoped bookmark.</div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid rgba(240,144,48,0.35); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #f09030;">UNREGISTERED DEVICE</div>
+          <div style="font-size: 13.5px; color: #dce8f0; line-height: 1.55;">Not registered — captures may be refused by the hub.</div>
+          <span style="align-self: flex-start; border: 1px solid #1e3050; font-size: 13px; font-weight: 500; border-radius: 9px; padding: 7px 16px;">Register this device</span>
+          <div style="font-size: 12px; color: #7a9ab8;">Recording still works; the warning stays visible until the hub confirms.</div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">MIC PRE-PROMPT — TRUTHFUL FRAMING</div>
+          <div style="font-size: 13.5px; color: #dce8f0; line-height: 1.6;">"Heimdal records audio only when you press record. Files go to a folder you chose; your hub transcribes them. Nothing is analyzed on this phone."</div>
+          <div style="font-size: 12px; color: #7a9ab8;">Shown before the system dialog, framed on single-party discrete recording.</div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">INTERRUPTED (CALL / SIRI)</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #f09030;"></span>Paused at 08:12 — the first 8 min are safe.</div>
+          <span style="align-self: flex-start; background: #d4a843; color: #070b12; font-size: 13px; font-weight: 600; border-radius: 9px; padding: 7px 16px;">Resume</span>
+        </div>
+      </div>
+
+      <!-- H4 watch -->
+      <div id="1e-h4" style="display: flex; flex-direction: column; gap: 14px; width: 480px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7a9ab8;"><span style="color: #d4a843;">H4 · WRIST CAPTURE</span> — one tap, honest relay, felt not read</div>
+        <div style="display: flex; gap: 18px; flex-wrap: wrap;">
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+            <div style="width: 200px; height: 244px; border-radius: 48px; background: #000; padding: 10px; box-sizing: border-box; box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="height: 100%; border-radius: 40px; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; box-sizing: border-box;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #3d5570;">HEIMDAL</div>
+                <div style="width: 96px; height: 96px; border-radius: 9999px; background: #d4a843; display: flex; align-items: center; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 9999px; background: #070b12;"></div></div>
+                <div style="font-size: 13px; color: #7a9ab8;">Tap to record</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #39e87d;">0 queued on watch</div>
+              </div>
+            </div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">IDLE</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+            <div style="width: 200px; height: 244px; border-radius: 48px; background: #000; padding: 10px; box-sizing: border-box; box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="height: 100%; border-radius: 40px; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; box-sizing: border-box;">
+                <div style="display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #ff3d3d;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: #ff3d3d; animation: pulseDot 1.2s infinite;"></span>STILL CAPTURING</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 30px;">08:12</div>
+                <div style="width: 84px; height: 84px; border-radius: 9999px; border: 2px solid rgba(255,61,61,0.5); display: flex; align-items: center; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 8px; background: #ff3d3d;"></div></div>
+                <div style="font-size: 12px; color: #7a9ab8;">Tap to stop</div>
+              </div>
+            </div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">RECORDING</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+            <div style="width: 200px; height: 244px; border-radius: 48px; background: #000; padding: 10px; box-sizing: border-box; box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="height: 100%; border-radius: 40px; background: #070b12; color: #dce8f0; font-family: 'Space Grotesk', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 18px; box-sizing: border-box; text-align: center;">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#f09030" stroke-width="1.5"><circle cx="10" cy="10" r="1.5" fill="#f09030"></circle><path d="M6.8 13.2a4.5 4.5 0 010-6.4M13.2 6.8a4.5 4.5 0 010 6.4"></path><path d="M3 17L17 3"></path></svg>
+                <div style="font-size: 13px; line-height: 1.5; color: #dce8f0;">Phone unreachable — queuing on watch</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f09030;">3 waiting to relay</div>
+                <div style="font-size: 11.5px; color: #7a9ab8;">They move when the phone is back.</div>
+              </div>
+            </div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">RELAY BLOCKED</div>
+          </div>
+        </div>
+        <div style="background: #0c1220; border: 1px solid #152030; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 9px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #3d5570;">HAPTIC VOCABULARY — DISTINCT, EYES-FREE</div>
+          <div style="display: grid; grid-template-columns: 96px 1fr; gap: 6px 14px; font-size: 12.5px; color: #7a9ab8;">
+            <span style="font-family: 'JetBrains Mono', monospace; color: #dce8f0;">start</span><span>single firm tap</span>
+            <span style="font-family: 'JetBrains Mono', monospace; color: #dce8f0;">pause</span><span>two soft taps</span>
+            <span style="font-family: 'JetBrains Mono', monospace; color: #dce8f0;">resume</span><span>rising double tap</span>
+            <span style="font-family: 'JetBrains Mono', monospace; color: #dce8f0;">stop</span><span>long single press-out</span>
+            <span style="font-family: 'JetBrains Mono', monospace; color: #dce8f0;">relay fail</span><span>three sharp taps — the only alarming pattern</span>
+          </div>
+          <div style="font-size: 12px; color: #7a9ab8;">No Mimer content ever reaches the wrist. Relay-only; the watch never networks on its own.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 1f STANCES + FLAGS ============ -->
+  <div id="1f" style="display: flex; flex-direction: column; gap: 24px; max-width: 1400px;">
+    <div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid #152030; padding-bottom: 12px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #070b12; background: #d4a843; border-radius: 4px; padding: 2px 8px;">1f</span>
+      <h2 style="font-family: 'EB Garamond', Georgia, serif; font-size: 30px; font-weight: 400; margin: 0;">"Markdown holds the record" — per-surface stance · advisory flags</h2>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 14px; font-weight: 600;">Mimer iPhone</div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.65;">Every lens ends in a YggSourceFooter naming its note, with "Open in Obsidian". The two bends carry the cyan LIVE badge instead — the absence of a backing note is stated. Editing shows raw markdown; the app renders, it never owns.</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 14px; font-weight: 600;">Mimer iPad</div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.65;">The inspector is the record made visible — frontmatter verbatim, absence stated. Annotations and promotions preview the exact markdown block they will append before committing. Entity decisions are shown as appended log lines, undo included.</div>
+      </div>
+      <div style="background: #0c1220; border: 1px solid #152030; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 14px; font-weight: 600;">Heimdal</div>
+        <div style="font-size: 12.5px; color: #7a9ab8; line-height: 1.65;">Authors only its device note, named on the Device screen. The queue is the folder — relaunch rebuilds it from disk. "Delivered" is defined on screen as "placed in the folder". Telemetry is the granted bend, badged LIVE, persisting nothing.</div>
+      </div>
+    </div>
+    <div style="background: #0c1220; border: 1px solid rgba(240,144,48,0.35); border-radius: 10px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #f09030;">ADVISORY — OWNER RULING NEEDED (NO SILENT REDESIGNS)</div>
+      <ol style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.9; color: #dce8f0;">
+        <li><strong>Tab topology:</strong> shown as 5 tabs (Today · Interests · Entities · Vault · Heimdal) with Consent + Settings behind the gear. The B1 shell specs 6 tabs; adding Heimdal as a 7th degrades all of them. Conflicts with the as-built tab list.</li>
+        <li><strong>Phone merge requires explicit candidate choice</strong> (<a href="#1c-s4">S4</a>): the iPad spec removes the first-candidate default; I propose the phone inherits that now. Changes shipped B1 behaviour.</li>
+        <li><strong>Interests Never list gains Restore</strong> (<a href="#1c-s3">S3</a>): B1 specs it read-only. Restore is one-gesture reversal of a prior steering act, consistent with ruling 7 — but it is an AC change.</li>
+        <li><strong>D3 pre-save warning</strong> (<a href="#1c-s5">S5</a>): "Keep as text / Save anyway" adds a decision point the editor spec doesn't have; alternative is fixing YAML round-tripping hub-side and no UI at all.</li>
+      </ol>
+      <div style="font-size: 12.5px; color: #7a9ab8;">Everything else stays inside the walls: posture A operative, ASR hub-side, no transcript on device, no typed paths, no push, failure always visible.</div>
+    </div>
+  </div>
+
+</section>
+</x-dc>
+</body>
+</html>
