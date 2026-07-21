@@ -57,13 +57,16 @@ final class WatchRelayFileStager {
 final class WatchRelayStagingReceiver {
     private let sessionModel: CaptureSessionModel
     private let fileStager: WatchRelayFileStager
+    private let mediaValidator: CaptureMediaValidating
 
     init(
         sessionModel: CaptureSessionModel,
         stagingDirectory: URL = CaptureStagingPaths.defaultDirectory(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
     ) {
         self.sessionModel = sessionModel
+        self.mediaValidator = mediaValidator
         fileStager = WatchRelayFileStager(
             stagingDirectory: stagingDirectory,
             fileManager: fileManager
@@ -81,13 +84,25 @@ final class WatchRelayStagingReceiver {
     /// Registers a file that has already crossed the callback-lifetime seam.
     /// The durable file is sufficient for `CaptureRecorder` to recover after a
     /// process kill before this main-actor bookkeeping can run.
+    @discardableResult
     @MainActor
-    func register(stagedURL: URL, capturedAt: Date = Date()) {
-        sessionModel.recoverStagedItem(
-            url: stagedURL,
-            duration: 0,
-            capturedAt: capturedAt
-        )
+    func register(stagedURL: URL, capturedAt: Date = Date()) -> Bool {
+        switch mediaValidator.validate(url: stagedURL) {
+        case let .success(media):
+            sessionModel.recoverStagedItem(
+                url: stagedURL,
+                duration: media.duration,
+                capturedAt: capturedAt
+            )
+            return true
+        case .failure:
+            sessionModel.recordRecoveryFailure(
+                url: stagedURL,
+                detectedAt: capturedAt,
+                reason: .invalidOrUnverifiableMedia
+            )
+            return false
+        }
     }
 }
 
@@ -105,12 +120,14 @@ final class WatchRelayReceiver: NSObject, ObservableObject, WCSessionDelegate {
     init(
         sessionModel: CaptureSessionModel,
         stagingDirectory: URL = CaptureStagingPaths.defaultDirectory(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
     ) {
         stagingReceiver = WatchRelayStagingReceiver(
             sessionModel: sessionModel,
             stagingDirectory: stagingDirectory,
-            fileManager: fileManager
+            fileManager: fileManager,
+            mediaValidator: mediaValidator
         )
         fileStager = WatchRelayFileStager(
             stagingDirectory: stagingDirectory,
@@ -142,8 +159,10 @@ final class WatchRelayReceiver: NSObject, ObservableObject, WCSessionDelegate {
     func receiveIncomingFile(at fileURL: URL, capturedAt: Date = Date()) -> Bool {
         do {
             let stagedURL = try fileStager.stage(fileURL: fileURL)
-            Task { @MainActor [stagingReceiver] in
-                stagingReceiver.register(stagedURL: stagedURL, capturedAt: capturedAt)
+            Task { @MainActor [weak self, stagingReceiver] in
+                guard !stagingReceiver.register(stagedURL: stagedURL, capturedAt: capturedAt) else { return }
+                self?.lastReceiveError = CaptureMediaValidationFailure.invalidOrUnverifiableMedia
+                    .localizedDescription
             }
             return true
         } catch {

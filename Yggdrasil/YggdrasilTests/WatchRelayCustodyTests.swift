@@ -7,7 +7,7 @@ final class WatchRelayCustodyTests: XCTestCase {
     func testDeleteOnlyOnConfirmedTransfer() throws {
         let directory = try makeDirectory()
         let fileURL = directory.appendingPathComponent("watch.m4a")
-        try Data("memo".utf8).write(to: fileURL)
+        try CaptureTestAudio.validM4A.write(to: fileURL)
         let transfer = WatchRelayTransfer(identifier: UUID())
         let transport = FakeWatchRelayTransport(transfer: transfer)
         let custody = WatchRelayCustody()
@@ -25,7 +25,7 @@ final class WatchRelayCustodyTests: XCTestCase {
     func testFailedTransferStaysQueued() throws {
         let directory = try makeDirectory()
         let fileURL = directory.appendingPathComponent("watch.m4a")
-        try Data("memo".utf8).write(to: fileURL)
+        try CaptureTestAudio.validM4A.write(to: fileURL)
         let transfer = WatchRelayTransfer(identifier: UUID())
         let custody = WatchRelayCustody()
 
@@ -37,12 +37,12 @@ final class WatchRelayCustodyTests: XCTestCase {
         XCTAssertNotNil(custody.lastError)
     }
 
-    func testRelaunchReenqueuesRetainedFilesNotAlreadyOutstanding() throws {
+    func testRelaunchReenqueuesProductionValidMediaNotAlreadyOutstanding() throws {
         let directory = try makeDirectory()
         let first = directory.appendingPathComponent("first.m4a")
         let second = directory.appendingPathComponent("second.m4a")
-        try Data("first memo".utf8).write(to: first)
-        try Data("second memo".utf8).write(to: second)
+        try CaptureTestAudio.validM4A.write(to: first)
+        try CaptureTestAudio.validM4A.write(to: second)
         let transport = RecordingWatchRelayTransport()
         let custody = WatchRelayCustody()
 
@@ -57,7 +57,7 @@ final class WatchRelayCustodyTests: XCTestCase {
     func testRelaunchKeepsOfflineFilesUntilAReachableRetryIsQueued() throws {
         let directory = try makeDirectory()
         let fileURL = directory.appendingPathComponent("offline.m4a")
-        try Data("offline memo".utf8).write(to: fileURL)
+        try CaptureTestAudio.validM4A.write(to: fileURL)
         let custody = WatchRelayCustody()
 
         custody.reconcileQueue(from: directory, using: OfflineWatchRelayTransport())
@@ -77,7 +77,7 @@ final class WatchRelayCustodyTests: XCTestCase {
     func testRelaunchRetainsOutstandingTransferUntilItsConfirmedCompletion() throws {
         let directory = try makeDirectory()
         let fileURL = directory.appendingPathComponent("outstanding.m4a")
-        try Data("memo".utf8).write(to: fileURL)
+        try CaptureTestAudio.validM4A.write(to: fileURL)
         let transport = RecordingWatchRelayTransport(outstandingURLs: [fileURL])
         let custody = WatchRelayCustody()
 
@@ -91,6 +91,39 @@ final class WatchRelayCustodyTests: XCTestCase {
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
         XCTAssertTrue(custody.queuedFiles.isEmpty)
+    }
+
+    func testWatchFinalizationNeverEnqueuesInvalidMedia() throws {
+        let directory = try makeDirectory()
+        let fileURL = directory.appendingPathComponent("corrupt.m4a")
+        let invalidBytes = Data("not audio".utf8)
+        try invalidBytes.write(to: fileURL)
+        let transport = RecordingWatchRelayTransport()
+        let custody = WatchRelayCustody()
+
+        XCTAssertFalse(custody.enqueue(fileURL: fileURL, using: transport))
+
+        XCTAssertTrue(transport.transferredURLs.isEmpty)
+        XCTAssertTrue(custody.queuedFiles.isEmpty)
+        XCTAssertEqual(custody.invalidFiles, [fileURL])
+        XCTAssertEqual(try Data(contentsOf: fileURL), invalidBytes)
+        XCTAssertTrue(custody.lastError?.contains("kept a recording") == true)
+    }
+
+    func testWatchRelaunchPreservesTruncatedMediaWithoutRelay() throws {
+        let directory = try makeDirectory()
+        let fileURL = directory.appendingPathComponent("truncated.m4a")
+        try CaptureTestAudio.truncatedM4A.write(to: fileURL)
+        let transport = RecordingWatchRelayTransport()
+        let custody = WatchRelayCustody()
+
+        custody.reconcileQueue(from: directory, using: transport)
+
+        XCTAssertTrue(transport.transferredURLs.isEmpty)
+        XCTAssertTrue(custody.queuedFiles.isEmpty)
+        XCTAssertEqual(custody.invalidFiles, [fileURL])
+        XCTAssertEqual(try Data(contentsOf: fileURL), CaptureTestAudio.truncatedM4A)
+        XCTAssertNotNil(custody.lastError)
     }
 
     private func makeDirectory() throws -> URL {

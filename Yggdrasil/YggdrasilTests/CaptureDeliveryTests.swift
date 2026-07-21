@@ -213,12 +213,15 @@ final class CaptureDeliveryTests: XCTestCase {
         }
     }
 
+}
+
+extension CaptureDeliveryTests {
     func testWatchRelayedFileEntersStagingQueue() async throws {
         let incomingDirectory = try makeDirectory()
         let stagingDirectory = try makeDirectory()
         let captureFolder = try makeDirectory()
         let watchFile = incomingDirectory.appendingPathComponent("watch-recording.m4a")
-        let bytes = Data("watch memo".utf8)
+        let bytes = CaptureTestAudio.validM4A
         try bytes.write(to: watchFile)
         let model = CaptureSessionModel()
         let receiver = WatchRelayStagingReceiver(sessionModel: model, stagingDirectory: stagingDirectory)
@@ -232,6 +235,7 @@ final class CaptureDeliveryTests: XCTestCase {
         await queue.deliver(itemID: itemID, to: captureFolder)
 
         XCTAssertEqual(model.stagedItems.count, 1)
+        XCTAssertGreaterThan(model.stagedItems[0].duration, 0)
         XCTAssertTrue(model.stagedItems[0].wasRecoveredAfterRestart)
         XCTAssertFalse(FileManager.default.fileExists(atPath: stagedURL.path))
         XCTAssertEqual(
@@ -240,11 +244,11 @@ final class CaptureDeliveryTests: XCTestCase {
         )
     }
 
-    func testWatchDelegateStagesFileBeforeCallbackSourceExpires() throws {
+    func testWatchDelegatePreservesTruncatedFileBeforeRejectingDelivery() async throws {
         let incomingDirectory = try makeDirectory()
         let stagingDirectory = try makeDirectory()
         let watchFile = incomingDirectory.appendingPathComponent("callback-lifetime.m4a")
-        let bytes = Data("watch memo".utf8)
+        let bytes = CaptureTestAudio.truncatedM4A
         try bytes.write(to: watchFile)
         let model = CaptureSessionModel()
         let receiver = WatchRelayReceiver(sessionModel: model, stagingDirectory: stagingDirectory)
@@ -259,6 +263,44 @@ final class CaptureDeliveryTests: XCTestCase {
             ).first
         )
         XCTAssertEqual(try Data(contentsOf: stagedURL), bytes)
+
+        await waitForWatchRelayRegistration(model)
+        XCTAssertTrue(model.stagedItems.isEmpty)
+        XCTAssertEqual(model.recoveryFailures.map(\.url), [stagedURL])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stagedURL.path))
+        XCTAssertTrue(receiver.lastReceiveError?.contains("complete, decodable audio") == true)
+    }
+
+    func testPhoneRelaunchKeepsInvalidWatchBytesOutOfDeliveryQueue() throws {
+        let incomingDirectory = try makeDirectory()
+        let stagingDirectory = try makeDirectory()
+        let watchFile = incomingDirectory.appendingPathComponent("watch-truncated.m4a")
+        try CaptureTestAudio.truncatedM4A.write(to: watchFile)
+        let callbackModel = CaptureSessionModel()
+        let receiver = WatchRelayReceiver(
+            sessionModel: callbackModel,
+            stagingDirectory: stagingDirectory
+        )
+
+        XCTAssertTrue(receiver.receiveIncomingFile(at: watchFile))
+        let stagedURL = try XCTUnwrap(
+            try FileManager.default.contentsOfDirectory(
+                at: stagingDirectory,
+                includingPropertiesForKeys: nil
+            ).first
+        )
+        let relaunchedModel = CaptureSessionModel()
+        _ = CaptureRecorder(
+            sessionModel: relaunchedModel,
+            writer: InertCaptureWriter(),
+            stagingDirectory: stagingDirectory,
+            deviceShortID: "test-device",
+            observeInterruptions: false
+        )
+
+        XCTAssertTrue(relaunchedModel.stagedItems.isEmpty)
+        XCTAssertEqual(relaunchedModel.recoveryFailures.map(\.url), [stagedURL])
+        XCTAssertEqual(try Data(contentsOf: stagedURL), CaptureTestAudio.truncatedM4A)
     }
 
     func testWatchRelayStartupActivatesReceiverBeforeAuthOrVaultUI() {
@@ -268,7 +310,9 @@ final class CaptureDeliveryTests: XCTestCase {
 
         XCTAssertEqual(receiver.activationCount, 1)
     }
+}
 
+extension CaptureDeliveryTests {
     func testRebuildKeepsUnverifiableMediaOutOfDeliveryQueue() throws {
         let stagingDirectory = try makeDirectory()
         let validURL = stagingDirectory.appendingPathComponent("valid.m4a")
@@ -302,6 +346,12 @@ final class CaptureDeliveryTests: XCTestCase {
         XCTAssertTrue(model.transition(to: .finalizing))
         XCTAssertTrue(model.stageCurrentItem(url: url, duration: 2, capturedAt: Date()))
         return model
+    }
+
+    private func waitForWatchRelayRegistration(_ model: CaptureSessionModel) async {
+        for _ in 0..<20 where model.recoveryFailures.isEmpty {
+            await Task.yield()
+        }
     }
 }
 

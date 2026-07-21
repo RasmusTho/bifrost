@@ -100,7 +100,10 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
             return
         }
         let queued = custody.enqueue(fileURL: fileURL, using: relay)
-        if !queued { model.recordRelayFailure() }
+        if !queued {
+            lastError = custody.lastError
+            model.recordRelayFailure()
+        }
         model.completeFinalization(queuedRelayCount: custody.queuedCount)
     }
 
@@ -112,6 +115,7 @@ final class WatchCaptureRecorder: NSObject, ObservableObject, @preconcurrency AV
     private func rebuildRelayQueue() {
         try? fileManager.createDirectory(at: recordingDirectory, withIntermediateDirectories: true)
         custody.reconcileQueue(from: recordingDirectory, using: relay)
+        if !custody.invalidFiles.isEmpty { lastError = custody.lastError }
         model.updateQueuedRelayCount(custody.queuedCount)
     }
 
