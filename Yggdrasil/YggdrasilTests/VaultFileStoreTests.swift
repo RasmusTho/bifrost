@@ -353,22 +353,54 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
     }
 
-    func testUnsupportedFrontmatterFallsBackWithoutDataLoss() async throws {
+    func testUnsupportedFrontmatterIsTaggedWithoutChangingForeignYAML() async throws {
         let path = "notes/human-yaml.md"
+        let timestamp = "2026-07-21T10:30:00Z"
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
             rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-        let text = "---\ndescription: |\n  first line\n  second line\nafter: preserved\n---\n\nBody.\n"
+        let text = """
+        ---
+        tags: [one, two] # keep
+        description: |
+          first line
+          second line
+        anchor: &kept value
+        alias: *kept
+        agent_provenance:
+          author: old-writer
+          written_at: 2025-01-01T00:00:00Z
+          origin: imported
+          model: old-model
+          trace: old-trace
+        ---
+
+        Body.
+        """
 
         try await store.write(text, to: path)
 
         let saved = try await store.read(path)
-        XCTAssertEqual(saved, text)
-        XCTAssertEqual(loggedFailures.values.count, 1)
-        XCTAssertTrue(loggedFailures.values[0].contains(path))
-        XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
+        XCTAssertEqual(saved, """
+        ---
+        tags: [one, two] # keep
+        description: |
+          first line
+          second line
+        anchor: &kept value
+        alias: *kept
+        agent_provenance:
+          author: bifrost-ios
+          written_at: \(timestamp)
+          origin: direct-fs
+        ---
+
+        Body.
+        """)
+        XCTAssertTrue(loggedFailures.values.isEmpty)
     }
 
     @MainActor

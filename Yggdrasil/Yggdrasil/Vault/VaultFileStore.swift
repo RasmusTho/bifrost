@@ -71,31 +71,71 @@ struct NSFileCoordinatorAccess: VaultFileCoordinating {
 private enum VaultWriteProvenance {
     typealias TimestampProvider = @Sendable () throws -> String
 
+    private enum InjectionError: LocalizedError {
+        case unsafeFrontmatter
+
+        var errorDescription: String? {
+            "The note frontmatter could not be tagged without changing foreign YAML."
+        }
+    }
+
     static func applying(
         to text: String,
         relativePath: String,
         timestampProvider: TimestampProvider,
         failureLogger: @Sendable (String) -> Void
     ) -> String {
-        var document: FrontmatterDocument
         do {
-            document = try FrontmatterDocument.parse(text)
-        } catch FrontmatterDocument.ParseError.missingFrontmatter {
-            document = FrontmatterDocument(frontmatter: YAMLMap(), body: text)
+            return try injecting(into: text, writtenAt: timestampProvider())
         } catch {
             logFailure(error, relativePath: relativePath, failureLogger: failureLogger)
             return text
         }
+    }
 
-        guard apply(
-            to: &document,
-            relativePath: relativePath,
-            timestampProvider: timestampProvider,
-            failureLogger: failureLogger
-        ) else {
-            return text
+    private static func injecting(into text: String, writtenAt: String) throws -> String {
+        let newline = text.hasPrefix("---\r\n") ? "\r\n" : "\n"
+        let provenanceLines = [
+            "agent_provenance:",
+            "  author: bifrost-ios",
+            "  written_at: \(writtenAt)",
+            "  origin: direct-fs"
+        ]
+
+        guard text.hasPrefix("---\(newline)") else {
+            return (["---"] + provenanceLines + ["---", "", text]).joined(separator: newline)
         }
-        return document.rendered()
+
+        var lines = text.components(separatedBy: newline)
+        guard lines.first == "---",
+              let closingIndex = lines.dropFirst().firstIndex(of: "---") else {
+            throw InjectionError.unsafeFrontmatter
+        }
+
+        let candidates = lines[1..<closingIndex].indices.filter { index in
+            let line = lines[index]
+            guard line.first?.isWhitespace != true else { return false }
+            return line.contains("agent_provenance")
+        }
+        guard candidates.count <= 1 else { throw InjectionError.unsafeFrontmatter }
+
+        if let startIndex = candidates.first {
+            guard lines[startIndex].hasPrefix("agent_provenance:") else {
+                throw InjectionError.unsafeFrontmatter
+            }
+            let remainder = lines[startIndex].dropFirst("agent_provenance:".count)
+                .trimmingCharacters(in: .whitespaces)
+            var endIndex = startIndex + 1
+            if remainder.isEmpty {
+                while endIndex < closingIndex, lines[endIndex].first?.isWhitespace == true {
+                    endIndex += 1
+                }
+            }
+            lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
+        } else {
+            lines.insert(contentsOf: provenanceLines, at: closingIndex)
+        }
+        return lines.joined(separator: newline)
     }
 
     @discardableResult
