@@ -41,6 +41,8 @@
 		C16000020000000000000002 /* CaptureDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16000120000000000000002 /* CaptureDelivery.swift */; };
 		C20000010000000000000001 /* CaptureSidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000110000000000000001 /* CaptureSidecar.swift */; };
 		C20000020000000000000002 /* CaptureSidecarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000120000000000000002 /* CaptureSidecarTests.swift */; };
+		C19001020000000000000002 /* CaptureMediaValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19001010000000000000001 /* CaptureMediaValidator.swift */; };
+		C19001030000000000000003 /* CaptureMediaValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19001010000000000000001 /* CaptureMediaValidator.swift */; };
 		B19000010000000000000001 /* WatchCaptureSessionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19000110000000000000001 /* WatchCaptureSessionModel.swift */; };
 		B19000020000000000000002 /* WatchRelayCustody.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19000120000000000000002 /* WatchRelayCustody.swift */; };
 		B19000030000000000000003 /* WatchRelayReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19000130000000000000003 /* WatchRelayReceiver.swift */; };
@@ -122,6 +124,7 @@
 		C16000120000000000000002 /* CaptureDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDelivery.swift; sourceTree = "<group>"; };
 		C20000110000000000000001 /* CaptureSidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSidecar.swift; sourceTree = "<group>"; };
 		C20000120000000000000002 /* CaptureSidecarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSidecarTests.swift; sourceTree = "<group>"; };
+		C19001010000000000000001 /* CaptureMediaValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMediaValidator.swift; sourceTree = "<group>"; };
 		B19000110000000000000001 /* WatchCaptureSessionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchCaptureSessionModel.swift; sourceTree = "<group>"; };
 		B19000120000000000000002 /* WatchRelayCustody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelayCustody.swift; sourceTree = "<group>"; };
 		B19000130000000000000003 /* WatchRelayReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelayReceiver.swift; sourceTree = "<group>"; };
@@ -271,6 +274,7 @@
 				A14000120000000000000002 /* CaptureSessionModel.swift */,
 				A14000130000000000000003 /* HeimdalShellView.swift */,
 				A15000130000000000000003 /* CaptureFileWriter.swift */,
+				C19001010000000000000001 /* CaptureMediaValidator.swift */,
 				A15000110000000000000001 /* CaptureRecorder.swift */,
 				C16000120000000000000002 /* CaptureDelivery.swift */,
 				C20000110000000000000001 /* CaptureSidecar.swift */,
@@ -541,6 +545,7 @@
 				A14000020000000000000002 /* CaptureSessionModel.swift in Sources */,
 				A14000030000000000000003 /* HeimdalShellView.swift in Sources */,
 				A15000030000000000000003 /* CaptureFileWriter.swift in Sources */,
+				C19001020000000000000002 /* CaptureMediaValidator.swift in Sources */,
 				A15000010000000000000001 /* CaptureRecorder.swift in Sources */,
 				C16000020000000000000002 /* CaptureDelivery.swift in Sources */,
 				C20000010000000000000001 /* CaptureSidecar.swift in Sources */,
@@ -589,6 +594,7 @@
 				B19000090000000000000009 /* WatchConnectivityRelayTransport.swift in Sources */,
 				B19000100000000000000010 /* WatchCaptureSessionModel.swift in Sources */,
 				B19000200000000000000020 /* WatchRelayCustody.swift in Sources */,
+				C19001030000000000000003 /* CaptureMediaValidator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
