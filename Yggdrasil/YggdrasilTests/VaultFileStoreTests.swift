@@ -331,7 +331,6 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertEqual(coordinator.writeAttempts, 3)
     }
 }
-
 extension VaultFileStoreTests {
     func testProvenanceFailureDoesNotBlockWrite() async throws {
         struct ProvenanceFailure: Error {}
@@ -351,7 +350,6 @@ extension VaultFileStoreTests {
         XCTAssertTrue(loggedFailures.values[0].contains(path))
         XCTAssertTrue(loggedFailures.values[0].contains("writing note without provenance"))
     }
-
     func testUnsupportedFrontmatterIsTaggedWithoutChangingForeignYAML() async throws {
         let path = "notes/human-yaml.md"
         let timestamp = "2026-07-21T10:30:00Z"
@@ -412,7 +410,9 @@ extension VaultFileStoreTests {
             ),
             ("notes/empty-map.md", "---\n{}\n---\n\nBody.\n"),
             ("notes/flow-map.md", "---\n{tags: [one, two]}\n---\n\nBody.\n"),
-            ("notes/sequence.md", "---\n- one\n- two\n---\n\nBody.\n")
+            ("notes/sequence.md", "---\n- one\n- two\n---\n\nBody.\n"),
+            ("notes/double-quoted.md", "---\n\"literal: scalar\"\n---\n\nBody.\n"),
+            ("notes/single-quoted.md", "---\n'literal: scalar'\n---\n\nBody.\n")
         ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(

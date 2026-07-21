@@ -168,12 +168,14 @@ private enum VaultWriteProvenance {
     }
 
     private static func isPlainBlockMappingEntry(_ line: String) -> Bool {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard !["-", "?", "[", "{"].contains(where: trimmed.hasPrefix) else { return false }
-        return line.indices.contains { index in
+        guard let separator = line.indices.first(where: { index in
             guard line[index] == ":", index != line.startIndex else { return false }
             let next = line.index(after: index)
             return next == line.endIndex || line[next].isWhitespace
+        }) else { return false }
+        let key = line[..<separator].trimmingCharacters(in: .whitespaces)
+        return !key.isEmpty && key.allSatisfy { character in
+            character.isLetter || character.isNumber || character.isWhitespace || "_-.".contains(character)
         }
     }
 
