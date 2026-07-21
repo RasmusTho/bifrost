@@ -25,6 +25,31 @@ final class CaptureDeliveryTests: XCTestCase {
         XCTAssertEqual(coordinator.writeCount, 1)
     }
 
+    func testSameLengthCorruptionNeverBecomesAdmissibleAndPreservesStaging() throws {
+        let stagingDirectory = try makeDirectory()
+        let captureFolder = try makeDirectory()
+        let source = stagingDirectory.appendingPathComponent("heimdal-test.m4a")
+        let sourceBytes = Data("complete recording".utf8)
+        try sourceBytes.write(to: source)
+        let placer = CaptureDeliveryFilePlacer(
+            coordinator: RecordingDeliveryCoordinator(),
+            bytesCopier: SameLengthCorruptingBytesCopier()
+        )
+
+        XCTAssertThrowsError(try placer.place(stagedURL: source, in: captureFolder)) { error in
+            guard case CaptureDeliveryError.incompletePlacement = error else {
+                return XCTFail("Expected incomplete-placement custody failure, got \(error)")
+            }
+        }
+
+        let finalURL = captureFolder.appendingPathComponent(source.lastPathComponent)
+        let tempURL = captureFolder.appendingPathComponent("\(source.lastPathComponent).uploading")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: finalURL.path))
+        XCTAssertEqual(try Data(contentsOf: source), sourceBytes)
+        XCTAssertEqual(try Data(contentsOf: tempURL).count, sourceBytes.count)
+        XCTAssertNotEqual(try Data(contentsOf: tempURL), sourceBytes)
+    }
+
     func testLocalDeleteOnlyAfterConfirmedPlacement() async throws {
         let stagingDirectory = try makeDirectory()
         let captureFolder = try makeDirectory()
@@ -200,6 +225,15 @@ private struct MidCopyFailingBytesCopier: CaptureBytesCopying {
     func copy(from sourceURL: URL, to destinationURL: URL) throws {
         try Data("partial".utf8).write(to: destinationURL)
         throw InjectedDeliveryError.failed
+    }
+}
+
+private struct SameLengthCorruptingBytesCopier: CaptureBytesCopying {
+    func copy(from sourceURL: URL, to destinationURL: URL) throws {
+        var bytes = try Data(contentsOf: sourceURL)
+        guard !bytes.isEmpty else { throw InjectedDeliveryError.failed }
+        bytes[bytes.startIndex] ^= 0xFF
+        try bytes.write(to: destinationURL)
     }
 }
 

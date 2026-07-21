@@ -110,11 +110,15 @@ struct CaptureDeliveryFilePlacer: CaptureFilePlacing {
                 try fileManager.removeItem(at: tempURL)
             }
             try bytesCopier.copy(from: stagedURL, to: tempURL)
+            guard try filesMatch(stagedURL, tempURL) else {
+                throw CaptureDeliveryError.incompletePlacement
+            }
 
             // Both URLs are children of the same coordinated provider directory,
             // so `moveItem` is the atomic admissibility boundary.
             try fileManager.moveItem(at: tempURL, to: finalURL)
-            guard try filesHaveSameSize(stagedURL, finalURL) else {
+            guard try filesMatch(stagedURL, finalURL) else {
+                try? fileManager.removeItem(at: finalURL)
                 throw CaptureDeliveryError.incompletePlacement
             }
             placedURL = finalURL
