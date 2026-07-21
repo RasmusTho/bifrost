@@ -347,13 +347,17 @@ extension VaultFileStoreTests {
         let saved = try await store.read(path)
         XCTAssertEqual(
             saved,
-            "---\ntitle: Untagged fallback\nnext: preserved\n---\n\nThe user's write still lands.\n"
+            "---\ntitle: Untagged fallback\nformer_writer_attribution:\n"
+                + "  author: another-writer\n  written_at: old\n  origin: imported\n"
+                + "next: preserved\n---\n\nThe user's write still lands.\n"
         )
         XCTAssertFalse(saved.contains("agent_provenance"))
-        XCTAssertFalse(saved.contains("another-writer"))
+        XCTAssertTrue(saved.contains("another-writer"))
         XCTAssertEqual(loggedFailures.values.count, 1)
         XCTAssertTrue(loggedFailures.values[0].contains(path))
-        XCTAssertTrue(loggedFailures.values[0].contains("writing requested bytes without refreshed provenance"))
+        XCTAssertTrue(
+            loggedFailures.values[0].contains("neutralized stale attribution before writing sanitized bytes")
+        )
     }
 
     @MainActor

@@ -21,8 +21,14 @@ enum VaultWriteProvenance {
         do {
             return try injecting(into: text, writtenAt: timestampProvider())
         } catch {
-            logFailure(error, relativePath: relativePath, failureLogger: failureLogger)
-            return YAMLProvenanceSanitizer.removingExistingProvenance(from: text)
+            let sanitization = YAMLProvenanceSanitizer.sanitizingFallback(text)
+            logFailure(
+                error,
+                relativePath: relativePath,
+                neutralizedStaleAttribution: sanitization.neutralizedStaleAttribution,
+                failureLogger: failureLogger
+            )
+            return sanitization.text
         }
     }
 
@@ -144,8 +150,14 @@ enum VaultWriteProvenance {
             document.applyBifrostProvenance(writtenAt: try timestampProvider())
             return true
         } catch {
+            let neutralizedStaleAttribution = document.frontmatter["agent_provenance"] != nil
             document.frontmatter["agent_provenance"] = nil
-            logFailure(error, relativePath: relativePath, failureLogger: failureLogger)
+            logFailure(
+                error,
+                relativePath: relativePath,
+                neutralizedStaleAttribution: neutralizedStaleAttribution,
+                failureLogger: failureLogger
+            )
             return false
         }
     }
@@ -153,10 +165,14 @@ enum VaultWriteProvenance {
     private static func logFailure(
         _ error: Error,
         relativePath: String,
+        neutralizedStaleAttribution: Bool,
         failureLogger: @Sendable (String) -> Void
     ) {
+        let outcome = neutralizedStaleAttribution
+            ? "neutralized stale attribution before writing sanitized bytes"
+            : "writing requested bytes without refreshed provenance"
         let message = "Bifrost provenance tagging failed for \(relativePath); "
-            + "writing requested bytes without refreshed provenance: \(error.localizedDescription)"
+            + "\(outcome): \(error.localizedDescription)"
         failureLogger(message)
     }
 }

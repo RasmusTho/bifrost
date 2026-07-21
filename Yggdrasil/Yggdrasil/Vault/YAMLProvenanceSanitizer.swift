@@ -1,42 +1,52 @@
 import Foundation
 
-/// Removes stale top-level writer attribution after provenance tagging fails.
-/// Foreign YAML, comments, and whitespace remain byte-for-byte unchanged.
+struct YAMLProvenanceSanitization {
+    let text: String
+    let neutralizedStaleAttribution: Bool
+}
+
+/// Neutralizes only a proven top-level provenance key after refresh fails.
+/// The prior value and every foreign byte remain untouched for recovery/audit.
 enum YAMLProvenanceSanitizer {
-    static func removingExistingProvenance(from text: String) -> String {
+    static func sanitizingFallback(_ text: String) -> YAMLProvenanceSanitization {
         let newline = text.hasPrefix("---\r\n") ? "\r\n" : "\n"
-        guard text.hasPrefix("---\(newline)") else { return text }
+        guard text.hasPrefix("---\(newline)") else {
+            return YAMLProvenanceSanitization(text: text, neutralizedStaleAttribution: false)
+        }
         var lines = text.components(separatedBy: newline)
         guard lines.first == "---",
-              var closingIndex = lines.dropFirst().firstIndex(of: "---") else {
-            return text
+              let closing = lines.dropFirst().firstIndex(of: "---") else {
+            return YAMLProvenanceSanitization(text: text, neutralizedStaleAttribution: false)
         }
 
-        let frontmatter = lines[1..<closingIndex].joined(separator: newline)
-        if let cleanedFlowRoot = removingFlowRootProvenance(from: frontmatter) {
-            let replacement = cleanedFlowRoot.components(separatedBy: newline)
-            lines.replaceSubrange(1..<closingIndex, with: replacement)
-            closingIndex = 1 + replacement.count
+        let frontmatter = lines[1..<closing].joined(separator: newline)
+        let flowResult = neutralizingFlowRootProvenance(in: frontmatter)
+        if flowResult.neutralized {
+            let replacement = flowResult.text.components(separatedBy: newline)
+            lines.replaceSubrange(1..<closing, with: replacement)
         }
-
-        lines = YAMLBlockProvenanceSanitizer.removingProvenance(in: lines, before: closingIndex)
-        return lines.joined(separator: newline)
+        let updatedClosing = lines.dropFirst().firstIndex(of: "---") ?? closing
+        let blockResult = YAMLBlockProvenanceSanitizer.neutralizingProvenance(
+            in: lines,
+            before: updatedClosing
+        )
+        return YAMLProvenanceSanitization(
+            text: blockResult.lines.joined(separator: newline),
+            neutralizedStaleAttribution: flowResult.neutralized || blockResult.neutralized
+        )
     }
 
-    private static func removingFlowRootProvenance(from frontmatter: String) -> String? {
+    private static func neutralizingFlowRootProvenance(in frontmatter: String) -> (text: String, neutralized: Bool) {
         var characters = Array(frontmatter)
-        var removedProvenance = false
-        while let indices = flowRootProvenanceRemovalIndices(in: characters) {
-            let removal = Set(indices)
-            characters = characters.enumerated().compactMap { index, character in
-                removal.contains(index) ? nil : character
-            }
-            removedProvenance = true
+        var neutralized = false
+        while let range = flowRootProvenanceKeyRange(in: characters) {
+            characters.replaceSubrange(range, with: Array(YAMLProvenanceKey.neutralName))
+            neutralized = true
         }
-        return removedProvenance ? String(characters) : nil
+        return (String(characters), neutralized)
     }
 
-    private static func flowRootProvenanceRemovalIndices(in characters: [Character]) -> [Int]? {
+    private static func flowRootProvenanceKeyRange(in characters: [Character]) -> Range<Int>? {
         guard let contentStart = firstYAMLContentIndex(in: characters),
               let rootStart = YAMLNodeStart.index(in: characters, startingAt: contentStart),
               characters[rootStart] == "{",
@@ -47,31 +57,63 @@ enum YAMLProvenanceSanitizer {
 
         var state = YAMLFlowParseState(curlyDepth: 1)
         var entryStart = rootStart + 1
-        var previousComma: Int?
         for index in entryStart..<rootEnd {
             let character = characters[index]
             if state.consume(character, context: characterContext(at: index, in: characters)) { continue }
             state.trackDepth(character)
             guard character == ",", state.isAtRootMappingDepth else { continue }
-            if let removal = flowEntryRemovalIndices(
-                in: characters,
-                entryStart: entryStart,
-                entryEnd: index,
-                followingComma: index,
-                previousComma: previousComma
-            ) {
-                return removal
+            if let range = flowEntryProvenanceKeyRange(in: characters, range: entryStart..<index) {
+                return range
             }
-            previousComma = index
             entryStart = index + 1
         }
-        return flowEntryRemovalIndices(
+        return flowEntryProvenanceKeyRange(in: characters, range: entryStart..<rootEnd)
+    }
+
+    private static func flowEntryProvenanceKeyRange(
+        in characters: [Character],
+        range: Range<Int>
+    ) -> Range<Int>? {
+        guard let keyStart = firstYAMLContentIndex(in: characters, range: range),
+              let separator = firstFlowMappingSeparator(in: characters, range: keyStart..<range.upperBound),
+              YAMLProvenanceKey.matches(String(characters[keyStart..<separator])) else {
+            return nil
+        }
+        return literalRange(
+            Array(YAMLProvenanceKey.activeName),
             in: characters,
-            entryStart: entryStart,
-            entryEnd: rootEnd,
-            followingComma: nil,
-            previousComma: previousComma
+            range: keyStart..<separator
         )
+    }
+
+    private static func firstFlowMappingSeparator(
+        in characters: [Character],
+        range: Range<Int>
+    ) -> Int? {
+        var state = YAMLFlowParseState()
+        for index in range {
+            let character = characters[index]
+            if state.consume(character, context: characterContext(at: index, in: characters)) { continue }
+            if character == ":", state.isOutsideFlowCollection,
+               YAMLProvenanceKey.matches(String(characters[range.lowerBound..<index])) {
+                return index
+            }
+            state.trackDepth(character)
+        }
+        return nil
+    }
+
+    private static func literalRange(
+        _ literal: [Character],
+        in characters: [Character],
+        range: Range<Int>
+    ) -> Range<Int>? {
+        guard literal.count <= range.count else { return nil }
+        for start in range.reversed() where start + literal.count <= range.upperBound {
+            let end = start + literal.count
+            if Array(characters[start..<end]) == literal { return start..<end }
+        }
+        return nil
     }
 
     private static func flowRootEndIndex(in characters: [Character], rootStart: Int) -> Int? {
@@ -85,133 +127,6 @@ enum YAMLProvenanceSanitizer {
         return nil
     }
 
-    private static func flowEntryRemovalIndices(
-        in characters: [Character],
-        entryStart: Int,
-        entryEnd: Int,
-        followingComma: Int?,
-        previousComma: Int?
-    ) -> [Int]? {
-        guard let keyStart = firstYAMLContentIndex(in: characters, range: entryStart..<entryEnd),
-              let separator = flowMappingSeparator(in: characters, range: keyStart..<entryEnd),
-              isSafelyBoundedFlowValue(in: characters, range: (separator + 1)..<entryEnd) else {
-            return nil
-        }
-        let key = String(characters[keyStart..<separator]).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard YAMLProvenanceKey.matches(key) else { return nil }
-
-        var removal = Array(keyStart..<entryEnd)
-        if let followingComma {
-            removal.append(followingComma)
-        } else if let previousComma {
-            removal.append(previousComma)
-        }
-        return removal
-    }
-
-    private static func isSafelyBoundedFlowValue(in characters: [Character], range: Range<Int>) -> Bool {
-        guard let contentStart = firstYAMLContentIndex(in: characters, range: range) else { return true }
-        guard let nodeStart = YAMLNodeStart.index(in: characters, startingAt: contentStart) else {
-            return YAMLNodeStart.containsOnlyProperties(in: String(characters[contentStart..<range.upperBound]))
-        }
-        let node = characters[nodeStart]
-        if node == "{" || node == "[" {
-            guard let nodeEnd = flowCollectionEndIndex(
-                in: characters,
-                start: nodeStart,
-                before: range.upperBound
-            ) else { return false }
-            return firstYAMLContentIndex(in: characters, range: (nodeEnd + 1)..<range.upperBound) == nil
-        }
-        if node == "\"" || node == "'" {
-            guard let nodeEnd = quotedScalarEndIndex(
-                in: characters,
-                start: nodeStart,
-                before: range.upperBound
-            ) else { return false }
-            return firstYAMLContentIndex(in: characters, range: (nodeEnd + 1)..<range.upperBound) == nil
-        }
-        return plainFlowValueHasNoCollectionDelimiters(
-            in: characters,
-            range: nodeStart..<range.upperBound
-        )
-    }
-
-    private static func flowCollectionEndIndex(
-        in characters: [Character],
-        start: Int,
-        before end: Int
-    ) -> Int? {
-        var state = YAMLFlowParseState(
-            curlyDepth: characters[start] == "{" ? 1 : 0,
-            squareDepth: characters[start] == "[" ? 1 : 0
-        )
-        for index in (start + 1)..<end {
-            let character = characters[index]
-            if state.consume(character, context: characterContext(at: index, in: characters)) { continue }
-            state.trackDepth(character)
-            if state.curlyDepth == 0, state.squareDepth == 0 { return index }
-        }
-        return nil
-    }
-
-    private static func quotedScalarEndIndex(
-        in characters: [Character],
-        start: Int,
-        before end: Int
-    ) -> Int? {
-        var state = YAMLFlowParseState()
-        _ = state.consume(characters[start], context: characterContext(at: start, in: characters))
-        for index in (start + 1)..<end {
-            _ = state.consume(characters[index], context: characterContext(at: index, in: characters))
-            if state.quote == nil { return index }
-        }
-        return nil
-    }
-
-    private static func plainFlowValueHasNoCollectionDelimiters(
-        in characters: [Character],
-        range: Range<Int>
-    ) -> Bool {
-        for index in range {
-            let character = characters[index]
-            let previous = index > range.lowerBound ? characters[index - 1] : nil
-            if character == "#", previous?.isWhitespace == true { return true }
-            if "[]{}".contains(character) { return false }
-            if character == "?", previous?.isWhitespace == true {
-                let next = index + 1
-                if next == range.upperBound || characters[next].isWhitespace { return false }
-            }
-        }
-        return true
-    }
-
-    private static func flowMappingSeparator(in characters: [Character], range: Range<Int>) -> Int? {
-        var state = YAMLFlowParseState()
-        var separator: Int?
-        for index in range {
-            let character = characters[index]
-            if state.consume(character, context: characterContext(at: index, in: characters)) { continue }
-            if character == ":", state.isOutsideFlowCollection,
-               isFlowMappingSeparator(at: index, in: characters, before: range.upperBound) {
-                guard separator == nil else { return nil }
-                separator = index
-            }
-            state.trackDepth(character)
-        }
-        return separator
-    }
-
-    private static func isFlowMappingSeparator(
-        at index: Int,
-        in characters: [Character],
-        before end: Int
-    ) -> Bool {
-        let next = index + 1
-        guard next < end else { return true }
-        return characters[next].isWhitespace || "[]{},".contains(characters[next])
-    }
-
     private static func firstYAMLContentIndex(
         in characters: [Character],
         range: Range<Int>? = nil
@@ -222,9 +137,7 @@ enum YAMLProvenanceSanitizer {
             let character = characters[index]
             if inComment {
                 if character == "\n" || character == "\r" { inComment = false }
-                continue
-            }
-            if character == "#" {
+            } else if character == "#" {
                 inComment = true
             } else if !character.isWhitespace {
                 return index
@@ -243,7 +156,6 @@ enum YAMLProvenanceSanitizer {
         let next = nextIndex < characters.count ? characters[nextIndex] : nil
         return YAMLCharacterContext(previous: previous, next: next)
     }
-
 }
 
 enum YAMLNodeStart {
@@ -260,16 +172,6 @@ enum YAMLNodeStart {
             nodeIndex = next
         }
         return foundProperty && nodeIndex == characters.count
-    }
-
-    static func flowCollection(in text: String) -> String? {
-        let characters = Array(text)
-        guard let contentStart = contentIndex(in: characters, range: characters.indices),
-              let nodeStart = index(in: characters, startingAt: contentStart),
-              characters[nodeStart] == "{" || characters[nodeStart] == "[" else {
-            return nil
-        }
-        return String(characters[nodeStart...])
     }
 
     static func index(in characters: [Character], startingAt start: Int) -> Int? {
@@ -300,7 +202,7 @@ enum YAMLNodeStart {
         var index = start + 1
         while index < characters.count,
               !characters[index].isWhitespace,
-              !"[]{},".contains(characters[index]) {
+              !"[]{} ,".contains(characters[index]) {
             index += 1
         }
         return index > start + 1 ? index : nil
@@ -327,27 +229,6 @@ private struct YAMLCharacterContext {
     let next: Character?
 }
 
-struct YAMLFlowContinuation {
-    private var state = YAMLFlowParseState()
-
-    var isOpen: Bool {
-        state.curlyDepth > 0 || state.squareDepth > 0 || state.quote != nil
-    }
-
-    mutating func scan(_ line: String) {
-        let characters = Array(line)
-        for index in characters.indices {
-            let character = characters[index]
-            let previous = index > 0 ? characters[index - 1] : nil
-            let nextIndex = index + 1
-            let next = nextIndex < characters.count ? characters[nextIndex] : nil
-            let context = YAMLCharacterContext(previous: previous, next: next)
-            if !state.consume(character, context: context) { state.trackDepth(character, clamped: true) }
-        }
-        state.inComment = false
-    }
-}
-
 private struct YAMLFlowParseState {
     var curlyDepth = 0
     var squareDepth = 0
@@ -356,9 +237,8 @@ private struct YAMLFlowParseState {
     private var escapingDoubleQuote = false
     private var skipNextSingleQuote = false
 
-    init(curlyDepth: Int = 0, squareDepth: Int = 0) {
+    init(curlyDepth: Int = 0) {
         self.curlyDepth = curlyDepth
-        self.squareDepth = squareDepth
     }
 
     var isAtRootMappingDepth: Bool { curlyDepth == 1 && squareDepth == 0 }
@@ -376,16 +256,6 @@ private struct YAMLFlowParseState {
             return true
         case nil:
             return consumeUnquoted(character, previous: context.previous)
-        }
-    }
-
-    mutating func trackDepth(_ character: Character, clamped: Bool = false) {
-        switch character {
-        case "{": curlyDepth += 1
-        case "}": curlyDepth = clamped ? max(0, curlyDepth - 1) : curlyDepth - 1
-        case "[": squareDepth += 1
-        case "]": squareDepth = clamped ? max(0, squareDepth - 1) : squareDepth - 1
-        default: break
         }
     }
 
@@ -424,15 +294,19 @@ private struct YAMLFlowParseState {
             inComment = true
             return true
         }
-        if character == "\"" {
-            quote = .double
-            return true
-        }
-        if character == "'" {
-            quote = .single
-            return true
-        }
+        if character == "\"" { quote = .double; return true }
+        if character == "'" { quote = .single; return true }
         return false
+    }
+
+    mutating func trackDepth(_ character: Character) {
+        switch character {
+        case "{": curlyDepth += 1
+        case "}": curlyDepth -= 1
+        case "[": squareDepth += 1
+        case "]": squareDepth -= 1
+        default: break
+        }
     }
 }
 

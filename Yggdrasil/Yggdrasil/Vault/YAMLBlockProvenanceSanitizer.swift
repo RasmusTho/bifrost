@@ -1,104 +1,41 @@
 import Foundation
 
+struct YAMLBlockProvenanceSanitization {
+    let lines: [String]
+    let neutralized: Bool
+}
+
 enum YAMLBlockProvenanceSanitizer {
-    static func removingProvenance(in sourceLines: [String], before sourceClosing: Int) -> [String] {
+    static func neutralizingProvenance(
+        in sourceLines: [String],
+        before closing: Int
+    ) -> YAMLBlockProvenanceSanitization {
         var lines = sourceLines
-        var closing = sourceClosing
-        guard let rootIndent = blockMappingRootIndent(in: lines[1..<closing]) else { return lines }
+        guard let rootIndent = blockMappingRootIndent(in: lines[1..<closing]) else {
+            return YAMLBlockProvenanceSanitization(lines: lines, neutralized: false)
+        }
+        var neutralized = false
         var index = 1
         while index < closing {
-            guard isAgentProvenanceEntry(lines[index], rootIndent: rootIndent) else {
-                index += 1
-                continue
+            let content = rootContent(of: lines[index], rootIndent: rootIndent)
+            if let content,
+               let keyRange = implicitOrInlineExplicitKeyRange(in: content),
+               YAMLProvenanceKey.matches(String(content[keyRange])) {
+                lines[index] = rootIndent + replacingActiveKey(in: content, keyRange: keyRange)
+                neutralized = true
+            } else if let content, isBareExplicitKeyIndicator(content),
+                      let keyLine = multilineExplicitKeyLine(
+                          in: lines,
+                          after: index,
+                          before: closing,
+                          rootIndent: rootIndent
+                      ) {
+                lines[keyLine] = replacingActiveKey(in: lines[keyLine])
+                neutralized = true
             }
-            let removalIndices = provenanceRemovalIndices(
-                in: lines,
-                at: index,
-                before: closing,
-                rootIndent: rootIndent
-            )
-            for removalIndex in removalIndices.reversed() {
-                lines.remove(at: removalIndex)
-            }
-            closing -= removalIndices.count
+            index += 1
         }
-        return lines
-    }
-
-    private static func provenanceRemovalIndices(
-        in lines: [String],
-        at start: Int,
-        before closing: Int,
-        rootIndent: String
-    ) -> [Int] {
-        let content = String(lines[start].dropFirst(rootIndent.count))
-        let spanStart = blockProvenanceSpanStart(
-            content: content,
-            lines: lines,
-            start: start,
-            closing: closing,
-            rootIndent: rootIndent
-        )
-        var continuation = YAMLFlowContinuation()
-        if let flowNode = YAMLNodeStart.flowCollection(in: spanStart.remainder) {
-            continuation.scan(flowNode)
-        }
-        var indices = spanStart.indices
-        var candidate = spanStart.nextCandidate
-        while candidate < closing {
-            let line = lines[candidate]
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") {
-                candidate += 1
-                continue
-            }
-            if continuation.isOpen || isNested(line, beneath: rootIndent)
-                || isRootSequenceEntry(line, rootIndent: rootIndent) {
-                indices.append(candidate)
-                continuation.scan(line)
-                candidate += 1
-                continue
-            }
-            break
-        }
-        return indices
-    }
-
-    private static func blockProvenanceSpanStart(
-        content: String,
-        lines: [String],
-        start: Int,
-        closing: Int,
-        rootIndent: String
-    ) -> BlockProvenanceSpanStart {
-        if let separator = mappingSeparator(in: content) {
-            let remainder = String(content[content.index(after: separator)...])
-            return BlockProvenanceSpanStart(indices: [start], nextCandidate: start + 1, remainder: remainder)
-        }
-        var candidate = start + 1
-        while candidate < closing {
-            let trimmed = lines[candidate].trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") {
-                candidate += 1
-                continue
-            }
-            guard let remainder = explicitValueRemainder(lines[candidate], rootIndent: rootIndent) else { break }
-            return BlockProvenanceSpanStart(
-                indices: [start, candidate],
-                nextCandidate: candidate + 1,
-                remainder: remainder
-            )
-        }
-        return BlockProvenanceSpanStart(indices: [start], nextCandidate: start + 1, remainder: "")
-    }
-
-    private static func explicitValueRemainder(_ line: String, rootIndent: String) -> String? {
-        guard line.hasPrefix(rootIndent) else { return nil }
-        let content = String(line.dropFirst(rootIndent.count))
-        guard content.first == ":" else { return nil }
-        let afterColon = content.index(after: content.startIndex)
-        guard afterColon == content.endIndex || content[afterColon].isWhitespace else { return nil }
-        return String(content[afterColon...])
+        return YAMLBlockProvenanceSanitization(lines: lines, neutralized: neutralized)
     }
 
     private static func blockMappingRootIndent(in lines: ArraySlice<String>) -> String? {
@@ -113,24 +50,57 @@ enum YAMLBlockProvenanceSanitizer {
         return nil
     }
 
-    private static func isAgentProvenanceEntry(_ line: String, rootIndent: String) -> Bool {
-        guard line.hasPrefix(rootIndent) else { return false }
+    private static func rootContent(of line: String, rootIndent: String) -> String? {
+        guard line.hasPrefix(rootIndent) else { return nil }
         let content = String(line.dropFirst(rootIndent.count))
-        guard content.first?.isWhitespace != true else { return false }
-        if let separator = mappingSeparator(in: content) {
-            return YAMLProvenanceKey.matches(String(content[..<separator]))
+        return content.first?.isWhitespace == true ? nil : content
+    }
+
+    private static func implicitOrInlineExplicitKeyRange(in content: String) -> Range<String.Index>? {
+        if let separator = mappingSeparator(in: content) { return content.startIndex..<separator }
+        guard isExplicitMappingEntry(content), !isBareExplicitKeyIndicator(content) else { return nil }
+        return content.startIndex..<content.endIndex
+    }
+
+    private static func multilineExplicitKeyLine(
+        in lines: [String],
+        after indicator: Int,
+        before closing: Int,
+        rootIndent: String
+    ) -> Int? {
+        var candidate = indicator + 1
+        while candidate < closing {
+            let trimmed = lines[candidate].trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") {
+                candidate += 1
+                continue
+            }
+            guard lines[candidate].hasPrefix(rootIndent),
+                  lines[candidate].dropFirst(rootIndent.count).first?.isWhitespace == true,
+                  YAMLProvenanceKey.matches(trimmed) else {
+                return nil
+            }
+            return candidate
         }
-        return isExplicitMappingEntry(content) && YAMLProvenanceKey.matches(content)
+        return nil
     }
 
-    private static func isNested(_ line: String, beneath rootIndent: String) -> Bool {
-        guard line.hasPrefix(rootIndent) else { return false }
-        return line.dropFirst(rootIndent.count).first?.isWhitespace == true
+    private static func replacingActiveKey(
+        in line: String,
+        keyRange: Range<String.Index>? = nil
+    ) -> String {
+        let bounds = keyRange ?? line.startIndex..<line.endIndex
+        guard let replacement = line.range(
+            of: YAMLProvenanceKey.activeName,
+            options: .backwards,
+            range: bounds
+        ) else { return line }
+        return line.replacingCharacters(in: replacement, with: YAMLProvenanceKey.neutralName)
     }
 
-    private static func isRootSequenceEntry(_ line: String, rootIndent: String) -> Bool {
-        guard line.hasPrefix(rootIndent) else { return false }
-        return isSequenceEntry(String(line.dropFirst(rootIndent.count)))
+    private static func isBareExplicitKeyIndicator(_ content: String) -> Bool {
+        let withoutComment = content.split(separator: "#", maxSplits: 1).first.map(String.init) ?? content
+        return withoutComment.trimmingCharacters(in: .whitespaces) == "?"
     }
 
     private static func isExplicitMappingEntry(_ content: String) -> Bool {
@@ -140,19 +110,33 @@ enum YAMLBlockProvenanceSanitizer {
     }
 
     private static func mappingSeparator(in line: String) -> String.Index? {
-        line.indices.first(where: { index in
-            guard line[index] == ":", index != line.startIndex, !isSequenceEntry(line) else { return false }
+        var quote: Character?
+        var escaping = false
+        for index in line.indices {
+            let character = line[index]
+            if let activeQuote = quote {
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+                continue
+            }
+            if character == "\"" || character == "'" { quote = character; continue }
+            guard character == ":", index != line.startIndex else { continue }
             let next = line.index(after: index)
-            return next == line.endIndex || line[next].isWhitespace
-        })
-    }
-
-    private static func isSequenceEntry(_ line: String) -> Bool {
-        line.first == "-" && (line.count == 1 || line.dropFirst().first?.isWhitespace == true)
+            if next == line.endIndex || line[next].isWhitespace { return index }
+        }
+        return nil
     }
 }
 
 enum YAMLProvenanceKey {
+    static let activeName = "agent_provenance"
+    static let neutralName = "former_writer_attribution"
+
     static func matches(_ key: String) -> Bool {
         var candidate = key.trimmingCharacters(in: .whitespacesAndNewlines)
         if isExplicitMappingEntry(candidate) {
@@ -164,9 +148,7 @@ enum YAMLProvenanceKey {
            nodeStart != start {
             candidate = String(characters[nodeStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        return candidate == "agent_provenance"
-            || candidate == "\"agent_provenance\""
-            || candidate == "'agent_provenance'"
+        return candidate == activeName || candidate == "\"\(activeName)\"" || candidate == "'\(activeName)'"
     }
 
     private static func isExplicitMappingEntry(_ content: String) -> Bool {
@@ -174,10 +156,4 @@ enum YAMLProvenanceKey {
         let next = content.index(after: content.startIndex)
         return next == content.endIndex || content[next].isWhitespace
     }
-}
-
-private struct BlockProvenanceSpanStart {
-    let indices: [Int]
-    let nextCandidate: Int
-    let remainder: String
 }
