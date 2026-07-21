@@ -35,6 +35,9 @@
 		A14000010000000000000001 /* CaptureFolderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000110000000000000001 /* CaptureFolderManager.swift */; };
 		A14000020000000000000002 /* CaptureSessionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000120000000000000002 /* CaptureSessionModel.swift */; };
 		A14000030000000000000003 /* HeimdalShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000130000000000000003 /* HeimdalShellView.swift */; };
+		A15000010000000000000001 /* CaptureRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000110000000000000001 /* CaptureRecorder.swift */; };
+		A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000120000000000000002 /* CaptureRecorderTests.swift */; };
+		A15000030000000000000003 /* CaptureFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000130000000000000003 /* CaptureFileWriter.swift */; };
 		A14000040000000000000004 /* HeimdalBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000140000000000000004 /* HeimdalBoundaryTests.swift */; };
 		A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000150000000000000005 /* CaptureFolderBindingTests.swift */; };
 		A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000160000000000000006 /* CaptureSessionModelTests.swift */; };
@@ -90,6 +93,9 @@
 		A14000110000000000000001 /* CaptureFolderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderManager.swift; sourceTree = "<group>"; };
 		A14000120000000000000002 /* CaptureSessionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModel.swift; sourceTree = "<group>"; };
 		A14000130000000000000003 /* HeimdalShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellView.swift; sourceTree = "<group>"; };
+		A15000110000000000000001 /* CaptureRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRecorder.swift; sourceTree = "<group>"; };
+		A15000120000000000000002 /* CaptureRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRecorderTests.swift; sourceTree = "<group>"; };
+		A15000130000000000000003 /* CaptureFileWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFileWriter.swift; sourceTree = "<group>"; };
 		A14000140000000000000004 /* HeimdalBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalBoundaryTests.swift; sourceTree = "<group>"; };
 		A14000150000000000000005 /* CaptureFolderBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderBindingTests.swift; sourceTree = "<group>"; };
 		A14000160000000000000006 /* CaptureSessionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModelTests.swift; sourceTree = "<group>"; };
@@ -213,6 +219,8 @@
 				A14000110000000000000001 /* CaptureFolderManager.swift */,
 				A14000120000000000000002 /* CaptureSessionModel.swift */,
 				A14000130000000000000003 /* HeimdalShellView.swift */,
+				A15000130000000000000003 /* CaptureFileWriter.swift */,
+				A15000110000000000000001 /* CaptureRecorder.swift */,
 			);
 			path = Heimdal;
 			sourceTree = "<group>";
@@ -250,6 +258,7 @@
 				A14000150000000000000005 /* CaptureFolderBindingTests.swift */,
 				A14000160000000000000006 /* CaptureSessionModelTests.swift */,
 				B10000100000000000000010 /* NoteInspectorModelTests.swift */,
+				A15000120000000000000002 /* CaptureRecorderTests.swift */,
 			);
 			path = YggdrasilTests;
 			sourceTree = "<group>";
@@ -437,6 +446,8 @@
 				A14000010000000000000001 /* CaptureFolderManager.swift in Sources */,
 				A14000020000000000000002 /* CaptureSessionModel.swift in Sources */,
 				A14000030000000000000003 /* HeimdalShellView.swift in Sources */,
+				A15000030000000000000003 /* CaptureFileWriter.swift in Sources */,
+				A15000010000000000000001 /* CaptureRecorder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -451,6 +462,7 @@
 				A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */,
 				A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */,
 				B10000010000000000000010 /* NoteInspectorModelTests.swift in Sources */,
+				A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -611,6 +623,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Yggdrasil uses Face ID to unlock access to your vault on this device.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Heimdal records your own spoken thoughts into local audio files.";
+				INFOPLIST_KEY_UIBackgroundModes = audio;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -637,6 +651,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Yggdrasil uses Face ID to unlock access to your vault on this device.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Heimdal records your own spoken thoughts into local audio files.";
+				INFOPLIST_KEY_UIBackgroundModes = audio;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";

@@ -20,6 +20,6 @@ final class CaptureSessionModelTests: XCTestCase {
         XCTAssertTrue(model.updateDeliveryState(for: itemID, to: .delivered))
         XCTAssertEqual(model.stagedItems.first?.deliveryState, .delivered)
         XCTAssertFalse(model.updateDeliveryState(for: UUID(), to: .failed))
-        XCTAssertFalse(model.transition(to: .recording))
+        XCTAssertTrue(model.transition(to: .recording))
     }
 }
