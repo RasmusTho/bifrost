@@ -68,12 +68,56 @@ struct NSFileCoordinatorAccess: VaultFileCoordinating {
     }
 }
 
+private enum VaultWriteProvenance {
+    typealias TimestampProvider = @Sendable () throws -> String
+
+    static func applying(
+        to text: String,
+        relativePath: String,
+        timestampProvider: TimestampProvider
+    ) -> String {
+        var document: FrontmatterDocument
+        do {
+            document = try FrontmatterDocument.parse(text)
+        } catch FrontmatterDocument.ParseError.missingFrontmatter {
+            document = FrontmatterDocument(frontmatter: YAMLMap(), body: text)
+        } catch {
+            logFailure(error, relativePath: relativePath)
+            return text
+        }
+
+        guard apply(to: &document, relativePath: relativePath, timestampProvider: timestampProvider) else {
+            return text
+        }
+        return document.rendered()
+    }
+
+    @discardableResult
+    static func apply(
+        to document: inout FrontmatterDocument,
+        relativePath: String,
+        timestampProvider: TimestampProvider
+    ) -> Bool {
+        do {
+            document.applyBifrostProvenance(writtenAt: try timestampProvider())
+            return true
+        } catch {
+            logFailure(error, relativePath: relativePath)
+            return false
+        }
+    }
+
+    private static func logFailure(_ error: Error, relativePath: String) {
+        let message = "Bifrost provenance tagging failed for \(relativePath); "
+            + "writing note without provenance: \(error.localizedDescription)"
+        NSLog("%@", message)
+    }
+}
+
 /// Read/write access to vault-relative files, scoped to the active vault's
 /// security-scoped URL. Every `_heimdal/**` lens and the generic markdown
 /// renderer go through this one seam.
 struct VaultFileStore: Sendable {
-    typealias ProvenanceTimestampProvider = @Sendable () throws -> String
-
     private enum FileSnapshot: Sendable {
         case missing
         case contents(String)
@@ -94,12 +138,12 @@ struct VaultFileStore: Sendable {
 
     let rootURL: URL
     private let coordinator: VaultFileCoordinating
-    private let provenanceTimestampProvider: ProvenanceTimestampProvider
+    private let provenanceTimestampProvider: VaultWriteProvenance.TimestampProvider
 
     init(
         rootURL: URL,
         coordinator: VaultFileCoordinating = NSFileCoordinatorAccess(),
-        provenanceTimestampProvider: @escaping ProvenanceTimestampProvider = { Date().ISO8601Format() }
+        provenanceTimestampProvider: @escaping VaultWriteProvenance.TimestampProvider = { Date().ISO8601Format() }
     ) {
         self.rootURL = rootURL
         self.coordinator = coordinator
@@ -153,7 +197,11 @@ struct VaultFileStore: Sendable {
                 let url = VaultPath.resolve(relativePath, in: rootURL)
                 try coordinator.coordinateWrite(at: url) { coordinatedURL in
                     try prepareParentDirectory(for: coordinatedURL)
-                    let taggedText = applyingProvenance(to: text, relativePath: relativePath)
+                    let taggedText = VaultWriteProvenance.applying(
+                        to: text,
+                        relativePath: relativePath,
+                        timestampProvider: provenanceTimestampProvider
+                    )
                     try Self.atomicReplace(taggedText, at: coordinatedURL)
                 }
             }
@@ -229,7 +277,11 @@ struct VaultFileStore: Sendable {
                         document = try FrontmatterDocument.parse(text)
                     }
                     mutate(&document)
-                    applyProvenance(to: &document, relativePath: relativePath)
+                    VaultWriteProvenance.apply(
+                        to: &document,
+                        relativePath: relativePath,
+                        timestampProvider: provenanceTimestampProvider
+                    )
 
                     let result = try writeIfUnchanged(
                         document.rendered(),
@@ -282,40 +334,6 @@ struct VaultFileStore: Sendable {
         } catch {
             throw VaultFileStoreError.writeFailed(relativePath, error)
         }
-    }
-
-    private func applyingProvenance(to text: String, relativePath: String) -> String {
-        var document: FrontmatterDocument
-        do {
-            document = try FrontmatterDocument.parse(text)
-        } catch FrontmatterDocument.ParseError.missingFrontmatter {
-            document = FrontmatterDocument(frontmatter: YAMLMap(), body: text)
-        } catch {
-            logProvenanceFailure(error, relativePath: relativePath)
-            return text
-        }
-
-        guard applyProvenance(to: &document, relativePath: relativePath) else {
-            return text
-        }
-        return document.rendered()
-    }
-
-    @discardableResult
-    private func applyProvenance(to document: inout FrontmatterDocument, relativePath: String) -> Bool {
-        do {
-            document.applyBifrostProvenance(writtenAt: try provenanceTimestampProvider())
-            return true
-        } catch {
-            logProvenanceFailure(error, relativePath: relativePath)
-            return false
-        }
-    }
-
-    private func logProvenanceFailure(_ error: Error, relativePath: String) {
-        let message = "Bifrost provenance tagging failed for \(relativePath); "
-            + "writing note without provenance: \(error.localizedDescription)"
-        NSLog("%@", message)
     }
 
     private func withReadAccess<T: Sendable>(
