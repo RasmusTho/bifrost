@@ -6,9 +6,14 @@ import SwiftUI
 struct RootView: View {
     @StateObject private var authGate: AuthGate
     @StateObject private var vaultManager = VaultManager()
+    private let heimdalSessionModel: CaptureSessionModel
 
-    init(authGateInitialState: AuthGate.State = .locked) {
+    init(
+        authGateInitialState: AuthGate.State = .locked,
+        heimdalSessionModel: CaptureSessionModel
+    ) {
         _authGate = StateObject(wrappedValue: AuthGate(initialState: authGateInitialState))
+        self.heimdalSessionModel = heimdalSessionModel
     }
 
     var body: some View {
@@ -24,7 +29,7 @@ struct RootView: View {
                 TabView {
                     MimerShellView(vaultURL: vaultURL)
                         .tabItem { Label("Mimer", systemImage: "book.closed") }
-                    HeimdalShellView()
+                    HeimdalShellView(sessionModel: heimdalSessionModel)
                         .tabItem { Label("Heimdal", systemImage: "waveform") }
                 }
                 .toolbarBackground(.visible, for: .tabBar)
@@ -35,7 +40,7 @@ struct RootView: View {
                 TabView {
                     VaultPickerView(vaultManager: vaultManager)
                         .tabItem { Label("Mimer", systemImage: "book.closed") }
-                    HeimdalShellView()
+                    HeimdalShellView(sessionModel: heimdalSessionModel)
                         .tabItem { Label("Heimdal", systemImage: "waveform") }
                 }
             }

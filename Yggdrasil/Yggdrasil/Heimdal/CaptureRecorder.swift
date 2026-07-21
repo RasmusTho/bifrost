@@ -232,10 +232,21 @@ final class CaptureRecorder: ObservableObject {
             let detectedAt = values.contentModificationDate ?? Date()
             switch mediaValidator.validate(url: url) {
             case let .success(media):
+                let relayMetadata = WatchRelayMetadataStore().read(for: url)
                 sessionModel.recoverStagedItem(
                     url: url,
                     duration: media.duration,
-                    capturedAt: detectedAt
+                    capturedAt: relayMetadata?.recordedStartAt ?? detectedAt,
+                    captureMetadata: relayMetadata.map {
+                        CaptureSessionModel.CaptureMetadata(
+                            recordedStartAt: $0.recordedStartAt,
+                            recordedEndAt: $0.recordedEndAt,
+                            timezone: $0.timezone,
+                            interruptions: $0.interruptions,
+                            deviceID: deviceID,
+                            sourceSurface: .watchRelay
+                        )
+                    }
                 )
             case .failure:
                 sessionModel.recordRecoveryFailure(

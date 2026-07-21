@@ -12,8 +12,8 @@ struct HeimdalShellView: View {
     @StateObject private var deliveryQueue: CaptureDeliveryQueue
     @State private var isFolderPickerPresented = false
 
-    init() {
-        let model = CaptureSessionModel()
+    init(sessionModel: CaptureSessionModel) {
+        let model = sessionModel
         _sessionModel = StateObject(wrappedValue: model)
         _recorder = StateObject(wrappedValue: CaptureRecorder(sessionModel: model))
         _deliveryQueue = StateObject(wrappedValue: CaptureDeliveryQueue(sessionModel: model))
@@ -103,7 +103,9 @@ struct HeimdalShellView: View {
                     Task { await retryUndelivered() }
                 }
             }
-            .task { await retryUndelivered() }
+            .task {
+                await retryUndelivered()
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
                 Task { await retryUndelivered() }

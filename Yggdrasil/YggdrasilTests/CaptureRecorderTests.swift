@@ -2,7 +2,7 @@ import AVFoundation
 import XCTest
 @testable import Yggdrasil
 
-private enum CaptureTestAudio {
+enum CaptureTestAudio {
     static let validM4A: Data = {
         let base64 = """
         AAAAHGZ0eXBNNEEgAAACAE00QSBpc29taXNvMgAAAAhmcmVlAAABeW1kYXTeAgBMYXZjNjIuMTEuMTAwAAJ8ZRfGgxVVmevz
