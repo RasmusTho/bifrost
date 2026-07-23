@@ -146,6 +146,30 @@ extension VaultFileStoreTests {
         XCTAssertTrue(loggedFailures.values.isEmpty)
     }
 
+    func testFullYAMLRefreshRetainsPriorWriterAndInsertsCurrentProvenance() async throws {
+        let path = "notes/flow-refresh.md"
+        let timestamp = "2026-07-23T16:05:00Z"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let input = "---\n{title: Keep, agent_provenance: {author: prior, trace: keep}}\n---\n"
+        let expected = "---\n{title: Keep, former_writer_attribution: {author: prior, trace: keep}, "
+            + "agent_provenance: {author: bifrost-ios, written_at: \(timestamp), origin: direct-fs}}\n---\n"
+
+        try await store.write(input, to: path)
+
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, expected)
+        XCTAssertEqual(
+            YAMLProvenanceTransformer.sanitizingFallback(saved).outcome,
+            .neutralizedStaleAttribution
+        )
+        XCTAssertTrue(loggedFailures.values.isEmpty)
+    }
+
     func testProductionYAMLSemanticsDriveLosslessFallback() async throws {
         struct ProvenanceFailure: Error {}
         let loggedFailures = MutationValueRecorder()

@@ -27,8 +27,43 @@ public enum YAMLProvenanceTransformer {
     private static let activeName = "agent_provenance"
     private static let neutralName = "former_writer_attribution"
 
+    /// Inserts fresh provenance into any valid root YAML mapping without
+    /// reserializing its existing bytes.
+    public static func insertingProvenance(
+        into text: String,
+        writtenAt: String
+    ) -> String? {
+        guard let document = YAMLFrontmatterSlice(text: text) else { return nil }
+        let frontmatter = String(text[document.frontmatterRange])
+        guard let parsed = ParsedYAML(source: frontmatter),
+              let updatedFrontmatter = parsed.insertingRootProvenance(
+                  newline: document.newline,
+                  writtenAt: writtenAt
+              ),
+              let verified = ParsedYAML(source: updatedFrontmatter),
+              case .mapping(let verifiedRoot) = verified.semanticRoot,
+              SemanticMapping.effectiveSource(named: activeName, in: verifiedRoot) != nil else {
+            return nil
+        }
+        return text.replacingCharacters(
+            in: document.frontmatterRange,
+            with: updatedFrontmatter
+        )
+    }
+
+    /// Preserves every prior writer value under a neutral audit key before
+    /// inserting current provenance for richer valid-YAML shapes.
+    public static func upsertingProvenance(
+        into text: String,
+        writtenAt: String
+    ) -> String? {
+        let sanitization = sanitizingFallback(text)
+        guard sanitization.outcome != .unverifiable else { return nil }
+        return insertingProvenance(into: sanitization.text, writtenAt: writtenAt)
+    }
+
     public static func sanitizingFallback(_ text: String) -> YAMLProvenanceSanitization {
-        guard let document = FrontmatterSlice(text: text) else {
+        guard let document = YAMLFrontmatterSlice(text: text) else {
             return YAMLProvenanceSanitization(text: text, outcome: .unverifiable)
         }
 
@@ -94,6 +129,7 @@ public enum YAMLProvenanceTransformer {
             return false
         }
         guard MappingIdentity(activeSource.mapping) == MappingIdentity(rootMapping),
+              parsed.isUnindentedBlockMapping(rootMapping),
               let keyToken = parsed.uniqueConcreteKeyToken(for: activeSource),
               keyToken.style == .plain,
               let keyRange = Range(keyToken.range, in: frontmatter),
@@ -110,42 +146,6 @@ public enum YAMLProvenanceTransformer {
             suffix += 1
         }
         return "\(neutralName)_\(suffix)"
-    }
-}
-
-private struct FrontmatterSlice {
-    let frontmatterRange: Range<String.Index>
-
-    init?(text: String) {
-        let newline: String
-        if text.hasPrefix("---\r\n") {
-            newline = "\r\n"
-        } else if text.hasPrefix("---\n") {
-            newline = "\n"
-        } else {
-            return nil
-        }
-
-        let contentStart = text.index(text.startIndex, offsetBy: 3 + newline.count)
-        let closingPrefix = "\(newline)---"
-        var searchStart = contentStart
-        var closingRange: Range<String.Index>?
-
-        while searchStart < text.endIndex,
-              let candidate = text.range(
-                  of: closingPrefix,
-                  range: searchStart..<text.endIndex
-              ) {
-            let after = candidate.upperBound
-            if after == text.endIndex || text[after...].hasPrefix(newline) {
-                closingRange = candidate
-                break
-            }
-            searchStart = candidate.upperBound
-        }
-
-        guard let closingRange else { return nil }
-        frontmatterRange = contentStart..<closingRange.lowerBound
     }
 }
 
@@ -258,6 +258,37 @@ private struct ParsedYAML {
         let pair = pairs[source.pairIndex]
         guard let keyNode = pair.child(byFieldName: "key") else { return nil }
         return concreteKeyToken(in: keyNode)
+    }
+
+    func isUnindentedBlockMapping(_ mapping: Yams.Node.Mapping) -> Bool {
+        guard let mappingNode = uniqueSyntaxMapping(for: mapping),
+              mappingNode.nodeType == "block_mapping",
+              let mappingRange = Range(mappingNode.range, in: source) else {
+            return false
+        }
+        let lineStart = source[..<mappingRange.lowerBound].lastIndex(of: "\n").map {
+            source.index(after: $0)
+        } ?? source.startIndex
+        return lineStart == mappingRange.lowerBound
+    }
+
+    func insertingRootProvenance(newline: String, writtenAt: String) -> String? {
+        guard case .mapping(let rootMapping) = semanticRoot,
+              SemanticMapping.effectiveSource(
+                  named: "agent_provenance",
+                  in: rootMapping
+              ) == nil,
+              let mappingNode = uniqueSyntaxMapping(for: rootMapping),
+              let inserted = YAMLProvenanceSourceInserter.insert(
+                  into: source,
+                  mappingNode: mappingNode,
+                  mappingIsEmpty: rootMapping.isEmpty,
+                  newline: newline,
+                  writtenAt: writtenAt
+              ) else {
+            return nil
+        }
+        return inserted
     }
 
     private func concreteKeyToken(in keyNode: SwiftTreeSitter.Node) -> ConcreteKeyToken? {

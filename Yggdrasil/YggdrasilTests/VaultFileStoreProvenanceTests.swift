@@ -1,5 +1,6 @@
 import XCTest
 @testable import Yggdrasil
+import YggdrasilCore
 
 extension VaultFileStoreTests {
     func testUnsupportedFrontmatterIsTaggedWithoutChangingForeignYAML() async throws {
@@ -399,10 +400,23 @@ extension VaultFileStoreTests {
         XCTAssertTrue(loggedFailures.values[0].contains("writing requested bytes without refreshed provenance"))
     }
 
-    func testUnsafeUnprovenancedFrontmatterIsPreservedAndLogged() async throws {
-        let cases = [
-            ("notes/empty-map.md", "---\n{}\n---\n\nBody.\n"),
-            ("notes/flow-map.md", "---\n{tags: [one, two]}\n---\n\nBody.\n"),
+    func testFullYAMLMappingsAreTaggedAndNonMappingsFailClosed() async throws {
+        let timestamp = "2026-07-21T10:30:00Z"
+        let taggedCases = [
+            (
+                "notes/empty-map.md",
+                "---\n{}\n---\n\nBody.\n",
+                "---\n{agent_provenance: {author: bifrost-ios, written_at: \(timestamp), "
+                    + "origin: direct-fs}}\n---\n\nBody.\n"
+            ),
+            (
+                "notes/flow-map.md",
+                "---\n{tags: [one, two]}\n---\n\nBody.\n",
+                "---\n{tags: [one, two], agent_provenance: {author: bifrost-ios, "
+                    + "written_at: \(timestamp), origin: direct-fs}}\n---\n\nBody.\n"
+            )
+        ]
+        let preservedCases = [
             ("notes/sequence-mapping.md", "---\n-\tauthor: human\n  note: keep\n---\n\nBody.\n"),
             ("notes/double-quoted.md", "---\n\"literal: scalar\"\n---\n\nBody.\n"),
             ("notes/single-quoted.md", "---\n'literal: scalar'\n---\n\nBody.\n")
@@ -410,15 +424,25 @@ extension VaultFileStoreTests {
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
             rootURL: tempDirectory,
-            provenanceTimestampProvider: { "2026-07-21T10:30:00Z" },
+            provenanceTimestampProvider: { timestamp },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
-        for (path, text) in cases {
+
+        for (path, text, expected) in taggedCases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, expected)
+            XCTAssertEqual(
+                YAMLProvenanceTransformer.sanitizingFallback(saved).outcome,
+                .neutralizedStaleAttribution
+            )
+        }
+        for (path, text) in preservedCases {
             try await store.write(text, to: path)
             let saved = try await store.read(path)
             XCTAssertEqual(saved, text)
         }
-        XCTAssertEqual(loggedFailures.values.count, cases.count)
+        XCTAssertEqual(loggedFailures.values.count, preservedCases.count)
     }
 
     func testStructuredProvenanceFailurePreservesPriorWriterUnderNeutralKey() async throws {

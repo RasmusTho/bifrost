@@ -47,45 +47,72 @@ enum VaultWriteProvenance {
             return (["---"] + provenanceLines + ["---", "", text]).joined(separator: newline)
         }
 
-        var lines = text.components(separatedBy: newline)
+        if let inserted = YAMLProvenanceTransformer.insertingProvenance(
+            into: text,
+            writtenAt: writtenAt
+        ) {
+            return inserted
+        }
+
+        let lines = text.components(separatedBy: newline)
         guard lines.first == "---",
               let closingIndex = lines.dropFirst().firstIndex(of: "---") else {
             throw InjectionError.unsafeFrontmatter
         }
+        return try refreshingExistingProvenance(
+            in: text,
+            lines: lines,
+            closingIndex: closingIndex,
+            writtenAt: writtenAt
+        )
+    }
 
+    private static func refreshingExistingProvenance(
+        in text: String,
+        lines originalLines: [String],
+        closingIndex: Int,
+        writtenAt: String
+    ) throws -> String {
+        let newline = text.hasPrefix("---\r\n") ? "\r\n" : "\n"
+        let provenanceLines = [
+            "agent_provenance:",
+            "  author: bifrost-ios",
+            "  written_at: \(writtenAt)",
+            "  origin: direct-fs"
+        ]
+        var lines = originalLines
         let frontmatter = lines[1..<closingIndex].joined(separator: newline)
-        guard !YAMLProvenanceTransformer.requiresSemanticKeyFallback(in: frontmatter) else {
-            throw InjectionError.unsafeFrontmatter
-        }
-
-        let candidates = lines[1..<closingIndex].indices.filter { index in
-            let line = lines[index]
-            guard line.first?.isWhitespace != true else { return false }
-            return line.contains("agent_provenance")
-        }
-        guard candidates.count <= 1 else { throw InjectionError.unsafeFrontmatter }
-
-        if let startIndex = candidates.first {
-            guard lines[startIndex].hasPrefix("agent_provenance:") else {
-                throw InjectionError.unsafeFrontmatter
-            }
-            let remainder = lines[startIndex].dropFirst("agent_provenance:".count)
-                .trimmingCharacters(in: .whitespaces)
-            guard remainder.isEmpty else {
-                throw InjectionError.unsafeFrontmatter
-            }
-            let endIndex = try replacementEnd(in: lines, after: startIndex, before: closingIndex)
-            guard replacementPreservesAnchorReferences(
-                in: lines,
-                replacing: startIndex..<endIndex,
-                before: closingIndex
+        if YAMLProvenanceTransformer.requiresSemanticKeyFallback(in: frontmatter) {
+            guard let upserted = YAMLProvenanceTransformer.upsertingProvenance(
+                into: text,
+                writtenAt: writtenAt
             ) else {
                 throw InjectionError.unsafeFrontmatter
             }
-            lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
-        } else {
-            try insert(provenanceLines, into: &lines, before: closingIndex)
+            return upserted
         }
+
+        let candidates = lines[1..<closingIndex].indices.filter {
+            let line = lines[$0]
+            return line.first?.isWhitespace != true && line.contains("agent_provenance")
+        }
+        guard candidates.count == 1,
+              let startIndex = candidates.first,
+              lines[startIndex].hasPrefix("agent_provenance:") else {
+            throw InjectionError.unsafeFrontmatter
+        }
+        let remainder = lines[startIndex].dropFirst("agent_provenance:".count)
+            .trimmingCharacters(in: .whitespaces)
+        guard remainder.isEmpty else { throw InjectionError.unsafeFrontmatter }
+        let endIndex = try replacementEnd(in: lines, after: startIndex, before: closingIndex)
+        guard replacementPreservesAnchorReferences(
+            in: lines,
+            replacing: startIndex..<endIndex,
+            before: closingIndex
+        ) else {
+            throw InjectionError.unsafeFrontmatter
+        }
+        lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
         return lines.joined(separator: newline)
     }
 
@@ -123,42 +150,6 @@ enum VaultWriteProvenance {
     private static func isSequenceEntry(_ line: String) -> Bool {
         line.first == "-" && (line.count == 1 || line.dropFirst().first?.isWhitespace == true)
     }
-    private static func insert(_ provenance: [String], into lines: inout [String], before closingIndex: Int) throws {
-        guard acceptsBlockMappingInsertion(lines[1..<closingIndex]) else {
-            throw InjectionError.unsafeFrontmatter
-        }
-        lines.insert(contentsOf: provenance, at: closingIndex)
-    }
-    private static func acceptsBlockMappingInsertion(_ lines: ArraySlice<String>) -> Bool {
-        var sawMappingEntry = false
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-            if line.first?.isWhitespace == true {
-                guard sawMappingEntry else { return false }
-                continue
-            }
-            guard isPlainBlockMappingEntry(line) else { return false }
-            sawMappingEntry = true
-        }
-        return true
-    }
-    private static func isPlainBlockMappingEntry(_ line: String) -> Bool {
-        guard let separator = mappingSeparator(in: line) else { return false }
-        let key = line[..<separator].trimmingCharacters(in: .whitespaces)
-        return !key.isEmpty && key.allSatisfy { character in
-            character.isLetter || character.isNumber || character.isWhitespace || "_-.".contains(character)
-        }
-    }
-
-    private static func mappingSeparator(in line: String) -> String.Index? {
-        line.indices.first(where: { index in
-            guard line[index] == ":", index != line.startIndex, !isSequenceEntry(line) else { return false }
-            let next = line.index(after: index)
-            return next == line.endIndex || line[next].isWhitespace
-        })
-    }
-
     @discardableResult
     static func apply(
         to document: inout FrontmatterDocument,
