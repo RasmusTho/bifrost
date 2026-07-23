@@ -223,6 +223,9 @@ private extension ParsedYAML {
               let mappingNode = uniqueSyntaxMapping(for: source.mapping) else {
             return false
         }
+        if mappingHasMultipleAliasConsumers(mappingNode) {
+            return true
+        }
         let pairs = syntaxPairs(in: mappingNode)
         guard source.pairIndex < pairs.count,
               let keyNode = pairs[source.pairIndex].child(byFieldName: "key") else {
@@ -237,6 +240,27 @@ private extension ParsedYAML {
         return descendants(of: syntaxRoot, matching: ["alias"]).contains {
             referenceName(of: $0, prefix: "*") == anchorName
         }
+    }
+
+    private func mappingHasMultipleAliasConsumers(
+        _ mappingNode: SwiftTreeSitter.Node
+    ) -> Bool {
+        guard let container = mappingNode.parent,
+              container.nodeType == "block_node" || container.nodeType == "flow_node" else {
+            return true
+        }
+        let anchors = descendants(of: container, matching: ["anchor"]).filter {
+            !NSLocationInRange($0.range.location, mappingNode.range)
+        }
+        guard !anchors.isEmpty else { return false }
+        guard anchors.count == 1,
+              let anchorName = referenceName(of: anchors[0], prefix: "&") else {
+            return true
+        }
+        let consumerCount = descendants(of: syntaxRoot, matching: ["alias"]).reduce(0) {
+            $0 + (referenceName(of: $1, prefix: "*") == anchorName ? 1 : 0)
+        }
+        return consumerCount > 1
     }
 
     private func concreteKeyToken(in keyNode: SwiftTreeSitter.Node) -> YAMLConcreteKeyToken? {
