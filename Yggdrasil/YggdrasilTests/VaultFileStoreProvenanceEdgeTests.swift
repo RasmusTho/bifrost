@@ -91,7 +91,86 @@ private let productionYAMLCases = [
             )
 ]
 
+private let provenanceFailClosedCases = [
+    ("notes/sequence-mapping.md", "---\n-\tauthor: human\n  note: keep\n---\n\nBody.\n"),
+    ("notes/double-quoted.md", "---\n\"literal: scalar\"\n---\n\nBody.\n"),
+    ("notes/single-quoted.md", "---\n'literal: scalar'\n---\n\nBody.\n"),
+    ("notes/shared-anchor.md", "---\n? &ap agent_provenance\n: stale\nforeign: *ap\n---\n"),
+    (
+        "notes/invalid-scalar-merge.md",
+        "---\n<<: 1\nagent_provenance: stale\ntitle: keep\n---\n"
+    ),
+    (
+        "notes/invalid-null-merge.md",
+        "---\n<<: null\nagent_provenance: stale\ntitle: keep\n---\n"
+    ),
+    (
+        "notes/invalid-mixed-merge.md",
+        "---\nbase: &base {foreign: keep}\n<<: [*base, 1]\n"
+            + "agent_provenance: stale\n---\n"
+    ),
+    (
+        "notes/set-with-provenance-name.md",
+        "---\n!!set\n? agent_provenance\n? foreign\n---\n"
+    ),
+    ("notes/set-without-provenance-name.md", "---\n!!set\n? foreign\n---\n")
+]
+
 extension VaultFileStoreTests {
+    func testFullYAMLMappingsAreTaggedAndNonMappingsFailClosed() async throws {
+        let timestamp = "2026-07-21T10:30:00Z"
+        let taggedCases = [
+            (
+                "notes/empty-map.md",
+                "---\n{}\n---\n\nBody.\n",
+                "---\n{agent_provenance: {author: bifrost-ios, written_at: \(timestamp), "
+                    + "origin: direct-fs}}\n---\n\nBody.\n"
+            ),
+            (
+                "notes/flow-map.md",
+                "---\n{tags: [one, two]}\n---\n\nBody.\n",
+                "---\n{tags: [one, two], agent_provenance: {author: bifrost-ios, "
+                    + "written_at: \(timestamp), origin: direct-fs}}\n---\n\nBody.\n"
+            ),
+            (
+                "notes/tagged-empty-map.md",
+                "---\n!!map\n---\n\nBody.\n",
+                "---\n!!map\n  agent_provenance:\n    author: bifrost-ios\n"
+                    + "    written_at: \(timestamp)\n    origin: direct-fs\n---\n\nBody.\n"
+            )
+        ]
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp }
+        )
+
+        for (path, text, expected) in taggedCases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, expected)
+            XCTAssertEqual(
+                YAMLProvenanceTransformer.sanitizingFallback(saved).outcome,
+                .neutralizedStaleAttribution
+            )
+        }
+    }
+
+    func testNonMappingsAndUnverifiableMappingsFailClosed() async throws {
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { "2026-07-21T10:30:00Z" },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for (path, text) in provenanceFailClosedCases {
+            try await store.write(text, to: path)
+            let saved = try await store.read(path)
+            XCTAssertEqual(saved, text)
+        }
+        XCTAssertEqual(loggedFailures.values.count, provenanceFailClosedCases.count)
+    }
+
     func testGenericWriteInsertsFreshProvenanceWithoutChangingForeignYAML() async throws {
         let path = "notes/fresh-provenance.md"
         let timestamp = "2026-07-23T15:47:00Z"
@@ -247,7 +326,14 @@ extension VaultFileStoreTests {
         let cases = [
             "---\n{agent_provenance: old\n---\n\nBody.\n",
             "---\nagent_provenance: first\nagent_provenance: second\n---\n",
-            "---\nbase: &ap agent_provenance\n*ap: stale\n---\n"
+            "---\nbase: &ap agent_provenance\n*ap: stale\n---\n",
+            "---\n? &ap agent_provenance\n: stale\nforeign: *ap\n---\n",
+            "---\n<<: 1\nagent_provenance: stale\ntitle: keep\n---\n",
+            "---\n<<: null\nagent_provenance: stale\ntitle: keep\n---\n",
+            "---\nbase: &base {foreign: keep}\n<<: [*base, 1]\n"
+                + "agent_provenance: stale\n---\n",
+            "---\n!!set\n? agent_provenance\n? foreign\n---\n",
+            "---\n!!set\n? foreign\n---\n"
         ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(

@@ -42,7 +42,11 @@ public enum YAMLProvenanceTransformer {
               ),
               let verified = ParsedYAML(source: updatedFrontmatter),
               case .mapping(let verifiedRoot) = verified.semanticRoot,
-              SemanticMapping.effectiveSource(named: activeName, in: verifiedRoot) != nil else {
+              SemanticMapping.isProvenanceMapping(verifiedRoot),
+              case .found = SemanticMapping.effectiveSource(
+                  named: activeName,
+                  in: verifiedRoot
+              ) else {
             return nil
         }
         return text.replacingCharacters(
@@ -66,7 +70,13 @@ public enum YAMLProvenanceTransformer {
         guard let document = YAMLFrontmatterSlice(text: text) else {
             return YAMLProvenanceSanitization(text: text, outcome: .unverifiable)
         }
+        return sanitizingFrontmatter(in: text, document: document)
+    }
 
+    private static func sanitizingFrontmatter(
+        in text: String,
+        document: YAMLFrontmatterSlice
+    ) -> YAMLProvenanceSanitization {
         let originalFrontmatter = String(text[document.frontmatterRange])
         var frontmatter = originalFrontmatter
         var neutralized = false
@@ -74,7 +84,8 @@ public enum YAMLProvenanceTransformer {
 
         while true {
             guard let parsed = ParsedYAML(source: frontmatter),
-                  case .mapping(let rootMapping) = parsed.semanticRoot else {
+                  case .mapping(let rootMapping) = parsed.semanticRoot,
+                  SemanticMapping.isProvenanceMapping(rootMapping) else {
                 return YAMLProvenanceSanitization(text: text, outcome: .unverifiable)
             }
 
@@ -82,10 +93,14 @@ public enum YAMLProvenanceTransformer {
                 remainingEdits = parsed.semanticKeyNames.count + 1
             }
 
-            guard let activeSource = SemanticMapping.effectiveSource(
+            let lookup = SemanticMapping.effectiveSource(
                 named: activeName,
                 in: rootMapping
-            ) else {
+            )
+            if case .invalid = lookup {
+                return YAMLProvenanceSanitization(text: text, outcome: .unverifiable)
+            }
+            guard case .found(let activeSource) = lookup else {
                 let outcome: YAMLProvenanceSanitizationOutcome = neutralized
                     ? .neutralizedStaleAttribution
                     : .unchangedNoActiveProvenance
@@ -97,6 +112,7 @@ public enum YAMLProvenanceTransformer {
             }
 
             guard let editsLeft = remainingEdits, editsLeft > 0,
+                  !parsed.keyHasSharedAnchor(activeSource),
                   let keyToken = parsed.uniqueConcreteKeyToken(for: activeSource) else {
                 return YAMLProvenanceSanitization(text: text, outcome: .unverifiable)
             }
@@ -128,59 +144,7 @@ public enum YAMLProvenanceTransformer {
     }
 }
 
-private struct SemanticSource {
-    let mapping: Yams.Node.Mapping
-    let pairIndex: Int
-}
-
-private enum SemanticMapping {
-    private struct Entry {
-        let source: SemanticSource
-        let key: Yams.Node
-    }
-
-    static func effectiveSource(
-        named name: String,
-        in mapping: Yams.Node.Mapping
-    ) -> SemanticSource? {
-        flattenedEntries(in: mapping)
-            .reversed()
-            .first(where: { $0.key.scalar?.string == name })?
-            .source
-    }
-
-    private static func flattenedEntries(in mapping: Yams.Node.Mapping) -> [Entry] {
-        var merged: [Entry] = []
-        var direct: [Entry] = []
-
-        for (index, pair) in mapping.enumerated() {
-            if pair.key.tag.rawValue == Tag.Name.merge.rawValue {
-                switch pair.value {
-                case .mapping(let mergedMapping):
-                    merged.append(contentsOf: flattenedEntries(in: mergedMapping))
-                case .sequence(let sequence):
-                    let mappings = sequence.compactMap(\.mapping).reversed()
-                    for mergedMapping in mappings {
-                        merged.append(contentsOf: flattenedEntries(in: mergedMapping))
-                    }
-                default:
-                    continue
-                }
-            } else {
-                direct.append(
-                    Entry(
-                        source: SemanticSource(mapping: mapping, pairIndex: index),
-                        key: pair.key
-                    )
-                )
-            }
-        }
-
-        return merged + direct
-    }
-}
-
-private struct ParsedYAML {
+struct ParsedYAML {
     let source: String
     let semanticRoot: Yams.Node
     let syntaxRoot: SwiftTreeSitter.Node
@@ -206,7 +170,9 @@ private struct ParsedYAML {
             return nil
         }
     }
+}
 
+private extension ParsedYAML {
     func uniqueConcreteKeyToken(for source: SemanticSource) -> YAMLConcreteKeyToken? {
         guard source.pairIndex < source.mapping.count,
               let mappingNode = uniqueSyntaxMapping(for: source.mapping) else { return nil }
@@ -218,10 +184,11 @@ private struct ParsedYAML {
 
     func insertingRootProvenance(newline: String, writtenAt: String) -> String? {
         if case .mapping(let rootMapping) = semanticRoot {
-            guard SemanticMapping.effectiveSource(
+            guard SemanticMapping.isProvenanceMapping(rootMapping),
+                  case .absent = SemanticMapping.effectiveSource(
                 named: "agent_provenance",
                 in: rootMapping
-            ) == nil else {
+            ) else {
                 return nil
             }
             if let mappingNode = uniqueSyntaxMapping(for: rootMapping),
@@ -249,6 +216,27 @@ private struct ParsedYAML {
             newline: newline,
             writtenAt: writtenAt
         )
+    }
+
+    func keyHasSharedAnchor(_ source: SemanticSource) -> Bool {
+        guard source.pairIndex < source.mapping.count,
+              let mappingNode = uniqueSyntaxMapping(for: source.mapping) else {
+            return false
+        }
+        let pairs = syntaxPairs(in: mappingNode)
+        guard source.pairIndex < pairs.count,
+              let keyNode = pairs[source.pairIndex].child(byFieldName: "key") else {
+            return true
+        }
+        let anchors = descendants(of: keyNode, matching: ["anchor"])
+        guard !anchors.isEmpty else { return false }
+        guard anchors.count == 1,
+              let anchorName = referenceName(of: anchors[0], prefix: "&") else {
+            return true
+        }
+        return descendants(of: syntaxRoot, matching: ["alias"]).contains {
+            referenceName(of: $0, prefix: "*") == anchorName
+        }
     }
 
     private func concreteKeyToken(in keyNode: SwiftTreeSitter.Node) -> YAMLConcreteKeyToken? {
@@ -439,16 +427,14 @@ private struct ParsedYAML {
         visit(root)
         return names
     }
-}
 
-private struct MappingIdentity: Hashable {
-    let line: Int
-    let column: Int
-    let count: Int
-
-    init(_ mapping: Yams.Node.Mapping) {
-        line = mapping.mark?.line ?? -1
-        column = mapping.mark?.column ?? -1
-        count = mapping.count
+    private func referenceName(
+        of node: SwiftTreeSitter.Node,
+        prefix: Character
+    ) -> Substring? {
+        guard let range = Range(node.range, in: source) else { return nil }
+        let spelling = source[range]
+        guard spelling.first == prefix else { return nil }
+        return spelling.dropFirst()
     }
 }

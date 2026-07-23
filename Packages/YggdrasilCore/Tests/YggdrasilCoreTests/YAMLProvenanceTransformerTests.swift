@@ -371,6 +371,13 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
             "---\n{agent_provenance: old\n---\n\nBody.\n",
             "---\nagent_provenance: first\nagent_provenance: second\n---\n",
             "---\nbase: &ap agent_provenance\n*ap: stale\n---\n",
+            "---\n? &ap agent_provenance\n: stale\nforeign: *ap\n---\n",
+            "---\n<<: 1\nagent_provenance: stale\ntitle: keep\n---\n",
+            "---\n<<: null\nagent_provenance: stale\ntitle: keep\n---\n",
+            "---\nbase: &base {foreign: keep}\n<<: [*base, 1]\n"
+                + "agent_provenance: stale\n---\n",
+            "---\n!!set\n? agent_provenance\n? foreign\n---\n",
+            "---\n!!set\n? foreign\n---\n",
             "---\r\n!local:writer \"agent_\\u0070rovenance\": stale\r\n"
                 + "broken: [one, two\r\n---\r\nBody\r\n"
         ]
@@ -379,6 +386,13 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
             let result = YAMLProvenanceTransformer.sanitizingFallback(input)
             XCTAssertEqual(result.outcome, .unverifiable, input)
             XCTAssertEqual(result.text, input, input)
+            XCTAssertNil(
+                YAMLProvenanceTransformer.insertingProvenance(
+                    into: input,
+                    writtenAt: "2026-07-23T16:05:00Z"
+                ),
+                input
+            )
         }
     }
 
