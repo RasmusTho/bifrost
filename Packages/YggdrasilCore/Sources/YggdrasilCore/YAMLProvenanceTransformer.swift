@@ -90,7 +90,7 @@ public enum YAMLProvenanceTransformer {
             }
 
             if remainingEdits == nil {
-                remainingEdits = parsed.semanticKeyNames.count + 1
+                remainingEdits = parsed.concreteMappingPairCount + 1
             }
 
             let lookup = SemanticMapping.effectiveSource(
@@ -149,6 +149,7 @@ struct ParsedYAML {
     let semanticRoot: Yams.Node
     let syntaxRoot: SwiftTreeSitter.Node
     let semanticKeyNames: Set<String>
+    let concreteMappingPairCount: Int
 
     init?(source: String) {
         do {
@@ -166,6 +167,7 @@ struct ParsedYAML {
             self.semanticRoot = semanticRoot
             self.syntaxRoot = syntaxRoot
             semanticKeyNames = Self.collectSemanticKeyNames(in: semanticRoot)
+            concreteMappingPairCount = Self.countConcreteMappingPairs(in: syntaxRoot)
         } catch {
             return nil
         }
@@ -481,10 +483,15 @@ private extension ParsedYAML {
         return names
     }
 
-    private func referenceName(
-        of node: SwiftTreeSitter.Node,
-        prefix: Character
-    ) -> Substring? {
+    private static func countConcreteMappingPairs(in node: SwiftTreeSitter.Node) -> Int {
+        let ownCount = node.nodeType == "block_mapping_pair"
+            || node.nodeType == "flow_pair" ? 1 : 0
+        return (0..<node.namedChildCount).reduce(ownCount) { count, index in
+            guard let child = node.namedChild(at: index) else { return count }
+            return count + countConcreteMappingPairs(in: child)
+        }
+    }
+    private func referenceName(of node: SwiftTreeSitter.Node, prefix: Character) -> Substring? {
         guard let range = Range(node.range, in: source) else { return nil }
         let spelling = source[range]
         guard spelling.first == prefix else { return nil }

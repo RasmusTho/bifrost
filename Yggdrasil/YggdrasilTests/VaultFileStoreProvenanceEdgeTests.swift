@@ -2,6 +2,11 @@ import XCTest
 @testable import Yggdrasil
 import YggdrasilCore
 
+private struct MergeSequenceBudgetCase {
+    let path: String
+    let input: String
+    let expected: String
+}
 private let productionYAMLCases = [
             (
                 "notes/escaped-key.md",
@@ -331,6 +336,104 @@ extension VaultFileStoreTests {
         XCTAssertEqual(saved, expected)
     }
 
+    func testMergeSequenceBudgetCoversEveryConcreteSource() async throws {
+        let timestamp = "2026-07-23T19:40:00Z"
+        let cases = [
+            flowMergeSequenceBudgetCase(timestamp: timestamp),
+            blockMergeSequenceBudgetCase(timestamp: timestamp)
+        ]
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        for testCase in cases {
+            try await store.write(testCase.input, to: testCase.path)
+            let saved = try await store.read(testCase.path)
+            XCTAssertEqual(saved, testCase.expected, testCase.path)
+        }
+        XCTAssertTrue(loggedFailures.values.isEmpty)
+    }
+    private func flowMergeSequenceBudgetCase(timestamp: String) -> MergeSequenceBudgetCase {
+        MergeSequenceBudgetCase(
+            path: "notes/flow-merge-sequence-edit-budget.md",
+            input: """
+            ---
+            <<:
+              - &one {agent_provenance: one}
+              - &two {agent_provenance: two}
+              - &three {agent_provenance: three}
+              - &four {agent_provenance: four}
+              - *one
+              - *two
+              - *three
+              - *four
+            ---
+            """,
+            expected: """
+            ---
+            <<:
+              - &one {former_writer_attribution: one}
+              - &two {former_writer_attribution_2: two}
+              - &three {former_writer_attribution_3: three}
+              - &four {former_writer_attribution_4: four}
+              - *one
+              - *two
+              - *three
+              - *four
+            agent_provenance:
+              author: bifrost-ios
+              written_at: \(timestamp)
+              origin: direct-fs
+            ---
+            """
+        )
+    }
+    private func blockMergeSequenceBudgetCase(timestamp: String) -> MergeSequenceBudgetCase {
+        MergeSequenceBudgetCase(
+            path: "notes/block-merge-sequence-edit-budget.md",
+            input: """
+            ---
+            <<:
+              - &one
+                agent_provenance: one
+              - &two
+                agent_provenance: two
+              - &three
+                agent_provenance: three
+              - &four
+                agent_provenance: four
+              - *one
+              - *two
+              - *three
+              - *four
+            ---
+            """,
+            expected: """
+            ---
+            <<:
+              - &one
+                former_writer_attribution: one
+              - &two
+                former_writer_attribution_2: two
+              - &three
+                former_writer_attribution_3: three
+              - &four
+                former_writer_attribution_4: four
+              - *one
+              - *two
+              - *three
+              - *four
+            agent_provenance:
+              author: bifrost-ios
+              written_at: \(timestamp)
+              origin: direct-fs
+            ---
+            """
+        )
+    }
     func testParserDisagreementAndInvalidYAMLPreserveRequestedBytes() async throws {
         struct ProvenanceFailure: Error {}
         let cases = [

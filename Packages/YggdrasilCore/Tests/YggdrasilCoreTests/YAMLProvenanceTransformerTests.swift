@@ -107,6 +107,70 @@ private let fullYAMLSemanticCases = [
             (
                 """
                 ---
+                <<:
+                  - &one {agent_provenance: one}
+                  - &two {agent_provenance: two}
+                  - &three {agent_provenance: three}
+                  - &four {agent_provenance: four}
+                  - *one
+                  - *two
+                  - *three
+                  - *four
+                ---
+                """,
+                """
+                ---
+                <<:
+                  - &one {former_writer_attribution: one}
+                  - &two {former_writer_attribution_2: two}
+                  - &three {former_writer_attribution_3: three}
+                  - &four {former_writer_attribution_4: four}
+                  - *one
+                  - *two
+                  - *three
+                  - *four
+                ---
+                """
+            ),
+            (
+                """
+                ---
+                <<:
+                  - &one
+                    agent_provenance: one
+                  - &two
+                    agent_provenance: two
+                  - &three
+                    agent_provenance: three
+                  - &four
+                    agent_provenance: four
+                  - *one
+                  - *two
+                  - *three
+                  - *four
+                ---
+                """,
+                """
+                ---
+                <<:
+                  - &one
+                    former_writer_attribution: one
+                  - &two
+                    former_writer_attribution_2: two
+                  - &three
+                    former_writer_attribution_3: three
+                  - &four
+                    former_writer_attribution_4: four
+                  - *one
+                  - *two
+                  - *three
+                  - *four
+                ---
+                """
+            ),
+            (
+                """
+                ---
                 ? "agent_\\
                   provenance"
                 : stale
@@ -308,7 +372,6 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
             XCTAssertEqual(result.outcome, .neutralizedStaleAttribution, input)
             XCTAssertEqual(result.text, expected, input)
         }
-
         assertFlowMappingInsertions()
         assertBlockMappingInsertions()
     }
@@ -352,7 +415,6 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
         ]
         assertInsertions(insertionCases, timestamp: timestamp)
     }
-
     private func assertBlockMappingInsertions() {
         let timestamp = "2026-07-23T16:05:00Z"
         let insertionCases = [
@@ -377,7 +439,6 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
         ]
         assertInsertions(insertionCases, timestamp: timestamp)
     }
-
     private func assertInsertions(
         _ insertionCases: [(String, String)],
         timestamp: String
@@ -395,7 +456,6 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
             )
         }
     }
-
     func testUnverifiableYAMLPreservesEveryByte() {
         let cases = [
             "---\n{agent_provenance: old\n---\n\nBody.\n",
@@ -431,11 +491,9 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
             )
         }
     }
-
     func testValidYAMLWithoutActiveProvenanceIsUnchanged() {
         let input = "---\ntitle: Keep\nnested:\n  agent_provenance: foreign\n---\n"
         let result = YAMLProvenanceTransformer.sanitizingFallback(input)
-
         XCTAssertEqual(result.outcome, .unchangedNoActiveProvenance)
         XCTAssertEqual(result.text, input)
     }
