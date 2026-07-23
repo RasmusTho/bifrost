@@ -1,5 +1,6 @@
 import XCTest
 @testable import Yggdrasil
+import YggdrasilCore
 
 private let productionYAMLCases = [
             (
@@ -138,6 +139,10 @@ extension VaultFileStoreTests {
 
         Body.
         """)
+        XCTAssertEqual(
+            YAMLProvenanceTransformer.sanitizingFallback(saved).outcome,
+            .neutralizedStaleAttribution
+        )
         XCTAssertTrue(loggedFailures.values.isEmpty)
     }
 
