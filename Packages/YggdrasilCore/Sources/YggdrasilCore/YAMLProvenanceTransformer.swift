@@ -223,7 +223,7 @@ private extension ParsedYAML {
               let mappingNode = uniqueSyntaxMapping(for: source.mapping) else {
             return false
         }
-        if mappingHasMultipleAliasConsumers(mappingNode) {
+        if mappingHasForeignAliasConsumer(mappingNode) {
             return true
         }
         let pairs = syntaxPairs(in: mappingNode)
@@ -242,7 +242,7 @@ private extension ParsedYAML {
         }
     }
 
-    private func mappingHasMultipleAliasConsumers(
+    private func mappingHasForeignAliasConsumer(
         _ mappingNode: SwiftTreeSitter.Node
     ) -> Bool {
         guard let container = mappingNode.parent,
@@ -257,10 +257,39 @@ private extension ParsedYAML {
               let anchorName = referenceName(of: anchors[0], prefix: "&") else {
             return true
         }
-        let consumerCount = descendants(of: syntaxRoot, matching: ["alias"]).reduce(0) {
-            $0 + (referenceName(of: $1, prefix: "*") == anchorName ? 1 : 0)
+        let consumers = descendants(of: syntaxRoot, matching: ["alias"]).filter {
+            referenceName(of: $0, prefix: "*") == anchorName
         }
-        return consumerCount > 1
+        guard !consumers.isEmpty else { return false }
+        guard case .mapping(let rootMapping) = semanticRoot,
+              let mergeMarks = SemanticMapping.reachableMergeKeyMarks(in: rootMapping) else {
+            return true
+        }
+        let mergeOffsets = mergeMarks.compactMap(utf16Offset)
+        guard mergeOffsets.count == mergeMarks.count else { return true }
+
+        return consumers.contains { consumer in
+            guard let pair = nearestSyntaxPair(containing: consumer),
+                  let keyNode = pair.child(byFieldName: "key") else {
+                return true
+            }
+            return !mergeOffsets.contains {
+                NSLocationInRange($0, keyNode.range)
+            }
+        }
+    }
+
+    private func nearestSyntaxPair(
+        containing node: SwiftTreeSitter.Node
+    ) -> SwiftTreeSitter.Node? {
+        var ancestor = node.parent
+        while let current = ancestor {
+            if current.nodeType == "block_mapping_pair" || current.nodeType == "flow_pair" {
+                return current
+            }
+            ancestor = current.parent
+        }
+        return nil
     }
 
     private func concreteKeyToken(in keyNode: SwiftTreeSitter.Node) -> YAMLConcreteKeyToken? {

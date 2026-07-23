@@ -41,6 +41,60 @@ enum SemanticMapping {
         return .found(source)
     }
 
+    static func reachableMergeKeyMarks(
+        in mapping: Yams.Node.Mapping
+    ) -> [Mark]? {
+        var activeMappings: Set<MappingIdentity> = []
+        var marks: [Mark] = []
+        guard collectReachableMergeKeyMarks(
+            in: mapping,
+            activeMappings: &activeMappings,
+            marks: &marks
+        ) else {
+            return nil
+        }
+        return marks
+    }
+
+    private static func collectReachableMergeKeyMarks(
+        in mapping: Yams.Node.Mapping,
+        activeMappings: inout Set<MappingIdentity>,
+        marks: inout [Mark]
+    ) -> Bool {
+        let identity = MappingIdentity(mapping)
+        guard activeMappings.insert(identity).inserted else { return false }
+        defer { activeMappings.remove(identity) }
+
+        for pair in mapping where pair.key.tag.rawValue == Tag.Name.merge.rawValue {
+            guard let mark = pair.key.mark else { return false }
+            marks.append(mark)
+            switch pair.value {
+            case .mapping(let mergedMapping):
+                guard collectReachableMergeKeyMarks(
+                    in: mergedMapping,
+                    activeMappings: &activeMappings,
+                    marks: &marks
+                ) else {
+                    return false
+                }
+            case .sequence(let sequence):
+                for item in sequence {
+                    guard case .mapping(let mergedMapping) = item,
+                          collectReachableMergeKeyMarks(
+                              in: mergedMapping,
+                              activeMappings: &activeMappings,
+                              marks: &marks
+                          ) else {
+                        return false
+                    }
+                }
+            default:
+                return false
+            }
+        }
+        return true
+    }
+
     private static func flattenedEntries(
         in mapping: Yams.Node.Mapping,
         activeMappings: inout Set<MappingIdentity>

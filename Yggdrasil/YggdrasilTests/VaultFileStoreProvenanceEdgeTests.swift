@@ -110,6 +110,16 @@ private let provenanceFailClosedCases = [
             + "agent_provenance: stale\n---\n"
     ),
     (
+        "notes/inline-flow-merge-shared-anchor.md",
+        "---\n<<: &base {agent_provenance: stale, keep: yes}\n"
+            + "foreign: *base\n---\n"
+    ),
+    (
+        "notes/inline-block-merge-shared-anchor.md",
+        "---\n<<: &base\n  agent_provenance: stale\n  keep: yes\n"
+            + "foreign: *base\n---\n"
+    ),
+    (
         "notes/set-with-provenance-name.md",
         "---\n!!set\n? agent_provenance\n? foreign\n---\n"
     ),
@@ -332,6 +342,10 @@ extension VaultFileStoreTests {
             "---\n<<: null\nagent_provenance: stale\ntitle: keep\n---\n",
             "---\nbase: &base {foreign: keep}\n<<: [*base, 1]\n"
                 + "agent_provenance: stale\n---\n",
+            "---\n<<: &base {agent_provenance: stale, keep: yes}\n"
+                + "foreign: *base\n---\n",
+            "---\n<<: &base\n  agent_provenance: stale\n  keep: yes\n"
+                + "foreign: *base\n---\n",
             "---\n!!set\n? agent_provenance\n? foreign\n---\n",
             "---\n!!set\n? foreign\n---\n"
         ]

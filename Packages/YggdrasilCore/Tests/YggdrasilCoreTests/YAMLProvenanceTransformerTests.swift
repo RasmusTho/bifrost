@@ -238,6 +238,18 @@ private let fullYAMLSemanticCases = [
             (
                 """
                 ---
+                <<: &base {agent_provenance: stale, keep: yes}
+                ---
+                """,
+                """
+                ---
+                <<: &base {former_writer_attribution: stale, keep: yes}
+                ---
+                """
+            ),
+            (
+                """
+                ---
                 emoji: "🧭"
                 "agent_\\u0070rovenance": stale
                 ---
@@ -396,6 +408,10 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
                 + "agent_provenance: stale\n---\n",
             "---\nbase: &base\n  agent_provenance: stale\n"
                 + "<<: *base\nother:\n  <<: *base\n---\n",
+            "---\n<<: &base {agent_provenance: stale, keep: yes}\n"
+                + "foreign: *base\n---\n",
+            "---\n<<: &base\n  agent_provenance: stale\n  keep: yes\n"
+                + "foreign: *base\n---\n",
             "---\n!!set\n? agent_provenance\n? foreign\n---\n",
             "---\n!!set\n? foreign\n---\n",
             "---\r\n!local:writer \"agent_\\u0070rovenance\": stale\r\n"
