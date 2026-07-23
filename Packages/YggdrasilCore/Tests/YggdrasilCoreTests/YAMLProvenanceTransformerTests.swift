@@ -73,6 +73,24 @@ private let fullYAMLSemanticCases = [
             (
                 """
                 ---
+                source: &source
+                  agent_provenance: stale
+                  foreign: keep
+                <<: *source
+                ---
+                """,
+                """
+                ---
+                source: &source
+                  former_writer_attribution: stale
+                  foreign: keep
+                <<: *source
+                ---
+                """
+            ),
+            (
+                """
+                ---
                 first: &first {agent_provenance: first}
                 second: &second {agent_provenance: second}
                 <<: [*first, *second]
@@ -133,6 +151,30 @@ private let fullYAMLSemanticCases = [
                 source: &source
                   ? former_writer_attribution
                   : stale
+                <<: *source
+                ---
+                """
+            ),
+            (
+                """
+                ---
+                name: &ap agent_provenance
+                source: &source
+                  ? *ap
+                  : stale
+                  foreign: keep
+                  other: keep
+                <<: *source
+                ---
+                """,
+                """
+                ---
+                name: &ap agent_provenance
+                source: &source
+                  ? former_writer_attribution
+                  : stale
+                  foreign: keep
+                  other: keep
                 <<: *source
                 ---
                 """

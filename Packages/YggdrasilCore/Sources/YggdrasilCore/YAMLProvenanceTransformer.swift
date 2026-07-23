@@ -290,39 +290,57 @@ private struct ParsedYAML {
         let candidates = allSyntaxMappings(in: syntaxRoot).filter {
             syntaxPairs(in: $0).count == mapping.count
         }
-        if let mappingMark = mapping.mark,
-           let mappingOffset = utf16Offset(for: mappingMark) {
-            let mappingMatches = candidates.filter {
-                NSLocationInRange(mappingOffset, $0.range)
-            }
-            if mappingMatches.count == 1 {
-                return mappingMatches[0]
-            }
-            let containerMatches = candidates.filter {
-                guard let parent = $0.parent,
-                      parent.nodeType == "block_node" || parent.nodeType == "flow_node" else {
+        if let firstMark = mapping.first?.key.mark,
+           let firstOffset = utf16Offset(for: firstMark) {
+            let firstKeyMatches = candidates.filter { mappingNode in
+                guard let firstConcreteKey = syntaxPairs(in: mappingNode)
+                    .first?
+                    .child(byFieldName: "key") else {
                     return false
                 }
-                return NSLocationInRange(mappingOffset, parent.range)
+                return NSLocationInRange(firstOffset, firstConcreteKey.range)
             }
-            if containerMatches.count == 1 {
-                return containerMatches[0]
+            if firstKeyMatches.count == 1 {
+                return firstKeyMatches[0]
             }
         }
-        guard let firstMark = mapping.first?.key.mark,
-              let firstOffset = utf16Offset(for: firstMark) else { return nil }
-        let firstKeyMatches = candidates.filter { mappingNode in
-            guard let firstConcreteKey = syntaxPairs(in: mappingNode)
-                .first?
-                .child(byFieldName: "key") else {
-                return false
+        if let mappingMark = mapping.mark,
+           let mappingOffset = utf16Offset(for: mappingMark) {
+            let containerMatches = candidates.compactMap { candidate -> (
+                node: SwiftTreeSitter.Node,
+                range: NSRange
+            )? in
+                guard let parent = candidate.parent,
+                      parent.nodeType == "block_node" || parent.nodeType == "flow_node",
+                      NSLocationInRange(mappingOffset, parent.range) else {
+                    return nil
+                }
+                return (candidate, parent.range)
             }
-            return NSLocationInRange(firstOffset, firstConcreteKey.range)
-        }
-        if firstKeyMatches.count == 1 {
-            return firstKeyMatches[0]
+            if let containerMatch = uniqueNarrowest(containerMatches) {
+                return containerMatch
+            }
+
+            let mappingMatches = candidates.compactMap { candidate -> (
+                node: SwiftTreeSitter.Node,
+                range: NSRange
+            )? in
+                guard NSLocationInRange(mappingOffset, candidate.range) else { return nil }
+                return (candidate, candidate.range)
+            }
+            if let mappingMatch = uniqueNarrowest(mappingMatches) {
+                return mappingMatch
+            }
         }
         return nil
+    }
+
+    private func uniqueNarrowest(
+        _ candidates: [(node: SwiftTreeSitter.Node, range: NSRange)]
+    ) -> SwiftTreeSitter.Node? {
+        guard let minimumLength = candidates.map(\.range.length).min() else { return nil }
+        let narrowest = candidates.filter { $0.range.length == minimumLength }
+        return narrowest.count == 1 ? narrowest[0].node : nil
     }
 
     private func utf16Offset(for mark: Mark) -> Int? {
