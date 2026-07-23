@@ -91,6 +91,56 @@ private let productionYAMLCases = [
 ]
 
 extension VaultFileStoreTests {
+    func testGenericWriteInsertsFreshProvenanceWithoutChangingForeignYAML() async throws {
+        let path = "notes/fresh-provenance.md"
+        let timestamp = "2026-07-23T15:47:00Z"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let input = """
+        ---
+        title: Keep
+        tags:
+          - one
+          - two
+        nested:
+          owner: human
+        description: |
+          first line
+          second line
+        ---
+
+        Body.
+        """
+
+        try await store.write(input, to: path)
+
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, """
+        ---
+        title: Keep
+        tags:
+          - one
+          - two
+        nested:
+          owner: human
+        description: |
+          first line
+          second line
+        agent_provenance:
+          author: bifrost-ios
+          written_at: \(timestamp)
+          origin: direct-fs
+        ---
+
+        Body.
+        """)
+        XCTAssertTrue(loggedFailures.values.isEmpty)
+    }
+
     func testProductionYAMLSemanticsDriveLosslessFallback() async throws {
         struct ProvenanceFailure: Error {}
         let loggedFailures = MutationValueRecorder()
