@@ -65,8 +65,8 @@ extension VaultFileStoreTests {
             ),
             (
                 "notes/indentless-sequence.md",
-                "---\nagent_provenance:\n-\tauthor: old\nnext: keep\n---\n",
-                "---\nformer_writer_attribution:\n-\tauthor: old\nnext: keep\n---\n"
+                "---\nagent_provenance:\n- author: old\nnext: keep\n---\n",
+                "---\nformer_writer_attribution:\n- author: old\nnext: keep\n---\n"
             )
         ]
         let loggedFailures = MutationValueRecorder()
@@ -354,7 +354,7 @@ extension VaultFileStoreTests {
         XCTAssertEqual(loggedFailures.values.count, cases.count)
     }
 
-    func testBalancedInvalidFlowRootNeutralizesOnlyTheStaleKey() async throws {
+    func testBalancedInvalidFlowRootPreservesEveryByte() async throws {
         struct ProvenanceFailure: Error {}
         let cases = [
             ("notes/invalid-flow-missing-comma.md", "{agent_provenance: old title: Keep}"),
@@ -371,14 +371,13 @@ extension VaultFileStoreTests {
             let text = "---\n\(frontmatter)\n---\n\nBody.\n"
             try await store.write(text, to: path)
             let saved = try await store.read(path)
-            XCTAssertEqual(
-                saved,
-                text.replacingOccurrences(of: "agent_provenance", with: "former_writer_attribution")
-            )
+            XCTAssertEqual(saved, text)
             XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
         }
         XCTAssertEqual(loggedFailures.values.count, cases.count)
-        XCTAssertTrue(loggedFailures.values.allSatisfy { $0.contains("neutralized stale attribution") })
+        XCTAssertTrue(loggedFailures.values.allSatisfy {
+            $0.contains("writing requested bytes without refreshed provenance")
+        })
     }
 
     func testUnbalancedFlowRootPreservesEveryByteAndLogsUnverifiableOutcome() async throws {

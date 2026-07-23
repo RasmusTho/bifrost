@@ -3,6 +3,8 @@ import YggdrasilCore
 
 enum VaultWriteProvenance {
     typealias TimestampProvider = @Sendable () throws -> String
+    private static let activeProvenanceName = "agent_provenance"
+    private static let neutralProvenanceName = "former_writer_attribution"
 
     private enum InjectionError: LocalizedError {
         case unsafeFrontmatter
@@ -21,7 +23,7 @@ enum VaultWriteProvenance {
         do {
             return try injecting(into: text, writtenAt: timestampProvider())
         } catch {
-            let sanitization = YAMLProvenanceSanitizer.sanitizingFallback(text)
+            let sanitization = YAMLProvenanceTransformer.sanitizingFallback(text)
             logFailure(
                 error,
                 relativePath: relativePath,
@@ -52,7 +54,7 @@ enum VaultWriteProvenance {
         }
 
         let frontmatter = lines[1..<closingIndex].joined(separator: newline)
-        guard !YAMLProvenanceKey.requiresSemanticKeyFallback(in: frontmatter) else {
+        guard !YAMLProvenanceTransformer.requiresSemanticKeyFallback(in: frontmatter) else {
             throw InjectionError.unsafeFrontmatter
         }
 
@@ -149,13 +151,6 @@ enum VaultWriteProvenance {
         }
     }
 
-    private static func isAgentProvenanceEntry(_ line: String) -> Bool {
-        guard line.first?.isWhitespace != true,
-              let separator = mappingSeparator(in: line) else { return false }
-        let key = line[..<separator].trimmingCharacters(in: .whitespaces)
-        return key == "agent_provenance" || key == "\"agent_provenance\"" || key == "'agent_provenance'"
-    }
-
     private static func mappingSeparator(in line: String) -> String.Index? {
         line.indices.first(where: { index in
             guard line[index] == ":", index != line.startIndex, !isSequenceEntry(line) else { return false }
@@ -187,15 +182,15 @@ enum VaultWriteProvenance {
     }
 
     private static func neutralizeStructuredProvenance(in document: inout FrontmatterDocument) -> Bool {
-        guard let prior = document.frontmatter[YAMLProvenanceKey.activeName] else { return false }
-        var neutralKey = YAMLProvenanceKey.neutralName
+        guard let prior = document.frontmatter[activeProvenanceName] else { return false }
+        var neutralKey = neutralProvenanceName
         var suffix = 2
         while document.frontmatter[neutralKey] != nil {
-            neutralKey = "\(YAMLProvenanceKey.neutralName)_\(suffix)"
+            neutralKey = "\(neutralProvenanceName)_\(suffix)"
             suffix += 1
         }
         document.frontmatter = YAMLMap(document.frontmatter.pairs.map { key, value in
-            let isActive = key == YAMLProvenanceKey.activeName
+            let isActive = key == activeProvenanceName
             return (isActive ? neutralKey : key, isActive ? prior : value)
         })
         return true
