@@ -3,8 +3,7 @@ import XCTest
 import YggdrasilCore
 
 extension VaultFileStoreTests {
-    func testUnsupportedFrontmatterIsTaggedWithoutChangingForeignYAML() async throws {
-        let path = "notes/human-yaml.md"
+    func testExistingProvenanceRetainsPriorWriterBeforeRefresh() async throws {
         let timestamp = "2026-07-21T10:30:00Z"
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
@@ -30,8 +29,8 @@ extension VaultFileStoreTests {
 
         Body.
         """
-        try await store.write(text, to: path)
-        let saved = try await store.read(path)
+        try await store.write(text, to: "notes/human-yaml.md")
+        let saved = try await store.read("notes/human-yaml.md")
         XCTAssertEqual(saved, """
         ---
         tags: [one, two] # keep
@@ -40,6 +39,12 @@ extension VaultFileStoreTests {
           second line
         anchor: &kept value
         alias: *kept
+        former_writer_attribution:
+          author: old-writer
+          written_at: 2025-01-01T00:00:00Z
+          origin: imported
+          model: old-model
+          trace: old-trace
         agent_provenance:
           author: bifrost-ios
           written_at: \(timestamp)
@@ -50,46 +55,54 @@ extension VaultFileStoreTests {
         """)
         XCTAssertTrue(loggedFailures.values.isEmpty)
     }
-    func testAmbiguousExistingProvenanceIsNeutralizedAndLogged() async throws {
+    func testValidExistingProvenanceShapesAreRetainedAndRefreshed() async throws {
+        let timestamp = "2026-07-21T10:30:00Z"
         let cases = [
             (
                 "notes/block-provenance.md",
                 "---\ntitle: Keep\nagent_provenance: |\n  legacy attribution\nnext: keep\n---\n\nBody.\n",
-                "---\ntitle: Keep\nformer_writer_attribution: |\n  legacy attribution\nnext: keep\n---\n\nBody.\n"
+                "---\ntitle: Keep\nformer_writer_attribution: |\n  legacy attribution\nnext: keep\n"
+                    + "agent_provenance:\n  author: bifrost-ios\n  written_at: \(timestamp)\n"
+                    + "  origin: direct-fs\n---\n\nBody.\n"
             ),
             (
                 "notes/separated-provenance.md",
                 "---\ntitle: Keep\nagent_provenance:\n  author: old\n# human explanation\n\n"
                     + "  written_at: old\n  origin: imported\nnext: keep\n---\n\nBody.\n",
                 "---\ntitle: Keep\nformer_writer_attribution:\n  author: old\n# human explanation\n\n"
-                    + "  written_at: old\n  origin: imported\nnext: keep\n---\n\nBody.\n"
+                    + "  written_at: old\n  origin: imported\nnext: keep\nagent_provenance:\n"
+                    + "  author: bifrost-ios\n  written_at: \(timestamp)\n"
+                    + "  origin: direct-fs\n---\n\nBody.\n"
             ),
             (
                 "notes/indentless-sequence.md",
                 "---\nagent_provenance:\n- author: old\nnext: keep\n---\n",
-                "---\nformer_writer_attribution:\n- author: old\nnext: keep\n---\n"
+                "---\nformer_writer_attribution:\n- author: old\nnext: keep\nagent_provenance:\n"
+                    + "  author: bifrost-ios\n  written_at: \(timestamp)\n"
+                    + "  origin: direct-fs\n---\n"
+            ),
+            (
+                "notes/literal-key.md",
+                "---\n? |-\n  agent_provenance\n: {author: old, trace: keep}\n---\n",
+                "---\n? former_writer_attribution\n: {author: old, trace: keep}\nagent_provenance:\n"
+                    + "  author: bifrost-ios\n  written_at: \(timestamp)\n"
+                    + "  origin: direct-fs\n---\n"
             )
         ]
         let loggedFailures = MutationValueRecorder()
         let store = VaultFileStore(
             rootURL: tempDirectory,
-            provenanceTimestampProvider: { "2026-07-21T10:30:00Z" },
+            provenanceTimestampProvider: { timestamp },
             provenanceFailureLogger: { loggedFailures.record($0) }
         )
         for (path, text, expected) in cases {
             try await store.write(text, to: path)
             let saved = try await store.read(path)
             XCTAssertEqual(saved, expected)
-            XCTAssertFalse(saved.contains("agent_provenance"))
+            XCTAssertTrue(saved.contains("agent_provenance"))
             XCTAssertTrue(saved.contains("former_writer_attribution"))
         }
-        XCTAssertEqual(loggedFailures.values.count, cases.count)
-        for (path, _, _) in cases {
-            XCTAssertTrue(loggedFailures.values.contains { $0.contains(path) })
-        }
-        XCTAssertTrue(loggedFailures.values.allSatisfy {
-            $0.contains("neutralized stale attribution before writing sanitized bytes")
-        })
+        XCTAssertTrue(loggedFailures.values.isEmpty)
     }
 
     func testMultilineFlowProvenanceFailurePreservesForeignYAML() async throws {
@@ -414,6 +427,12 @@ extension VaultFileStoreTests {
                 "---\n{tags: [one, two]}\n---\n\nBody.\n",
                 "---\n{tags: [one, two], agent_provenance: {author: bifrost-ios, "
                     + "written_at: \(timestamp), origin: direct-fs}}\n---\n\nBody.\n"
+            ),
+            (
+                "notes/tagged-empty-map.md",
+                "---\n!!map\n---\n\nBody.\n",
+                "---\n!!map\n  agent_provenance:\n    author: bifrost-ios\n"
+                    + "    written_at: \(timestamp)\n    origin: direct-fs\n---\n\nBody.\n"
             )
         ]
         let preservedCases = [

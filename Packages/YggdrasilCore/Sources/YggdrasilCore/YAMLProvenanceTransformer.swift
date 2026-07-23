@@ -113,32 +113,6 @@ public enum YAMLProvenanceTransformer {
         }
     }
 
-    /// Returns `false` only for the exact plain top-level key shape handled by
-    /// the app's narrow happy-path replacer, or when no effective provenance
-    /// key exists. Every richer valid-YAML form routes through the parser-backed
-    /// lossless fallback instead of being classified by handwritten syntax.
-    public static func requiresSemanticKeyFallback(in frontmatter: String) -> Bool {
-        guard let parsed = ParsedYAML(source: frontmatter),
-              case .mapping(let rootMapping) = parsed.semanticRoot else {
-            return true
-        }
-        guard let activeSource = SemanticMapping.effectiveSource(
-            named: activeName,
-            in: rootMapping
-        ) else {
-            return false
-        }
-        guard MappingIdentity(activeSource.mapping) == MappingIdentity(rootMapping),
-              parsed.isUnindentedBlockMapping(rootMapping),
-              let keyToken = parsed.uniqueConcreteKeyToken(for: activeSource),
-              keyToken.style == .plain,
-              let keyRange = Range(keyToken.range, in: frontmatter),
-              frontmatter[keyRange] == activeName[...] else {
-            return true
-        }
-        return false
-    }
-
     private static func availableNeutralName(among occupiedNames: Set<String>) -> String {
         guard occupiedNames.contains(neutralName) else { return neutralName }
         var suffix = 2
@@ -201,29 +175,6 @@ private enum SemanticMapping {
     }
 }
 
-private struct ConcreteKeyToken {
-    enum Style: Equatable {
-        case alias
-        case plain
-        case singleQuoted
-        case doubleQuoted
-    }
-
-    let range: NSRange
-    let style: Style
-
-    func replacement(spelling: String) -> String {
-        switch style {
-        case .alias, .plain:
-            return spelling
-        case .singleQuoted:
-            return "'\(spelling)'"
-        case .doubleQuoted:
-            return "\"\(spelling)\""
-        }
-    }
-}
-
 private struct ParsedYAML {
     let source: String
     let semanticRoot: Yams.Node
@@ -251,7 +202,7 @@ private struct ParsedYAML {
         }
     }
 
-    func uniqueConcreteKeyToken(for source: SemanticSource) -> ConcreteKeyToken? {
+    func uniqueConcreteKeyToken(for source: SemanticSource) -> YAMLConcreteKeyToken? {
         guard source.pairIndex < source.mapping.count,
               let mappingNode = uniqueSyntaxMapping(for: source.mapping) else { return nil }
         let pairs = syntaxPairs(in: mappingNode)
@@ -260,51 +211,62 @@ private struct ParsedYAML {
         return concreteKeyToken(in: keyNode)
     }
 
-    func isUnindentedBlockMapping(_ mapping: Yams.Node.Mapping) -> Bool {
-        guard let mappingNode = uniqueSyntaxMapping(for: mapping),
-              mappingNode.nodeType == "block_mapping",
-              let mappingRange = Range(mappingNode.range, in: source) else {
-            return false
-        }
-        let lineStart = source[..<mappingRange.lowerBound].lastIndex(of: "\n").map {
-            source.index(after: $0)
-        } ?? source.startIndex
-        return lineStart == mappingRange.lowerBound
-    }
-
     func insertingRootProvenance(newline: String, writtenAt: String) -> String? {
-        guard case .mapping(let rootMapping) = semanticRoot,
-              SemanticMapping.effectiveSource(
-                  named: "agent_provenance",
-                  in: rootMapping
-              ) == nil,
-              let mappingNode = uniqueSyntaxMapping(for: rootMapping),
-              let inserted = YAMLProvenanceSourceInserter.insert(
-                  into: source,
-                  mappingNode: mappingNode,
-                  mappingIsEmpty: rootMapping.isEmpty,
-                  newline: newline,
-                  writtenAt: writtenAt
-              ) else {
-            return nil
+        if case .mapping(let rootMapping) = semanticRoot {
+            guard SemanticMapping.effectiveSource(
+                named: "agent_provenance",
+                in: rootMapping
+            ) == nil else {
+                return nil
+            }
+            if let mappingNode = uniqueSyntaxMapping(for: rootMapping),
+               let inserted = YAMLProvenanceSourceInserter.insert(
+                   into: source,
+                   mappingNode: mappingNode,
+                   mappingIsEmpty: rootMapping.isEmpty,
+                   newline: newline,
+                   writtenAt: writtenAt
+               ) {
+                return inserted
+            }
+            guard rootMapping.isEmpty else {
+                return nil
+            }
+        } else {
+            guard let scalar = semanticRoot.scalar,
+                  scalar.tag.rawValue == Tag.Name.map.rawValue,
+                  scalar.string.isEmpty else {
+                return nil
+            }
         }
-        return inserted
+        return YAMLProvenanceSourceInserter.materializeTaggedEmptyMapping(
+            from: source,
+            newline: newline,
+            writtenAt: writtenAt
+        )
     }
 
-    private func concreteKeyToken(in keyNode: SwiftTreeSitter.Node) -> ConcreteKeyToken? {
+    private func concreteKeyToken(in keyNode: SwiftTreeSitter.Node) -> YAMLConcreteKeyToken? {
         let aliases = descendants(of: keyNode, matching: ["alias"])
         if aliases.count == 1 {
-            return ConcreteKeyToken(range: aliases[0].range, style: .alias)
+            return YAMLConcreteKeyToken(range: aliases[0].range, style: .alias)
         }
         guard aliases.isEmpty else { return nil }
 
         let scalars = descendants(
             of: keyNode,
-            matching: ["plain_scalar", "single_quote_scalar", "double_quote_scalar"]
+            matching: [
+                "block_scalar",
+                "plain_scalar",
+                "single_quote_scalar",
+                "double_quote_scalar"
+            ]
         )
         guard scalars.count == 1, let type = scalars[0].nodeType else { return nil }
-        let style: ConcreteKeyToken.Style
+        let style: YAMLConcreteKeyToken.Style
         switch type {
+        case "block_scalar":
+            style = .block
         case "plain_scalar":
             style = .plain
         case "single_quote_scalar":
@@ -314,7 +276,7 @@ private struct ParsedYAML {
         default:
             return nil
         }
-        return ConcreteKeyToken(range: scalars[0].range, style: style)
+        return YAMLConcreteKeyToken(range: scalars[0].range, style: style)
     }
 
     private func uniqueSyntaxMapping(for mapping: Yams.Node.Mapping) -> SwiftTreeSitter.Node? {

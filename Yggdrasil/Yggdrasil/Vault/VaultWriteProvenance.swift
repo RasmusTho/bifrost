@@ -54,102 +54,15 @@ enum VaultWriteProvenance {
             return inserted
         }
 
-        let lines = text.components(separatedBy: newline)
-        guard lines.first == "---",
-              let closingIndex = lines.dropFirst().firstIndex(of: "---") else {
-            throw InjectionError.unsafeFrontmatter
-        }
-        return try refreshingExistingProvenance(
-            in: text,
-            lines: lines,
-            closingIndex: closingIndex,
+        if let upserted = YAMLProvenanceTransformer.upsertingProvenance(
+            into: text,
             writtenAt: writtenAt
-        )
-    }
-
-    private static func refreshingExistingProvenance(
-        in text: String,
-        lines originalLines: [String],
-        closingIndex: Int,
-        writtenAt: String
-    ) throws -> String {
-        let newline = text.hasPrefix("---\r\n") ? "\r\n" : "\n"
-        let provenanceLines = [
-            "agent_provenance:",
-            "  author: bifrost-ios",
-            "  written_at: \(writtenAt)",
-            "  origin: direct-fs"
-        ]
-        var lines = originalLines
-        let frontmatter = lines[1..<closingIndex].joined(separator: newline)
-        if YAMLProvenanceTransformer.requiresSemanticKeyFallback(in: frontmatter) {
-            guard let upserted = YAMLProvenanceTransformer.upsertingProvenance(
-                into: text,
-                writtenAt: writtenAt
-            ) else {
-                throw InjectionError.unsafeFrontmatter
-            }
+        ) {
             return upserted
         }
-
-        let candidates = lines[1..<closingIndex].indices.filter {
-            let line = lines[$0]
-            return line.first?.isWhitespace != true && line.contains("agent_provenance")
-        }
-        guard candidates.count == 1,
-              let startIndex = candidates.first,
-              lines[startIndex].hasPrefix("agent_provenance:") else {
-            throw InjectionError.unsafeFrontmatter
-        }
-        let remainder = lines[startIndex].dropFirst("agent_provenance:".count)
-            .trimmingCharacters(in: .whitespaces)
-        guard remainder.isEmpty else { throw InjectionError.unsafeFrontmatter }
-        let endIndex = try replacementEnd(in: lines, after: startIndex, before: closingIndex)
-        guard replacementPreservesAnchorReferences(
-            in: lines,
-            replacing: startIndex..<endIndex,
-            before: closingIndex
-        ) else {
-            throw InjectionError.unsafeFrontmatter
-        }
-        lines.replaceSubrange(startIndex..<endIndex, with: provenanceLines)
-        return lines.joined(separator: newline)
+        throw InjectionError.unsafeFrontmatter
     }
 
-    private static func replacementPreservesAnchorReferences(
-        in lines: [String],
-        replacing range: Range<Int>,
-        before closing: Int
-    ) -> Bool {
-        let removed = lines[range].joined(separator: "\n")
-        guard removed.contains("&") else { return true }
-        let retained = (lines[1..<range.lowerBound] + lines[range.upperBound..<closing])
-            .joined(separator: "\n")
-        return !retained.contains("*")
-    }
-
-    private static func replacementEnd(in lines: [String], after start: Int, before closing: Int) throws -> Int {
-        var end = start + 1
-        while end < closing {
-            let line = lines[end]
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
-                throw InjectionError.unsafeFrontmatter
-            }
-            if line.first?.isWhitespace == true {
-                end += 1
-                continue
-            }
-            guard !isSequenceEntry(trimmed) else {
-                throw InjectionError.unsafeFrontmatter
-            }
-            break
-        }
-        return end
-    }
-    private static func isSequenceEntry(_ line: String) -> Bool {
-        line.first == "-" && (line.count == 1 || line.dropFirst().first?.isWhitespace == true)
-    }
     @discardableResult
     static func apply(
         to document: inout FrontmatterDocument,

@@ -230,6 +230,36 @@ private let fullYAMLSemanticCases = [
                 "former_writer_attribution": stale
                 ---
                 """
+            ),
+            (
+                """
+                ---
+                ? |-
+                  agent_provenance
+                : stale
+                ---
+                """,
+                """
+                ---
+                ? former_writer_attribution
+                : stale
+                ---
+                """
+            ),
+            (
+                """
+                ---
+                ? >-
+                  agent_provenance
+                : stale
+                ---
+                """,
+                """
+                ---
+                ? former_writer_attribution
+                : stale
+                ---
+                """
             )
 ]
 
@@ -299,6 +329,12 @@ final class YAMLProvenanceTransformerTests: XCTestCase {
                 "---\r\ntitle: Keep\r\nagent_provenance:\r\n"
                     + "  author: bifrost-ios\r\n  written_at: \(timestamp)\r\n"
                     + "  origin: direct-fs\r\n---\r\n"
+            ),
+            (
+                "---\n!!map\n---\n",
+                "---\n!!map\n  agent_provenance:\n"
+                    + "    author: bifrost-ios\n    written_at: \(timestamp)\n"
+                    + "    origin: direct-fs\n---\n"
             )
         ]
         assertInsertions(insertionCases, timestamp: timestamp)

@@ -2,6 +2,19 @@ import Foundation
 import SwiftTreeSitter
 
 enum YAMLProvenanceSourceInserter {
+    static func materializeTaggedEmptyMapping(
+        from source: String,
+        newline: String,
+        writtenAt: String
+    ) -> String {
+        let separator = source.hasSuffix(newline) ? "" : newline
+        return source + separator + blockProvenance(
+            writtenAt: writtenAt,
+            indentation: "  ",
+            newline: newline
+        )
+    }
+
     static func insert(
         into source: String,
         mappingNode: SwiftTreeSitter.Node,
@@ -45,15 +58,27 @@ enum YAMLProvenanceSourceInserter {
         } ?? source.startIndex
         let indentation = source[lineStart..<mappingRange.lowerBound]
         guard indentation.allSatisfy({ $0 == " " || $0 == "\t" }) else { return nil }
-        let provenance = [
+        let provenance = blockProvenance(
+            writtenAt: writtenAt,
+            indentation: String(indentation),
+            newline: newline
+        )
+        var updated = source
+        updated.insert(contentsOf: "\(newline)\(provenance)", at: mappingRange.upperBound)
+        return updated
+    }
+
+    private static func blockProvenance(
+        writtenAt: String,
+        indentation: String,
+        newline: String
+    ) -> String {
+        [
             "agent_provenance:",
             "  author: bifrost-ios",
             "  written_at: \(writtenAt)",
             "  origin: direct-fs"
         ].map { "\(indentation)\($0)" }.joined(separator: newline)
-        var updated = source
-        updated.insert(contentsOf: "\(newline)\(provenance)", at: mappingRange.upperBound)
-        return updated
     }
 
     private static func insertFlowProvenance(
