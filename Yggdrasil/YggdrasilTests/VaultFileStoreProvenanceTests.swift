@@ -1,7 +1,6 @@
 import XCTest
 @testable import Yggdrasil
 import YggdrasilCore
-
 extension VaultFileStoreTests {
     func testExistingProvenanceRetainsPriorWriterBeforeRefresh() async throws {
         let timestamp = "2026-07-21T10:30:00Z"
@@ -83,8 +82,10 @@ extension VaultFileStoreTests {
             ),
             (
                 "notes/literal-key.md",
-                "---\n? |-\n  agent_provenance\n: {author: old, trace: keep}\n---\n",
-                "---\n? former_writer_attribution\n: {author: old, trace: keep}\nagent_provenance:\n"
+                "---\n? |- # retain key comment\n  agent_provenance\n"
+                    + ": {author: old, trace: keep}\n---\n",
+                "---\n? |- # retain key comment\n  former_writer_attribution\n"
+                    + ": {author: old, trace: keep}\nagent_provenance:\n"
                     + "  author: bifrost-ios\n  written_at: \(timestamp)\n"
                     + "  origin: direct-fs\n---\n"
             )

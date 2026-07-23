@@ -234,14 +234,15 @@ private let fullYAMLSemanticCases = [
             (
                 """
                 ---
-                ? |-
+                ? |- # keep literal key comment
                   agent_provenance
                 : stale
                 ---
                 """,
                 """
                 ---
-                ? former_writer_attribution
+                ? |- # keep literal key comment
+                  former_writer_attribution
                 : stale
                 ---
                 """
@@ -249,17 +250,24 @@ private let fullYAMLSemanticCases = [
             (
                 """
                 ---
-                ? >-
+                ? >- # keep folded key comment
                   agent_provenance
                 : stale
                 ---
                 """,
                 """
                 ---
-                ? former_writer_attribution
+                ? >- # keep folded key comment
+                  former_writer_attribution
                 : stale
                 ---
                 """
+            ),
+            (
+                "---\r\n? >- # keep CRLF folded comment\r\n"
+                    + "  agent_provenance\r\n: stale\r\n---\r\n",
+                "---\r\n? >- # keep CRLF folded comment\r\n"
+                    + "  former_writer_attribution\r\n: stale\r\n---\r\n"
             )
 ]
 

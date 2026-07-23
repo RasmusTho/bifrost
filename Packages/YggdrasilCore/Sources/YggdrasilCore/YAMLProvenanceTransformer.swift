@@ -102,7 +102,12 @@ public enum YAMLProvenanceTransformer {
             }
 
             let replacementName = availableNeutralName(among: parsed.semanticKeyNames)
-            let replacement = keyToken.replacement(spelling: replacementName)
+            guard let replacement = keyToken.replacement(
+                spelling: replacementName,
+                in: frontmatter
+            ) else {
+                return YAMLProvenanceSanitization(text: text, outcome: .unverifiable)
+            }
             guard let sourceRange = Range(keyToken.range, in: frontmatter) else {
                 return YAMLProvenanceSanitization(text: text, outcome: .unverifiable)
             }

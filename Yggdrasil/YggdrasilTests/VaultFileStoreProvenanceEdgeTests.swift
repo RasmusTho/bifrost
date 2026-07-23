@@ -170,6 +170,29 @@ extension VaultFileStoreTests {
         XCTAssertTrue(loggedFailures.values.isEmpty)
     }
 
+    func testCRLFFoldedKeyCommentSurvivesProvenanceRefresh() async throws {
+        let timestamp = "2026-07-21T10:30:00Z"
+        let path = "notes/crlf-folded-key.md"
+        let input = "---\r\n? >- # retain CRLF folded comment\r\n"
+            + "  agent_provenance\r\n: {author: old, trace: keep}\r\n---\r\n"
+        let expected = "---\r\n? >- # retain CRLF folded comment\r\n"
+            + "  former_writer_attribution\r\n: {author: old, trace: keep}\r\n"
+            + "agent_provenance:\r\n  author: bifrost-ios\r\n"
+            + "  written_at: \(timestamp)\r\n  origin: direct-fs\r\n---\r\n"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+
+        try await store.write(input, to: path)
+
+        let saved = try await store.read(path)
+        XCTAssertEqual(saved, expected)
+        XCTAssertTrue(loggedFailures.values.isEmpty)
+    }
+
     func testProductionYAMLSemanticsDriveLosslessFallback() async throws {
         struct ProvenanceFailure: Error {}
         let loggedFailures = MutationValueRecorder()
