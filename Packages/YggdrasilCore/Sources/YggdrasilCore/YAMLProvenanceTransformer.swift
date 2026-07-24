@@ -239,9 +239,7 @@ private extension ParsedYAML {
               let anchorName = referenceName(of: anchors[0], prefix: "&") else {
             return true
         }
-        return descendants(of: syntaxRoot, matching: ["alias"]).contains {
-            referenceName(of: $0, prefix: "*") == anchorName
-        }
+        return !aliasConsumers(boundTo: anchors[0], named: anchorName).isEmpty
     }
 
     private func mappingHasForeignAliasConsumer(
@@ -259,9 +257,7 @@ private extension ParsedYAML {
               let anchorName = referenceName(of: anchors[0], prefix: "&") else {
             return true
         }
-        let consumers = descendants(of: syntaxRoot, matching: ["alias"]).filter {
-            referenceName(of: $0, prefix: "*") == anchorName
-        }
+        let consumers = aliasConsumers(boundTo: anchors[0], named: anchorName)
         guard !consumers.isEmpty else { return false }
         guard case .mapping(let rootMapping) = semanticRoot,
               let mergeMarks = SemanticMapping.reachableMergeKeyMarks(in: rootMapping) else {
