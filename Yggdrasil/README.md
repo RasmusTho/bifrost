@@ -47,12 +47,15 @@ client-side complement to the hub posture, not a replacement consistency model. 
 discipline is [`docs/contracts/MIMER_CLIENT_CONTRACT.md` §6](https://github.com/RasmusTho/agentic-pkm-mvp/blob/main/docs/contracts/MIMER_CLIENT_CONTRACT.md),
 especially W1–W8, until the ADR-0055 substrate mechanism is fully enacted.
 
-Generic note frontmatter root mappings accept full valid YAML. Yams/libYAML resolves scalar keys,
-tags, aliases, and merge projection; Tree-sitter YAML supplies exact concrete source ranges for
-lossless provenance insertion and key custody. Bifrost changes only semantically proven provenance
-tokens and inserts without reserializing foreign bytes. Invalid YAML, non-mapping documents, parser
-disagreement, or a non-unique source match keeps the requested bytes unchanged and emits the explicit
-best-effort provenance failure log. The complete parser runtime chain is exact-version/revision pinned.
+Generic note frontmatter custody targets full valid YAML. The current semantic boundary uses
+Yams/libYAML to resolve scalar keys, tags, aliases, and merge projection; Tree-sitter YAML supplies
+exact concrete source ranges for lossless provenance insertion and key custody. Yams/libYAML does not
+currently accept some YAML 1.2-valid punctuation and Unicode anchor names (tracked by
+[bifrost#40](https://github.com/RasmusTho/bifrost/issues/40)). Those documents, along with invalid
+YAML, non-mapping documents, parser disagreement, or a non-unique source match, keep the requested
+bytes unchanged and emit the explicit best-effort provenance failure log. Bifrost changes only
+semantically proven provenance tokens and inserts without reserializing foreign bytes. The complete
+parser runtime chain is exact-version/revision pinned.
 
 ## Validation
 
