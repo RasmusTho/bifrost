@@ -92,13 +92,19 @@ struct VaultFileStore: Sendable {
 
     let rootURL: URL
     private let coordinator: VaultFileCoordinating
+    private let provenanceTimestampProvider: @Sendable () throws -> String
+    private let provenanceFailureLogger: @Sendable (String) -> Void
 
     init(
         rootURL: URL,
-        coordinator: VaultFileCoordinating = NSFileCoordinatorAccess()
+        coordinator: VaultFileCoordinating = NSFileCoordinatorAccess(),
+        provenanceTimestampProvider: @escaping @Sendable () throws -> String = { Date().ISO8601Format() },
+        provenanceFailureLogger: @escaping @Sendable (String) -> Void = { NSLog("%@", $0) }
     ) {
         self.rootURL = rootURL
         self.coordinator = coordinator
+        self.provenanceTimestampProvider = provenanceTimestampProvider
+        self.provenanceFailureLogger = provenanceFailureLogger
     }
 
     /// Public vault I/O never runs on SwiftUI's main actor. Security-scoped
@@ -148,7 +154,13 @@ struct VaultFileStore: Sendable {
                 let url = VaultPath.resolve(relativePath, in: rootURL)
                 try coordinator.coordinateWrite(at: url) { coordinatedURL in
                     try prepareParentDirectory(for: coordinatedURL)
-                    try Self.atomicReplace(text, at: coordinatedURL)
+                    let taggedText = VaultWriteProvenance.applying(
+                        to: text,
+                        relativePath: relativePath,
+                        timestampProvider: provenanceTimestampProvider,
+                        failureLogger: provenanceFailureLogger
+                    )
+                    try Self.atomicReplace(taggedText, at: coordinatedURL)
                 }
             }
         }
@@ -223,6 +235,12 @@ struct VaultFileStore: Sendable {
                         document = try FrontmatterDocument.parse(text)
                     }
                     mutate(&document)
+                    VaultWriteProvenance.apply(
+                        to: &document,
+                        relativePath: relativePath,
+                        timestampProvider: provenanceTimestampProvider,
+                        failureLogger: provenanceFailureLogger
+                    )
 
                     let result = try writeIfUnchanged(
                         document.rendered(),

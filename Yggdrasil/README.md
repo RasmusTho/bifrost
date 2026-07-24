@@ -20,9 +20,11 @@ Implements bifrost#1 / hub `RasmusTho/agentic-pkm-mvp#3023` (B1), per ADR-0049 �
   control-surface note (Attention/A16, Interests+watchlist/A18, Entity confirmation/A17, Consent/A19,
   Settings/A14), plus a generic vault browser.
 
-`../Packages/YggdrasilCore` holds the platform-agnostic logic: the constrained-YAML frontmatter
-codec, `FrontmatterDocument`, the typed `_heimdal/**` note wrappers, and the markdown block parser.
-It has no UIKit/SwiftUI dependency, so `swift build`/`swift test` exercise it without a simulator.
+`../Packages/YggdrasilCore` holds the platform-agnostic logic: the constrained-YAML codec used by
+typed `_heimdal/**` wrappers, the production Yams + Tree-sitter semantic/source-range boundary used
+for lossless generic-frontmatter provenance custody, `FrontmatterDocument`, and the markdown block
+parser. It has no UIKit/SwiftUI dependency, so `swift build`/`swift test` exercise it without a
+simulator.
 
 ## Client-over-contracts, not a merger
 
@@ -33,30 +35,28 @@ app) over iCloud — see "Vault write consistency" below.
 
 ## Vault write consistency (multi-writer over iCloud)
 
-This slice does not invent a new consistency model. It follows the same discipline the hub's Python
-backend (`app/heimdal/*`) already uses for every `_heimdal/**` note: **read-merge-write**, atomic
-per-file writes (`String.write(atomically: true)`), and idempotent appends (a duplicate override/decision
-write is a no-op, matching the backend's fold semantics). `VaultFileStore.readModifyWrite` and the
-`HeimdalNote` wrappers implement this directly. iCloud's own document coordination handles concurrent
-file replication between devices; this client does not add file coordination on top of that beyond the
-read-merge-write discipline above, which is the same posture the existing backend already relies on — so
-no new multi-writer design decision was required to land this slice. If a gap in that shared model
-surfaces in practice (e.g. lost updates under near-simultaneous edits from two devices), that is hub
-architecture work, not something to redesign inside this client.
+The hub's [ADR-0055](https://github.com/RasmusTho/agentic-pkm-mvp/blob/main/docs/adr/ADR-0055-vault-multiwriter-consistency-model.md) is the decided
+multi-writer model for this vault. Its item 4 requires every writer to tag writes with writer identity
+and timestamp; Bifrost records that attribution in each client-written note's `agent_provenance`
+frontmatter. Its item 5 mechanism is this client's coordinated file access through
+`NSFileCoordinator`.
 
-## Known environment gap
+`VaultFileStore.readModifyWrite` and the `HeimdalNote` wrappers preserve unknown frontmatter through
+read-merge-write, use atomic replacement, and retry a known-stale snapshot. This is Bifrost's
+client-side complement to the hub posture, not a replacement consistency model. The applicable
+discipline is [`docs/contracts/MIMER_CLIENT_CONTRACT.md` §6](https://github.com/RasmusTho/agentic-pkm-mvp/blob/main/docs/contracts/MIMER_CLIENT_CONTRACT.md),
+especially W1–W8, until the ADR-0055 substrate mechanism is fully enacted.
 
-This slice was built in an environment with only Xcode Command Line Tools (no `Xcode.app`), so
-`xcodebuild build`/`test` and `swiftlint --strict` could not be run locally end-to-end here. What *was*
-verified locally:
-- `swift build` for `Packages/YggdrasilCore` compiles cleanly.
-- `plutil -lint` on `project.pbxproj` plus a scripted reference-integrity check (no dangling object ids,
-  every referenced source path exists on disk).
-- Manual review against every opt-in SwiftLint rule in `.swiftlint.yml` (no force-unwraps, no implicitly
-  unwrapped optionals, etc. — `swiftlint` itself couldn't run because `sourcekitdInProc` requires the
-  full Xcode toolchain, not just the Command Line Tools).
+Generic note frontmatter root mappings accept full valid YAML. Yams/libYAML resolves scalar keys,
+tags, aliases, and merge projection; Tree-sitter YAML supplies exact concrete source ranges for
+lossless provenance insertion and key custody. Bifrost changes only semantically proven provenance
+tokens and inserts without reserializing foreign bytes. Invalid YAML, non-mapping documents, parser
+disagreement, or a non-unique source match keeps the requested bytes unchanged and emits the explicit
+best-effort provenance failure log. The complete parser runtime chain is exact-version/revision pinned.
 
-The repo's CI (`.github/workflows/ci.yml`, `macos-14` runner with full Xcode) is the real gate for
-`xcodebuild build`/`test`/`swiftlint --strict` and is the authority on whether this slice actually builds.
-`Packages/YggdrasilCore`'s unit tests (`swift test`, once XCTest is available) cover the frontmatter
-codec, note round-tripping, and markdown block parsing.
+## Validation
+
+The repo's CI (`.github/workflows/ci.yml`) runs strict SwiftLint, the complete
+`Packages/YggdrasilCore` test suite, the shared Yggdrasil scheme on discovered iPhone and iPad
+simulators, and a Watch companion build. The package tests cover the constrained typed-note codec,
+production YAML provenance transformation, note round-tripping, and markdown parsing.

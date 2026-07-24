@@ -30,4 +30,22 @@ final class FrontmatterDocumentTests: XCTestCase {
     func testMissingFrontmatterThrows() {
         XCTAssertThrowsError(try FrontmatterDocument.parse("# No frontmatter here"))
     }
+
+    func testAgentProvenanceBlockOnCreatedNote() throws {
+        var document = FrontmatterDocument(
+            frontmatter: YAMLMap([("artifact_class", .string("draft"))]),
+            body: "Created from Bifrost."
+        )
+
+        document.applyBifrostProvenance(writtenAt: "2026-07-21T10:15:30Z")
+
+        let provenance = try XCTUnwrap(document.frontmatter["agent_provenance"]?.mapValue)
+        XCTAssertEqual(provenance["author"]?.stringValue, "bifrost-ios")
+        XCTAssertEqual(provenance["written_at"]?.stringValue, "2026-07-21T10:15:30Z")
+        XCTAssertEqual(provenance["origin"]?.stringValue, "direct-fs")
+        XCTAssertEqual(document.frontmatter["artifact_class"]?.stringValue, "draft")
+
+        let roundTripped = try FrontmatterDocument.parse(document.rendered())
+        XCTAssertEqual(roundTripped.frontmatter, document.frontmatter)
+    }
 }

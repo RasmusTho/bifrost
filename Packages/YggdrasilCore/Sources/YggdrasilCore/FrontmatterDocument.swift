@@ -50,4 +50,15 @@ public struct FrontmatterDocument: Equatable {
         }
         return text
     }
+
+    /// Records the Bifrost direct-filesystem writer on a note without
+    /// disturbing any unrelated frontmatter owned by another writer.
+    public mutating func applyBifrostProvenance(writtenAt: String) {
+        let provenance = YAMLMap([
+            ("author", .string("bifrost-ios")),
+            ("written_at", .string(writtenAt)),
+            ("origin", .string("direct-fs"))
+        ])
+        frontmatter["agent_provenance"] = .map(provenance)
+    }
 }

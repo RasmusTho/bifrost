@@ -35,6 +35,9 @@ public enum YAMLCodec {
         guard !lines.isEmpty else { return .map(YAMLMap()) }
         var index = 0
         let (value, _) = try parseBlock(lines, &index, indent: lines[0].indent)
+        guard index == lines.count else {
+            throw CodecError.malformedLine(lines[index].content)
+        }
         return value
     }
 

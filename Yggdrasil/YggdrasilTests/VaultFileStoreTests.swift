@@ -1,12 +1,10 @@
 import XCTest
 import YggdrasilCore
 @testable import Yggdrasil
-
 enum VaultFileStoreCoordinationOperation: Equatable {
     case read
     case write
 }
-
 final class RecordingCoordinator: VaultFileCoordinating, @unchecked Sendable {
     var operations: [VaultFileStoreCoordinationOperation] = []
     var beforeNextWrite: (@Sendable (URL) throws -> Void)?
@@ -122,7 +120,7 @@ private final class StaleOnceDelayedCoordinator: VaultFileCoordinating, @uncheck
     }
 }
 
-private final class MutationValueRecorder: @unchecked Sendable {
+final class MutationValueRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var recordedValues: [String] = []
 
@@ -201,7 +199,14 @@ private final class AtomicReadProbe: @unchecked Sendable {
 }
 
 final class VaultFileStoreTests: XCTestCase {
-    private var tempDirectory = FileManager.default.temporaryDirectory
+    var tempDirectory = FileManager.default.temporaryDirectory
+
+    private func genericallyTagged(_ text: String, writtenAt timestamp: String) throws -> String {
+        let closing = try XCTUnwrap(text.range(of: "\n---\n"))
+        let replacement = "\nagent_provenance:\n  author: bifrost-ios\n"
+            + "  written_at: \(timestamp)\n  origin: direct-fs\n---\n"
+        return text.replacingCharacters(in: closing, with: replacement)
+    }
 
     override func setUpWithError() throws {
         tempDirectory = FileManager.default.temporaryDirectory
@@ -220,17 +225,24 @@ final class VaultFileStoreTests: XCTestCase {
         // Large enough to exercise replacement while keeping the concurrent probe bounded on CI simulators.
         let oldText = "---\nversion: old\n---\n\n" + String(repeating: "o", count: 256_000)
         let newText = "---\nversion: new\n---\n\n" + String(repeating: "n", count: 256_000)
-        var modifiedDocument = try FrontmatterDocument.parse(newText)
-        modifiedDocument.frontmatter["replaced"] = .bool(true)
-        let modifiedText = modifiedDocument.rendered()
+        let timestamp = "2026-07-21T10:15:30Z"
+        let taggedOldText = try genericallyTagged(oldText, writtenAt: timestamp)
+        let taggedNewText = try genericallyTagged(newText, writtenAt: timestamp)
+        var taggedModifiedDocument = try FrontmatterDocument.parse(taggedNewText)
+        taggedModifiedDocument.frontmatter["replaced"] = .bool(true)
+        let taggedModifiedText = taggedModifiedDocument.rendered()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try oldText.write(to: url, atomically: true, encoding: .utf8)
 
-        let store = VaultFileStore(rootURL: tempDirectory)
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { timestamp }
+        )
         let probe = AtomicReadProbe(allowedSnapshots: Set([
             Data(oldText.utf8),
-            Data(newText.utf8),
-            Data(modifiedText.utf8)
+            Data(taggedOldText.utf8),
+            Data(taggedNewText.utf8),
+            Data(taggedModifiedText.utf8)
         ]))
         let readers = (0..<4).map { _ in
             Task.detached {
@@ -258,7 +270,7 @@ final class VaultFileStoreTests: XCTestCase {
         let observation = probe.result
         XCTAssertGreaterThan(observation.readCount, 0)
         XCTAssertNil(observation.invalidObservation, observation.invalidObservation ?? "")
-        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), modifiedText)
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), taggedModifiedText)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["atomic.md"])
     }
 
@@ -316,6 +328,36 @@ final class VaultFileStoreTests: XCTestCase {
             XCTFail("expected staleWriteContention, got \(error)")
         }
         XCTAssertEqual(coordinator.writeAttempts, 3)
+    }
+}
+extension VaultFileStoreTests {
+    func testProvenanceFailureDoesNotBlockWrite() async throws {
+        struct ProvenanceFailure: Error {}
+        let path = "notes/untagged.md"
+        let loggedFailures = MutationValueRecorder()
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { throw ProvenanceFailure() },
+            provenanceFailureLogger: { loggedFailures.record($0) }
+        )
+        let text = "---\ntitle: Untagged fallback\nagent_provenance:\n"
+            + "  author: another-writer\n  written_at: old\n  origin: imported\n"
+            + "next: preserved\n---\n\nThe user's write still lands.\n"
+        try await store.write(text, to: path)
+        let saved = try await store.read(path)
+        XCTAssertEqual(
+            saved,
+            "---\ntitle: Untagged fallback\nformer_writer_attribution:\n"
+                + "  author: another-writer\n  written_at: old\n  origin: imported\n"
+                + "next: preserved\n---\n\nThe user's write still lands.\n"
+        )
+        XCTAssertFalse(saved.contains("agent_provenance"))
+        XCTAssertTrue(saved.contains("another-writer"))
+        XCTAssertEqual(loggedFailures.values.count, 1)
+        XCTAssertTrue(loggedFailures.values[0].contains(path))
+        XCTAssertTrue(
+            loggedFailures.values[0].contains("neutralized stale attribution before writing sanitized bytes")
+        )
     }
 
     @MainActor
