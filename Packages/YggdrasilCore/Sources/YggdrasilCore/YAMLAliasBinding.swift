@@ -20,6 +20,19 @@ extension ParsedYAML {
         }
     }
 
+    func nearestSyntaxPair(
+        containing node: SwiftTreeSitter.Node
+    ) -> SwiftTreeSitter.Node? {
+        var ancestor = node.parent
+        while let current = ancestor {
+            if current.nodeType == "block_mapping_pair" || current.nodeType == "flow_pair" {
+                return current
+            }
+            ancestor = current.parent
+        }
+        return nil
+    }
+
     private func referenceNodes(
         type: String,
         prefix: Character,

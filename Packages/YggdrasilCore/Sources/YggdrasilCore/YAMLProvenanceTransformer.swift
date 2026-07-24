@@ -222,11 +222,22 @@ private extension ParsedYAML {
 
     func keyHasSharedAnchor(_ source: SemanticSource) -> Bool {
         guard source.pairIndex < source.mapping.count,
-              let mappingNode = uniqueSyntaxMapping(for: source.mapping) else {
-            return false
-        }
-        if mappingHasForeignAliasConsumer(mappingNode) {
+              let mappingNode = uniqueSyntaxMapping(for: source.mapping),
+              case .mapping(let rootMapping) = semanticRoot,
+              let dependencyMappings = SemanticMapping.mergeDependencyMappings(
+                  containing: source,
+                  in: rootMapping
+              ) else {
             return true
+        }
+
+        for dependencyMapping in dependencyMappings {
+            guard let dependencyNode = uniqueSyntaxMapping(for: dependencyMapping) else {
+                return true
+            }
+            if mappingHasForeignAliasConsumer(dependencyNode) {
+                return true
+            }
         }
         let pairs = syntaxPairs(in: mappingNode)
         guard source.pairIndex < pairs.count,
@@ -275,19 +286,6 @@ private extension ParsedYAML {
                 NSLocationInRange($0, keyNode.range)
             }
         }
-    }
-
-    private func nearestSyntaxPair(
-        containing node: SwiftTreeSitter.Node
-    ) -> SwiftTreeSitter.Node? {
-        var ancestor = node.parent
-        while let current = ancestor {
-            if current.nodeType == "block_mapping_pair" || current.nodeType == "flow_pair" {
-                return current
-            }
-            ancestor = current.parent
-        }
-        return nil
     }
 
     private func concreteKeyToken(in keyNode: SwiftTreeSitter.Node) -> YAMLConcreteKeyToken? {

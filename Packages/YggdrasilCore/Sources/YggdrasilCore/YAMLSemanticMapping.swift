@@ -56,6 +56,75 @@ enum SemanticMapping {
         return marks
     }
 
+    static func mergeDependencyMappings(
+        containing source: SemanticSource,
+        in mapping: Yams.Node.Mapping
+    ) -> [Yams.Node.Mapping]? {
+        var activeMappings: Set<MappingIdentity> = []
+        guard let path = collectMergeDependencyMappings(
+            containing: MappingIdentity(source.mapping),
+            in: mapping,
+            activeMappings: &activeMappings
+        ),
+        !path.isEmpty else {
+            return nil
+        }
+
+        var seen: Set<MappingIdentity> = []
+        return path.filter { seen.insert(MappingIdentity($0)).inserted }
+    }
+
+    private static func collectMergeDependencyMappings(
+        containing target: MappingIdentity,
+        in mapping: Yams.Node.Mapping,
+        activeMappings: inout Set<MappingIdentity>
+    ) -> [Yams.Node.Mapping]? {
+        let identity = MappingIdentity(mapping)
+        guard activeMappings.insert(identity).inserted else { return nil }
+        defer { activeMappings.remove(identity) }
+
+        if identity == target {
+            return [mapping]
+        }
+
+        var dependencies: [Yams.Node.Mapping] = []
+        for pair in mapping where pair.key.tag.rawValue == Tag.Name.merge.rawValue {
+            guard let mergedMappings = mergedMappings(from: pair.value) else { return nil }
+            for mergedMapping in mergedMappings {
+                guard let childDependencies = collectMergeDependencyMappings(
+                    containing: target,
+                    in: mergedMapping,
+                    activeMappings: &activeMappings
+                ) else {
+                    return nil
+                }
+                dependencies.append(contentsOf: childDependencies)
+            }
+        }
+
+        guard !dependencies.isEmpty else { return [] }
+        dependencies.append(mapping)
+        return dependencies
+    }
+
+    private static func mergedMappings(
+        from value: Yams.Node
+    ) -> [Yams.Node.Mapping]? {
+        switch value {
+        case .mapping(let mapping):
+            return [mapping]
+        case .sequence(let sequence):
+            var mappings: [Yams.Node.Mapping] = []
+            for item in sequence {
+                guard case .mapping(let mapping) = item else { return nil }
+                mappings.append(mapping)
+            }
+            return mappings
+        default:
+            return nil
+        }
+    }
+
     private static func collectReachableMergeKeyMarks(
         in mapping: Yams.Node.Mapping,
         activeMappings: inout Set<MappingIdentity>,
