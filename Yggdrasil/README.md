@@ -48,14 +48,14 @@ discipline is [`docs/contracts/MIMER_CLIENT_CONTRACT.md` §6](https://github.com
 especially W1–W8, until the ADR-0055 substrate mechanism is fully enacted.
 
 Generic note frontmatter custody targets full valid YAML. The current semantic boundary uses
-Yams/libYAML to resolve scalar keys, tags, aliases, and merge projection; Tree-sitter YAML supplies
-exact concrete source ranges for lossless provenance insertion and key custody. Yams/libYAML does not
-currently accept some YAML 1.2-valid punctuation and Unicode anchor names (tracked by
-[bifrost#40](https://github.com/RasmusTho/bifrost/issues/40)). Those documents, along with invalid
-YAML, non-mapping documents, parser disagreement, or a non-unique source match, keep the requested
-bytes unchanged and emit the explicit best-effort provenance failure log. Bifrost changes only
-semantically proven provenance tokens and inserts without reserializing foreign bytes. The complete
-parser runtime chain is exact-version/revision pinned.
+Yams/libYAML to resolve scalar keys, tags, aliases, and merge projection; its semantic input adapts
+YAML 1.2-valid punctuation and Unicode anchor spellings to same-width ASCII reference names before
+composition. Tree-sitter YAML remains the concrete-source authority, so the original bytes and
+source ranges are retained for every custody decision and mutation. Invalid YAML, non-mapping
+documents, parser disagreement, or a non-unique source match keep the requested bytes unchanged and
+emit the explicit best-effort provenance failure log. Bifrost changes only semantically proven
+provenance tokens and inserts without reserializing foreign bytes. The complete parser runtime chain
+is exact-version/revision pinned.
 
 ## Validation
 
