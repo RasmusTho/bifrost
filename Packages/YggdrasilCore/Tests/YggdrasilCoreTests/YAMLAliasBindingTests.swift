@@ -2,6 +2,48 @@ import XCTest
 @testable import YggdrasilCore
 
 final class YAMLAliasBindingTests: XCTestCase {
+    func testPunctuationAnchorNameRefreshes() {
+        assertRefresh(
+            """
+            ---
+            base: &base.one {agent_provenance: stale, keep: punctuation}
+            <<: *base.one
+            ---
+            """,
+            expected: """
+            ---
+            base: &base.one {former_writer_attribution: stale, keep: punctuation}
+            <<: *base.one
+            agent_provenance:
+              author: bifrost-ios
+              written_at: 2026-07-23T21:20:00Z
+              origin: direct-fs
+            ---
+            """
+        )
+    }
+
+    func testUnicodeAnchorNameRefreshes() {
+        assertRefresh(
+            """
+            ---
+            base: &båse {agent_provenance: stale, keep: ångström}
+            <<: *båse
+            ---
+            """,
+            expected: """
+            ---
+            base: &båse {former_writer_attribution: stale, keep: ångström}
+            <<: *båse
+            agent_provenance:
+              author: bifrost-ios
+              written_at: 2026-07-23T21:20:00Z
+              origin: direct-fs
+            ---
+            """
+        )
+    }
+
     func testFlowAnchorReuseBindsAliasesToNearestPriorDefinition() {
         assertRefresh(
             """
