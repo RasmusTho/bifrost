@@ -1,7 +1,9 @@
 import XCTest
+import UIKit
 
 final class YggdrasilUITests: XCTestCase {
     func testAuthGatePrecedesVaultContent() throws {
+        try requireIPhone()
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-ui-testing-auth-locked"]
         app.launch()
@@ -12,6 +14,7 @@ final class YggdrasilUITests: XCTestCase {
     }
 
     func testVaultSelectionHasNoTextInput() throws {
+        try requireIPhone()
         let app = launchVaultPicker()
         let picker = app.descendants(matching: .any)["yggdrasil.vaultPicker"]
 
@@ -22,25 +25,34 @@ final class YggdrasilUITests: XCTestCase {
     }
 
     func testHeimdalNoteRenderEditRoundTrip() throws {
+        try requireIPhone()
         let app = launchFixtureVault()
         openFixtureRoundTripNote(in: app)
+        XCTAssertTrue(app.staticTexts["UAT fixture note"].waitForExistence(timeout: 5))
 
         app.buttons["Edit"].tap()
         let editor = app.textViews["yggdrasil.noteEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.tap()
+        editor.typeKey(.end, modifierFlags: [])
         editor.typeText("\nSaved by XCUITest.")
         app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
 
-        // Relaunching forces the renderer to read the saved fixture from disk,
-        // rather than merely asserting the TextEditor's in-memory value.
+        // Relaunching and reopening edit mode forces a fresh disk read rather
+        // than merely asserting the prior TextEditor's in-memory value.
         app.terminate()
         app.launch()
         openFixtureRoundTripNote(in: app)
-        XCTAssertTrue(app.staticTexts["Saved by XCUITest."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["UAT fixture note"].waitForExistence(timeout: 5))
+        app.buttons["Edit"].tap()
+        let reloadedEditor = app.textViews["yggdrasil.noteEditor"]
+        XCTAssertTrue(reloadedEditor.waitForExistence(timeout: 5))
+        XCTAssertTrue((reloadedEditor.value as? String)?.contains("Saved by XCUITest.") == true)
     }
 
     func testAllFiveLensesLoadFixtureNotes() throws {
+        try requireIPhone()
         let app = launchFixtureVault()
 
         XCTAssertTrue(app.staticTexts["fixture_attention"].waitForExistence(timeout: 10))
@@ -69,9 +81,21 @@ final class YggdrasilUITests: XCTestCase {
         return app
     }
 
+    private func requireIPhone() throws {
+        try XCTSkipUnless(
+            UIDevice.current.userInterfaceIdiom == .phone,
+            "B1 acceptance journeys verify the iPhone Mimer tab surface; iPad canvas coverage is separate."
+        )
+    }
+
     private func launchFixtureVault() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-ui-testing", "-ui-testing-auth-unlocked", "-ui-testing-uat-fixture"]
+        app.launchArguments = [
+            "-ui-testing",
+            "-ui-testing-auth-unlocked",
+            "-ui-testing-uat-fixture",
+            UUID().uuidString
+        ]
         app.launch()
         return app
     }
@@ -96,6 +120,5 @@ final class YggdrasilUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Vault"].waitForExistence(timeout: 10))
         app.buttons["_heimdal"].tap()
         app.buttons["uat-roundtrip.md"].tap()
-        XCTAssertTrue(app.staticTexts["UAT fixture note"].waitForExistence(timeout: 5))
     }
 }

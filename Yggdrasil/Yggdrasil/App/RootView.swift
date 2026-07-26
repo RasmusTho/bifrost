@@ -33,6 +33,13 @@ struct UITestLaunchConfiguration {
         return nil
     }
 
+    var fixtureIdentifier: String? {
+        guard fixtureKind == .uat,
+              let flagIndex = arguments.firstIndex(of: "-ui-testing-uat-fixture"),
+              arguments.indices.contains(flagIndex + 1) else { return nil }
+        return arguments[flagIndex + 1]
+    }
+
     private var isEnabled: Bool {
 #if DEBUG
         arguments.contains("-ui-testing")
@@ -100,7 +107,7 @@ struct RootView: View {
     private var testFixtureVaultURL: URL? {
 #if DEBUG
         guard let fixtureKind = testLaunchConfiguration.fixtureKind else { return nil }
-        return mimerTestingVaultURL(for: fixtureKind)
+        return mimerTestingVaultURL(for: fixtureKind, fixtureIdentifier: testLaunchConfiguration.fixtureIdentifier)
 #else
         nil
 #endif
@@ -110,12 +117,15 @@ struct RootView: View {
 /// Test-only fixture setup keeps UI tests independent of a human vault. The
 /// client still uses only the normal read/list/write store calls against this
 /// temporary directory.
-private func mimerTestingVaultURL(for fixtureKind: UITestLaunchConfiguration.FixtureKind) -> URL {
+private func mimerTestingVaultURL(
+    for fixtureKind: UITestLaunchConfiguration.FixtureKind,
+    fixtureIdentifier: String?
+) -> URL {
     switch fixtureKind {
     case .canvas:
         return canvasTestingVaultURL()
     case .uat:
-        return uatTestingVaultURL()
+        return uatTestingVaultURL(identifier: fixtureIdentifier ?? "default")
     }
 }
 
@@ -138,8 +148,14 @@ private func canvasTestingVaultURL() -> URL {
     return root
 }
 
-private func uatTestingVaultURL() -> URL {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("YggdrasilUATUITestVault")
+private func uatTestingVaultURL(identifier: String) -> URL {
+    let safeIdentifier = identifier.unicodeScalars.filter { scalar in
+        CharacterSet.alphanumerics.contains(scalar) || scalar == "-"
+    }
+    let fixtureDirectoryName = String(String.UnicodeScalarView(safeIdentifier))
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "YggdrasilUATUITestVault-\(fixtureDirectoryName.isEmpty ? "default" : fixtureDirectoryName)"
+    )
     let marker = root.appendingPathComponent(".seeded")
     guard !FileManager.default.fileExists(atPath: marker.path) else { return root }
 
@@ -148,11 +164,10 @@ private func uatTestingVaultURL() -> URL {
     pending:
       - queue_entry_id: fixture-entry
         mention_id: fixture-mention
-        surface_form: Fixture Entity
+        surface_form: "Fixture Entity"
         resolution: pending
         confidence: 0.9
-        candidate_entity_ids:
-          - fixture-candidate
+    decisions: []
     ---
     """ + "\n"
     let consentFixture = """
