@@ -12,53 +12,17 @@ extension ParsedYAML {
         from source: String,
         syntaxRoot: SwiftTreeSitter.Node
     ) -> String? {
-        var references: [YAMLReferenceSpelling] = []
-
-        func visit(_ node: SwiftTreeSitter.Node) {
-            if node.nodeType == "anchor" || node.nodeType == "alias",
-               let range = Range(node.range, in: source),
-               let prefix = source[range].first,
-               prefix == "&" || prefix == "*",
-               !source[range].dropFirst().isEmpty {
-                references.append(
-                    YAMLReferenceSpelling(
-                        range: node.range,
-                        prefix: prefix,
-                        name: String(source[range].dropFirst())
-                    )
-                )
-            }
-            for index in 0..<node.namedChildCount {
-                guard let child = node.namedChild(at: index) else { continue }
-                visit(child)
-            }
-        }
-        visit(syntaxRoot)
-
+        let references = collectReferences(from: syntaxRoot, source: source)
         var names = Set(references.map(\.name))
         var replacements: [String: String] = [:]
         var next = 0
         for reference in references where replacements[reference.name] == nil {
             let length = max(1, reference.name.utf16.count)
-            var candidate: String
-            if length == 1 {
-                let alphabet = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
-                guard let available = alphabet.dropFirst(next).first(where: { !names.contains(String($0)) }) else {
-                    return nil
-                }
-                candidate = String(available)
-                next = alphabet.firstIndex(of: available).map { $0 + 1 } ?? next + 1
-            } else {
-                repeat {
-                    let seed = "b\(next)"
-                    candidate = String(seed.prefix(length)).padding(
-                        toLength: length,
-                        withPad: "x",
-                        startingAt: 0
-                    )
-                    next += 1
-                } while names.contains(candidate)
-            }
+            guard let candidate = availableCandidate(
+                length: length,
+                names: names,
+                next: &next
+            ) else { return nil }
             names.insert(candidate)
             replacements[reference.name] = candidate
         }
@@ -72,5 +36,56 @@ extension ParsedYAML {
             normalized.replaceSubrange(range, with: "\(reference.prefix)\(replacement)")
         }
         return normalized
+    }
+
+    private static func collectReferences(
+        from node: SwiftTreeSitter.Node,
+        source: String
+    ) -> [YAMLReferenceSpelling] {
+        var references: [YAMLReferenceSpelling] = []
+        if node.nodeType == "anchor" || node.nodeType == "alias",
+           let range = Range(node.range, in: source),
+           let prefix = source[range].first,
+           prefix == "&" || prefix == "*",
+           !source[range].dropFirst().isEmpty {
+            references.append(
+                YAMLReferenceSpelling(
+                    range: node.range,
+                    prefix: prefix,
+                    name: String(source[range].dropFirst())
+                )
+            )
+        }
+        for index in 0..<node.namedChildCount {
+            guard let child = node.namedChild(at: index) else { continue }
+            references.append(contentsOf: collectReferences(from: child, source: source))
+        }
+        return references
+    }
+
+    private static func availableCandidate(
+        length: Int,
+        names: Set<String>,
+        next: inout Int
+    ) -> String? {
+        if length == 1 {
+            let alphabet = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+            guard let available = alphabet.dropFirst(next).first(where: { !names.contains(String($0)) }) else {
+                return nil
+            }
+            next = alphabet.firstIndex(of: available).map { $0 + 1 } ?? next + 1
+            return String(available)
+        }
+        var candidate: String
+        repeat {
+            let seed = "b\(next)"
+            candidate = String(seed.prefix(length)).padding(
+                toLength: length,
+                withPad: "x",
+                startingAt: 0
+            )
+            next += 1
+        } while names.contains(candidate)
+        return candidate
     }
 }
