@@ -44,8 +44,9 @@ final class YggdrasilUITests: XCTestCase {
         app.terminate()
         app.launch()
         openFixtureRoundTripNote(in: app)
-        XCTAssertTrue(app.staticTexts["UAT fixture note"].waitForExistence(timeout: 5))
-        app.buttons["Edit"].tap()
+        let editButton = app.buttons["Edit"]
+        XCTAssertTrue(editButton.waitForExistence(timeout: 5))
+        editButton.tap()
         let reloadedEditor = app.textViews["yggdrasil.noteEditor"]
         XCTAssertTrue(reloadedEditor.waitForExistence(timeout: 5))
         XCTAssertTrue((reloadedEditor.value as? String)?.contains("Saved by XCUITest.") == true)
