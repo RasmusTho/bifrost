@@ -79,11 +79,8 @@ extension ParsedYAML {
         var candidate: String
         repeat {
             let seed = "b\(next)"
-            candidate = String(seed.prefix(length)).padding(
-                toLength: length,
-                withPad: "x",
-                startingAt: 0
-            )
+            let prefix = String(seed.prefix(length))
+            candidate = prefix + String(repeating: "x", count: length - prefix.count)
             next += 1
         } while names.contains(candidate)
         return candidate
