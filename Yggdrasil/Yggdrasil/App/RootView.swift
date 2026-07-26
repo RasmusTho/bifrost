@@ -159,6 +159,23 @@ private func uatTestingVaultURL(identifier: String) -> URL {
     let marker = root.appendingPathComponent(".seeded")
     guard !FileManager.default.fileExists(atPath: marker.path) else { return root }
 
+    do {
+        for (relativePath, contents) in uatFixtureFiles() {
+            let fileURL = root.appendingPathComponent(relativePath)
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try contents.write(to: fileURL, atomically: true, encoding: .utf8)
+        }
+        try Data().write(to: marker, options: .atomic)
+    } catch {
+        assertionFailure("Couldn't create the UI-test fixture vault: \(error)")
+    }
+    return root
+}
+
+private func uatFixtureFiles() -> [String: String] {
     let entityReviewFixture = """
     ---
     pending:
@@ -179,7 +196,7 @@ private func uatTestingVaultURL(identifier: String) -> URL {
         granted_at: 2026-07-26
     ---
     """ + "\n"
-    let files: [String: String] = [
+    return [
         HeimdalPaths.attention(for: Date()): "---\ncounts:\n  fixture_attention: 1\n---\n",
         HeimdalPaths.interests: "---\nweights:\n  fixture_interest: 0.5\n---\n",
         HeimdalPaths.watchlist: "---\nwatched:\n  - fixture watch\n---\n",
@@ -189,21 +206,6 @@ private func uatTestingVaultURL(identifier: String) -> URL {
         HeimdalPaths.settings: "---\nretention_window_days: 45\n---\n",
         "_heimdal/uat-roundtrip.md": "# UAT fixture note\n\nInitial fixture content.\n"
     ]
-
-    do {
-        for (relativePath, contents) in files {
-            let fileURL = root.appendingPathComponent(relativePath)
-            try FileManager.default.createDirectory(
-                at: fileURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try contents.write(to: fileURL, atomically: true, encoding: .utf8)
-        }
-        try Data().write(to: marker, options: .atomic)
-    } catch {
-        assertionFailure("Couldn't create the UI-test fixture vault: \(error)")
-    }
-    return root
 }
 
 private struct VaultSwitcherBar: View {
