@@ -3,7 +3,7 @@ import XCTest
 final class HeimdalShellUITests: XCTestCase {
     func testHeimdalAreaReachable() throws {
         let app = XCUIApplication()
-        app.launchArguments.append("-ui-testing-auth-unlocked")
+        app.launchArguments += ["-ui-testing", "-ui-testing-auth-unlocked"]
         app.launch()
 
         // Floating iPad tab bars can expose items as cells or other elements,

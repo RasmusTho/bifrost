@@ -24,6 +24,7 @@ struct NoteDetailView: View {
                 }
                 if isEditing {
                     TextEditor(text: $rawText)
+                        .accessibilityIdentifier("yggdrasil.noteEditor")
                         .font(YggTheme.Typography.monospaceBody)
                         .frame(minHeight: 320)
                         .padding(YggTheme.Spacing.xs)

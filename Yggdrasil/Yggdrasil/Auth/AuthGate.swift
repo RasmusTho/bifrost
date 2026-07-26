@@ -16,10 +16,14 @@ final class AuthGate: ObservableObject {
     }
 
     @Published private(set) var state: State
+    private let suppressAutomaticAuthentication: Bool
 
-    init(initialState: State = .locked) {
+    init(initialState: State = .locked, suppressAutomaticAuthentication: Bool = false) {
         state = initialState
+        self.suppressAutomaticAuthentication = suppressAutomaticAuthentication
     }
+
+    var shouldAutomaticallyAuthenticate: Bool { !suppressAutomaticAuthentication }
 
     func authenticate() {
         let context = LAContext()
@@ -77,8 +81,9 @@ struct AuthGateView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(YggTheme.Color.background)
+        .accessibilityIdentifier("yggdrasil.authGate")
         .onAppear {
-            if gate.state == .locked {
+            if gate.state == .locked, gate.shouldAutomaticallyAuthenticate {
                 gate.authenticate()
             }
         }

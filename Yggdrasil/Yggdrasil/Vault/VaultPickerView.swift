@@ -52,6 +52,7 @@ struct VaultPickerView: View {
                 }
             }
         }
+        .accessibilityIdentifier("yggdrasil.vaultPicker")
     }
 }
 

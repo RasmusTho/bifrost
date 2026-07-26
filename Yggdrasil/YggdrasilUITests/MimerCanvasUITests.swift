@@ -189,7 +189,7 @@ final class MimerCanvasUITests: XCTestCase {
         if UIDevice.current.userInterfaceIdiom == .pad {
             XCUIDevice.shared.orientation = .landscapeLeft
         }
-        app.launchArguments += ["-ui-testing-auth-unlocked", "-ui-testing-mimer-shell"]
+        app.launchArguments += ["-ui-testing", "-ui-testing-auth-unlocked", "-ui-testing-mimer-shell"]
         if withFixture {
             app.launchArguments.append("-ui-testing-mimer-fixture")
         }
