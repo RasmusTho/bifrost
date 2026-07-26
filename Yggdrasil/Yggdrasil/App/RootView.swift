@@ -5,7 +5,7 @@ import YggdrasilCore
 /// DEBUG-only launch configuration for deterministic UI journeys. Every
 /// override requires the explicit `-ui-testing` marker, so shipping builds
 /// continue through the normal auth and visual vault-picker paths.
-enum UITestLaunchConfiguration {
+struct UITestLaunchConfiguration {
     enum FixtureKind: Equatable {
         case canvas
         case uat
