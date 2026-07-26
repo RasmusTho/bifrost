@@ -165,10 +165,12 @@ struct ParsedYAML {
             // than YAML 1.2. Normalize only reference spellings in the
             // semantic input; all concrete-source proof and mutations still
             // use the original source and the original syntax tree.
-            let semanticSource = Self.semanticSource(
+            guard let semanticSource = Self.semanticSource(
                 from: source,
                 syntaxRoot: syntaxRoot
-            )
+            ) else {
+                return nil
+            }
             guard let semanticRoot = try Yams.compose(yaml: semanticSource) else {
                 return nil
             }

@@ -2,6 +2,27 @@ import XCTest
 @testable import YggdrasilCore
 
 final class YAMLAliasBindingTests: XCTestCase {
+    func testSingleCharacterAnchorNameRefreshes() {
+        assertRefresh(
+            """
+            ---
+            base: &b {agent_provenance: stale, keep: one-character}
+            <<: *b
+            ---
+            """,
+            expected: """
+            ---
+            base: &b {former_writer_attribution: stale, keep: one-character}
+            <<: *b
+            agent_provenance:
+              author: bifrost-ios
+              written_at: 2026-07-23T21:20:00Z
+              origin: direct-fs
+            ---
+            """
+        )
+    }
+
     func testPunctuationAnchorNameRefreshes() {
         assertRefresh(
             """

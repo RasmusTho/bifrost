@@ -11,7 +11,7 @@ extension ParsedYAML {
     static func semanticSource(
         from source: String,
         syntaxRoot: SwiftTreeSitter.Node
-    ) -> String {
+    ) -> String? {
         var references: [YAMLReferenceSpelling] = []
 
         func visit(_ node: SwiftTreeSitter.Node) {
@@ -39,17 +39,26 @@ extension ParsedYAML {
         var replacements: [String: String] = [:]
         var next = 0
         for reference in references where replacements[reference.name] == nil {
-            var candidate: String
             let length = max(1, reference.name.utf16.count)
-            repeat {
-                let seed = "b\(next)"
-                candidate = String(seed.prefix(length)).padding(
-                    toLength: length,
-                    withPad: "x",
-                    startingAt: 0
-                )
-                next += 1
-            } while names.contains(candidate)
+            var candidate: String
+            if length == 1 {
+                let alphabet = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+                guard let available = alphabet.dropFirst(next).first(where: { !names.contains(String($0)) }) else {
+                    return nil
+                }
+                candidate = String(available)
+                next = alphabet.firstIndex(of: available).map { $0 + 1 } ?? next + 1
+            } else {
+                repeat {
+                    let seed = "b\(next)"
+                    candidate = String(seed.prefix(length)).padding(
+                        toLength: length,
+                        withPad: "x",
+                        startingAt: 0
+                    )
+                    next += 1
+                } while names.contains(candidate)
+            }
             names.insert(candidate)
             replacements[reference.name] = candidate
         }
