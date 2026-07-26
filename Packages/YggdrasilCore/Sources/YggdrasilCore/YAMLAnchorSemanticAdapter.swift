@@ -93,7 +93,7 @@ extension ParsedYAML {
     private static func asciiCandidate(width: Int, ordinal: Int) -> String? {
         if width == 1 {
             guard ordinal < oneCharacterAlphabet.count else { return nil }
-            return String(decoding: [oneCharacterAlphabet[ordinal]], as: UTF8.self)
+            return String(bytes: [oneCharacterAlphabet[ordinal]], encoding: .utf8)
         }
         var bytes = Array(repeating: UInt8(ascii: "x"), count: width)
         bytes[0] = UInt8(ascii: "b")
@@ -102,7 +102,7 @@ extension ParsedYAML {
             bytes[offset] = digitAlphabet[remaining % digitAlphabet.count]
             remaining /= digitAlphabet.count
         }
-        return String(decoding: bytes, as: UTF8.self)
+        return String(bytes: bytes, encoding: .utf8)
     }
 
     private static let oneCharacterAlphabet = Array(
