@@ -7,35 +7,87 @@ private struct YAMLReferenceSpelling {
     let name: String
 }
 
+private struct YAMLSemanticColumnEdit {
+    let line: Int
+    let originalColumn: Int
+    let originalLength: Int
+    let semanticLength: Int
+}
+
+struct YAMLSemanticSource {
+    let text: String
+    private let editsByLine: [Int: [YAMLSemanticColumnEdit]]
+
+    fileprivate init(
+        text: String,
+        edits: [YAMLSemanticColumnEdit]
+    ) {
+        self.text = text
+        editsByLine = Dictionary(grouping: edits, by: \.line)
+            .mapValues { $0.sorted { $0.originalColumn < $1.originalColumn } }
+    }
+
+    func originalColumn(line: Int, semanticColumn: Int) -> Int? {
+        guard line > 0, semanticColumn > 0 else { return nil }
+        var accumulatedDelta = 0
+        for edit in editsByLine[line, default: []] {
+            let semanticStart = edit.originalColumn + accumulatedDelta
+            let semanticEnd = semanticStart + edit.semanticLength
+            if semanticColumn < semanticStart {
+                break
+            }
+            if semanticColumn == semanticStart {
+                return edit.originalColumn
+            }
+            if semanticColumn < semanticEnd {
+                return nil
+            }
+            accumulatedDelta += edit.semanticLength - edit.originalLength
+        }
+        return semanticColumn - accumulatedDelta
+    }
+}
+
 extension ParsedYAML {
     static func semanticSource(
         from source: String,
         syntaxRoot: SwiftTreeSitter.Node
-    ) -> String? {
+    ) -> YAMLSemanticSource? {
         let references = collectReferences(from: syntaxRoot, source: source)
-        var names = Set(references.map(\.name))
         var replacements: [String: String] = [:]
-        var nextByWidth: [Int: Int] = [:]
         for reference in references where replacements[reference.name] == nil {
-            let utf16Width = max(1, reference.name.utf16.count)
-            guard let candidate = availableCandidate(
-                utf16Width: utf16Width,
-                names: names,
-                nextByWidth: &nextByWidth
-            ) else { return nil }
-            names.insert(candidate)
-            replacements[reference.name] = candidate
+            guard let replacement = candidate(ordinal: replacements.count) else {
+                return nil
+            }
+            replacements[reference.name] = replacement
+        }
+
+        var edits: [YAMLSemanticColumnEdit] = []
+        for reference in references {
+            guard let range = Range(reference.range, in: source),
+                  let replacement = replacements[reference.name],
+                  let position = scalarPosition(at: range.lowerBound, in: source) else {
+                return nil
+            }
+            edits.append(
+                YAMLSemanticColumnEdit(
+                    line: position.line,
+                    originalColumn: position.column,
+                    originalLength: source[range].unicodeScalars.count,
+                    semanticLength: 1 + replacement.unicodeScalars.count
+                )
+            )
         }
 
         var normalized = source
         for reference in references.sorted(by: { $0.range.location > $1.range.location }) {
             guard let range = Range(reference.range, in: normalized),
                   let replacement = replacements[reference.name] else {
-                continue
+                return nil
             }
             normalized.replaceSubrange(range, with: "\(reference.prefix)\(replacement)")
         }
-        return normalized
+        return YAMLSemanticSource(text: normalized, edits: edits)
     }
 
     private static func collectReferences(
@@ -63,50 +115,43 @@ extension ParsedYAML {
         return references
     }
 
-    private static func availableCandidate(
-        utf16Width: Int,
-        names: Set<String>,
-        nextByWidth: inout [Int: Int]
-    ) -> String? {
-        let start = nextByWidth[utf16Width, default: 0]
-        guard let capacity = candidateCapacity(for: utf16Width) else { return nil }
-        for ordinal in start..<capacity {
-            guard let candidate = asciiCandidate(width: utf16Width, ordinal: ordinal) else {
-                return nil
+    private static func scalarPosition(
+        at target: String.Index,
+        in source: String
+    ) -> (line: Int, column: Int)? {
+        guard let scalarTarget = target.samePosition(in: source.unicodeScalars) else {
+            return nil
+        }
+        var line = 1
+        var column = 1
+        var index = source.unicodeScalars.startIndex
+        while index < scalarTarget {
+            let scalar = source.unicodeScalars[index]
+            index = source.unicodeScalars.index(after: index)
+            if scalar == "\n" {
+                line += 1
+                column = 1
+            } else {
+                column += 1
             }
-            nextByWidth[utf16Width] = ordinal + 1
-            if !names.contains(candidate) {
-                return candidate
-            }
         }
-        return nil
+        return (line, column)
     }
 
-    private static func candidateCapacity(for width: Int) -> Int? {
-        let alphabetSize = width == 1 ? oneCharacterAlphabet.count : digitAlphabet.count
-        return (0..<max(1, width - 1)).reduce(1) { capacity, _ in
-            guard capacity <= Int.max / alphabetSize else { return 0 }
-            return capacity * alphabetSize
-        }
+    private static func candidate(ordinal: Int) -> String? {
+        var value = ordinal
+        var digits: [UInt8] = []
+        repeat {
+            digits.append(candidateAlphabet[value % candidateAlphabet.count])
+            value /= candidateAlphabet.count
+        } while value > 0
+        return String(
+            bytes: [UInt8(ascii: "x")] + digits.reversed(),
+            encoding: .utf8
+        )
     }
 
-    private static func asciiCandidate(width: Int, ordinal: Int) -> String? {
-        if width == 1 {
-            guard ordinal < oneCharacterAlphabet.count else { return nil }
-            return String(bytes: [oneCharacterAlphabet[ordinal]], encoding: .utf8)
-        }
-        var bytes = Array(repeating: UInt8(ascii: "x"), count: width)
-        bytes[0] = UInt8(ascii: "b")
-        var remaining = ordinal
-        for offset in stride(from: width - 1, through: 1, by: -1) {
-            bytes[offset] = digitAlphabet[remaining % digitAlphabet.count]
-            remaining /= digitAlphabet.count
-        }
-        return String(bytes: bytes, encoding: .utf8)
-    }
-
-    private static let oneCharacterAlphabet = Array(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_".utf8
+    private static let candidateAlphabet = Array(
+        "0123456789abcdefghijklmnopqrstuvwxyz".utf8
     )
-    private static let digitAlphabet = Array("0123456789abcdefghijklmnopqrstuvwxyz".utf8)
 }

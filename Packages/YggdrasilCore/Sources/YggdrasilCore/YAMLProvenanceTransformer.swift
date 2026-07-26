@@ -148,6 +148,7 @@ struct ParsedYAML {
     let source: String
     let semanticRoot: Yams.Node
     let syntaxRoot: SwiftTreeSitter.Node
+    let semanticSource: YAMLSemanticSource
     let semanticKeyNames: Set<String>
     let concreteMappingPairCount: Int
 
@@ -171,13 +172,14 @@ struct ParsedYAML {
             ) else {
                 return nil
             }
-            guard let semanticRoot = try Yams.compose(yaml: semanticSource) else {
+            guard let semanticRoot = try Yams.compose(yaml: semanticSource.text) else {
                 return nil
             }
 
             self.source = source
             self.semanticRoot = semanticRoot
             self.syntaxRoot = syntaxRoot
+            self.semanticSource = semanticSource
             semanticKeyNames = Self.collectSemanticKeyNames(in: semanticRoot)
             concreteMappingPairCount = Self.countConcreteMappingPairs(in: syntaxRoot)
         } catch {
@@ -393,12 +395,18 @@ private extension ParsedYAML {
 
     private func utf16Offset(for mark: Mark) -> Int? {
         guard mark.line > 0, mark.column > 0 else { return nil }
+        guard let originalColumn = semanticSource.originalColumn(
+            line: mark.line,
+            semanticColumn: mark.column
+        ) else {
+            return nil
+        }
         var line = 1
         var column = 1
         var scalarIndex = source.unicodeScalars.startIndex
 
         while scalarIndex < source.unicodeScalars.endIndex {
-            if line == mark.line, column == mark.column {
+            if line == mark.line, column == originalColumn {
                 guard let stringIndex = scalarIndex.samePosition(in: source) else { return nil }
                 return source.utf16.distance(
                     from: source.utf16.startIndex,
@@ -415,7 +423,7 @@ private extension ParsedYAML {
             }
         }
 
-        if line == mark.line, column == mark.column {
+        if line == mark.line, column == originalColumn {
             return source.utf16.count
         }
         return nil

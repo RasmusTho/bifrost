@@ -49,13 +49,14 @@ especially W1–W8, until the ADR-0055 substrate mechanism is fully enacted.
 
 Generic note frontmatter custody targets full valid YAML. The current semantic boundary uses
 Yams/libYAML to resolve scalar keys, tags, aliases, and merge projection; its semantic input adapts
-YAML 1.2-valid punctuation and Unicode anchor spellings to same-width ASCII reference names before
-composition. Tree-sitter YAML remains the concrete-source authority, so the original bytes and
-source ranges are retained for every custody decision and mutation. Invalid YAML, non-mapping
-documents, parser disagreement, or a non-unique source match keep the requested bytes unchanged and
-emit the explicit best-effort provenance failure log. Bifrost changes only semantically proven
-provenance tokens and inserts without reserializing foreign bytes. The complete parser runtime chain
-is exact-version/revision pinned.
+YAML 1.2-valid punctuation and Unicode anchor spellings to unique ASCII reference names before
+composition, then translates Yams line/scalar-column marks back to the original source coordinates.
+Tree-sitter YAML remains the concrete-source authority, so the original bytes and source ranges are
+retained for every custody decision and mutation. Invalid YAML, non-mapping documents, parser
+disagreement, an untranslatable semantic mark, or a non-unique source match keep the requested bytes
+unchanged and emit the explicit best-effort provenance failure log. Bifrost changes only
+semantically proven provenance tokens and inserts without reserializing foreign bytes. The complete
+parser runtime chain is exact-version/revision pinned.
 
 ## Validation
 
