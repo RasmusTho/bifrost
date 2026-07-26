@@ -51,6 +51,7 @@ struct ConsentLensView: View {
                 }
             }
             .navigationTitle("Consent")
+            .accessibilityIdentifier("mimer.lens.consent")
             .onAppear(perform: load)
         }
     }
