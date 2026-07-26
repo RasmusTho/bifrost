@@ -2,6 +2,120 @@ import XCTest
 @testable import YggdrasilCore
 
 final class YAMLAliasBindingTests: XCTestCase {
+    func testSingleCharacterAnchorNameRefreshes() {
+        assertRefresh(
+            """
+            ---
+            base: &b {agent_provenance: stale, keep: one-character}
+            <<: *b
+            ---
+            """,
+            expected: """
+            ---
+            base: &b {former_writer_attribution: stale, keep: one-character}
+            <<: *b
+            agent_provenance:
+              author: bifrost-ios
+              written_at: 2026-07-23T21:20:00Z
+              origin: direct-fs
+            ---
+            """
+        )
+    }
+
+    func testPunctuationAnchorNameRefreshes() {
+        assertRefresh(
+            """
+            ---
+            base: &base.one {agent_provenance: stale, keep: punctuation}
+            <<: *base.one
+            ---
+            """,
+            expected: """
+            ---
+            base: &base.one {former_writer_attribution: stale, keep: punctuation}
+            <<: *base.one
+            agent_provenance:
+              author: bifrost-ios
+              written_at: 2026-07-23T21:20:00Z
+              origin: direct-fs
+            ---
+            """
+        )
+    }
+
+    func testUnicodeAnchorNameRefreshes() {
+        let cases = [
+            (
+                """
+                ---
+                base: &båse {agent_provenance: stale, keep: ångström}
+                <<: *båse
+                foreign: bmp
+                ---
+                """,
+                """
+                ---
+                base: &båse {former_writer_attribution: stale, keep: ångström}
+                <<: *båse
+                foreign: bmp
+                agent_provenance:
+                  author: bifrost-ios
+                  written_at: 2026-07-23T21:20:00Z
+                  origin: direct-fs
+                ---
+                """
+            ),
+            (
+                """
+                ---
+                base: &😀 {agent_provenance: stale, keep: astral}
+                <<: *😀
+                foreign: after-anchor
+                ---
+                """,
+                """
+                ---
+                base: &😀 {former_writer_attribution: stale, keep: astral}
+                <<: *😀
+                foreign: after-anchor
+                agent_provenance:
+                  author: bifrost-ios
+                  written_at: 2026-07-23T21:20:00Z
+                  origin: direct-fs
+                ---
+                """
+            )
+        ]
+
+        for (input, expected) in cases {
+            assertRefresh(input, expected: expected)
+        }
+    }
+
+    func testDenseOneCharacterAnchorSetDoesNotExhaustSemanticNames() {
+        let anchorNames = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+        let foreignLines = anchorNames.enumerated().map { index, name in
+            "foreign\(index): &\(name) {keep: \(index)}"
+        }
+        let input = (["---"] + foreignLines + [
+                    "base: &😀 {agent_provenance: stale, keep: target}",
+                    "<<: *😀",
+                    "---"
+                ]).joined(separator: "\n") + "\n"
+        let expected = (["---"] + foreignLines + [
+                    "base: &😀 {former_writer_attribution: stale, keep: target}",
+                    "<<: *😀",
+                    "agent_provenance:",
+                    "  author: bifrost-ios",
+                    "  written_at: 2026-07-23T21:20:00Z",
+                    "  origin: direct-fs",
+                    "---"
+                ]).joined(separator: "\n") + "\n"
+
+        assertRefresh(input, expected: expected)
+    }
+
     func testFlowAnchorReuseBindsAliasesToNearestPriorDefinition() {
         assertRefresh(
             """
@@ -85,6 +199,14 @@ final class YAMLAliasBindingTests: XCTestCase {
             ---
             base: &base {agent_provenance: stale, keep: base}
             wrapper: &wrapper {<<: *base, keep: wrapper}
+            <<: *wrapper
+            foreign: *wrapper
+            ---
+            """,
+            """
+            ---
+            base: &😀 {agent_provenance: stale, keep: astral}
+            wrapper: &wrapper {<<: *😀, keep: wrapper}
             <<: *wrapper
             foreign: *wrapper
             ---

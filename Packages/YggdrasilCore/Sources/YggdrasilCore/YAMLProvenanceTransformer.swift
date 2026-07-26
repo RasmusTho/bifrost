@@ -148,13 +148,12 @@ struct ParsedYAML {
     let source: String
     let semanticRoot: Yams.Node
     let syntaxRoot: SwiftTreeSitter.Node
+    let semanticSource: YAMLSemanticSource
     let semanticKeyNames: Set<String>
     let concreteMappingPairCount: Int
 
     init?(source: String) {
         do {
-            guard let semanticRoot = try Yams.compose(yaml: source) else { return nil }
-
             let parser = SwiftTreeSitter.Parser()
             try parser.setLanguage(Language(language: tree_sitter_yaml()))
             guard let tree = parser.parse(source),
@@ -163,15 +162,31 @@ struct ParsedYAML {
                 return nil
             }
 
+            // libYAML (used by Yams) accepts a narrower anchor-name grammar
+            // than YAML 1.2. Normalize only reference spellings in the
+            // semantic input; all concrete-source proof and mutations still
+            // use the original source and the original syntax tree.
+            guard let semanticSource = Self.semanticSource(
+                from: source,
+                syntaxRoot: syntaxRoot
+            ) else {
+                return nil
+            }
+            guard let semanticRoot = try Yams.compose(yaml: semanticSource.text) else {
+                return nil
+            }
+
             self.source = source
             self.semanticRoot = semanticRoot
             self.syntaxRoot = syntaxRoot
+            self.semanticSource = semanticSource
             semanticKeyNames = Self.collectSemanticKeyNames(in: semanticRoot)
             concreteMappingPairCount = Self.countConcreteMappingPairs(in: syntaxRoot)
         } catch {
             return nil
         }
     }
+
 }
 
 private extension ParsedYAML {
@@ -380,12 +395,18 @@ private extension ParsedYAML {
 
     private func utf16Offset(for mark: Mark) -> Int? {
         guard mark.line > 0, mark.column > 0 else { return nil }
+        guard let originalColumn = semanticSource.originalColumn(
+            line: mark.line,
+            semanticColumn: mark.column
+        ) else {
+            return nil
+        }
         var line = 1
         var column = 1
         var scalarIndex = source.unicodeScalars.startIndex
 
         while scalarIndex < source.unicodeScalars.endIndex {
-            if line == mark.line, column == mark.column {
+            if line == mark.line, column == originalColumn {
                 guard let stringIndex = scalarIndex.samePosition(in: source) else { return nil }
                 return source.utf16.distance(
                     from: source.utf16.startIndex,
@@ -402,7 +423,7 @@ private extension ParsedYAML {
             }
         }
 
-        if line == mark.line, column == mark.column {
+        if line == mark.line, column == originalColumn {
             return source.utf16.count
         }
         return nil
@@ -448,43 +469,6 @@ private extension ParsedYAML {
         return matches
     }
 
-    private static func collectSemanticKeyNames(in root: Yams.Node) -> Set<String> {
-        var names: Set<String> = []
-        var visitedMappings: Set<MappingIdentity> = []
-
-        func visit(_ node: Yams.Node) {
-            switch node {
-            case .mapping(let mapping):
-                let identity = MappingIdentity(mapping)
-                guard visitedMappings.insert(identity).inserted else { return }
-                for pair in mapping {
-                    if let keyName = pair.key.scalar?.string {
-                        names.insert(keyName)
-                    }
-                    visit(pair.key)
-                    visit(pair.value)
-                }
-            case .sequence(let sequence):
-                for item in sequence {
-                    visit(item)
-                }
-            case .scalar, .alias:
-                return
-            }
-        }
-
-        visit(root)
-        return names
-    }
-
-    private static func countConcreteMappingPairs(in node: SwiftTreeSitter.Node) -> Int {
-        let ownCount = node.nodeType == "block_mapping_pair"
-            || node.nodeType == "flow_pair" ? 1 : 0
-        return (0..<node.namedChildCount).reduce(ownCount) { count, index in
-            guard let child = node.namedChild(at: index) else { return count }
-            return count + countConcreteMappingPairs(in: child)
-        }
-    }
     private func referenceName(of node: SwiftTreeSitter.Node, prefix: Character) -> Substring? {
         guard let range = Range(node.range, in: source) else { return nil }
         let spelling = source[range]
