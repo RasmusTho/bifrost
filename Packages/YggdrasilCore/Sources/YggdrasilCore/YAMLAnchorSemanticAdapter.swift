@@ -15,13 +15,13 @@ extension ParsedYAML {
         let references = collectReferences(from: syntaxRoot, source: source)
         var names = Set(references.map(\.name))
         var replacements: [String: String] = [:]
-        var next = 0
+        var nextByWidth: [Int: Int] = [:]
         for reference in references where replacements[reference.name] == nil {
-            let length = max(1, reference.name.utf16.count)
+            let utf16Width = max(1, reference.name.utf16.count)
             guard let candidate = availableCandidate(
-                length: length,
+                utf16Width: utf16Width,
                 names: names,
-                next: &next
+                nextByWidth: &nextByWidth
             ) else { return nil }
             names.insert(candidate)
             replacements[reference.name] = candidate
@@ -64,25 +64,49 @@ extension ParsedYAML {
     }
 
     private static func availableCandidate(
-        length: Int,
+        utf16Width: Int,
         names: Set<String>,
-        next: inout Int
+        nextByWidth: inout [Int: Int]
     ) -> String? {
-        if length == 1 {
-            let alphabet = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
-            guard let available = alphabet.dropFirst(next).first(where: { !names.contains(String($0)) }) else {
+        let start = nextByWidth[utf16Width, default: 0]
+        guard let capacity = candidateCapacity(for: utf16Width) else { return nil }
+        for ordinal in start..<capacity {
+            guard let candidate = asciiCandidate(width: utf16Width, ordinal: ordinal) else {
                 return nil
             }
-            next = alphabet.firstIndex(of: available).map { $0 + 1 } ?? next + 1
-            return String(available)
+            nextByWidth[utf16Width] = ordinal + 1
+            if !names.contains(candidate) {
+                return candidate
+            }
         }
-        var candidate: String
-        repeat {
-            let seed = "b\(next)"
-            let prefix = String(seed.prefix(length))
-            candidate = prefix + String(repeating: "x", count: length - prefix.count)
-            next += 1
-        } while names.contains(candidate)
-        return candidate
+        return nil
     }
+
+    private static func candidateCapacity(for width: Int) -> Int? {
+        let alphabetSize = width == 1 ? oneCharacterAlphabet.count : digitAlphabet.count
+        return (0..<max(1, width - 1)).reduce(1) { capacity, _ in
+            guard capacity <= Int.max / alphabetSize else { return 0 }
+            return capacity * alphabetSize
+        }
+    }
+
+    private static func asciiCandidate(width: Int, ordinal: Int) -> String? {
+        if width == 1 {
+            guard ordinal < oneCharacterAlphabet.count else { return nil }
+            return String(decoding: [oneCharacterAlphabet[ordinal]], as: UTF8.self)
+        }
+        var bytes = Array(repeating: UInt8(ascii: "x"), count: width)
+        bytes[0] = UInt8(ascii: "b")
+        var remaining = ordinal
+        for offset in stride(from: width - 1, through: 1, by: -1) {
+            bytes[offset] = digitAlphabet[remaining % digitAlphabet.count]
+            remaining /= digitAlphabet.count
+        }
+        return String(decoding: bytes, as: UTF8.self)
+    }
+
+    private static let oneCharacterAlphabet = Array(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_".utf8
+    )
+    private static let digitAlphabet = Array("0123456789abcdefghijklmnopqrstuvwxyz".utf8)
 }
