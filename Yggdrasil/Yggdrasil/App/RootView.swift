@@ -81,14 +81,9 @@ struct RootView: View {
                 // UI tests use an ephemeral fixture root. This bypasses only
                 // the visual picker; it does not create a bookmark or alter
                 // production vault data flows.
-                MimerShellView(vaultURL: fixtureVaultURL)
+                shell(vaultURL: fixtureVaultURL)
             } else if let vaultURL = vaultManager.activeVaultURL {
-                TabView {
-                    MimerShellView(vaultURL: vaultURL)
-                        .tabItem { Label("Mimer", systemImage: "book.closed") }
-                    HeimdalShellView(sessionModel: heimdalSessionModel)
-                        .tabItem { Label("Heimdal", systemImage: "waveform") }
-                }
+                shell(vaultURL: vaultURL)
                 .toolbarBackground(.visible, for: .tabBar)
                 .safeAreaInset(edge: .top) {
                     VaultSwitcherBar(vaultManager: vaultManager)
@@ -101,6 +96,18 @@ struct RootView: View {
                         .tabItem { Label("Heimdal", systemImage: "waveform") }
                 }
             }
+        }
+    }
+
+    private func shell(vaultURL: URL) -> some View {
+        TabView {
+            MimerShellView(vaultURL: vaultURL)
+                .tabItem { Label("Mimer", systemImage: "book.closed") }
+            HeimdalShellView(
+                sessionModel: heimdalSessionModel,
+                fileStore: VaultFileStore(rootURL: vaultURL)
+            )
+            .tabItem { Label("Heimdal", systemImage: "waveform") }
         }
     }
 
@@ -196,7 +203,7 @@ private func uatFixtureFiles() -> [String: String] {
         granted_at: 2026-07-26
     ---
     """ + "\n"
-    return [
+    var files = [
         HeimdalPaths.attention(for: Date()): "---\ncounts:\n  fixture_attention: 1\n---\n",
         HeimdalPaths.interests: "---\nweights:\n  fixture_interest: 0.5\n---\n",
         HeimdalPaths.watchlist: "---\nwatched:\n  - fixture watch\n---\n",
@@ -206,6 +213,10 @@ private func uatFixtureFiles() -> [String: String] {
         HeimdalPaths.settings: "---\nretention_window_days: 45\n---\n",
         "_heimdal/uat-roundtrip.md": "# UAT fixture note\n\nInitial fixture content.\n"
     ]
+    if ProcessInfo.processInfo.arguments.contains("-ui-testing-no-consent") {
+        files.removeValue(forKey: HeimdalPaths.consent)
+    }
+    return files
 }
 
 private struct VaultSwitcherBar: View {

@@ -3,20 +3,33 @@ import UIKit
 import UniformTypeIdentifiers
 
 /// Heimdal's isolated capture-client entry surface. It owns no Mimer lens
-/// state and no vault writes; later capture slices extend this boundary.
+/// state and writes only this device's registration note through its model.
 struct HeimdalShellView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var folderManager = CaptureFolderManager()
     @StateObject private var sessionModel = CaptureSessionModel()
     @StateObject private var recorder: CaptureRecorder
     @StateObject private var deliveryQueue: CaptureDeliveryQueue
+    @StateObject private var registration: DeviceRegistrationModel
     @State private var isFolderPickerPresented = false
 
-    init(sessionModel: CaptureSessionModel) {
+    init(
+        sessionModel: CaptureSessionModel,
+        fileStore: VaultFileStore? = nil,
+        deviceID: String = HeimdalDeviceIdentity().deviceID(),
+        deviceLabel: String = UIDevice.current.name
+    ) {
         let model = sessionModel
         _sessionModel = StateObject(wrappedValue: model)
         _recorder = StateObject(wrappedValue: CaptureRecorder(sessionModel: model))
         _deliveryQueue = StateObject(wrappedValue: CaptureDeliveryQueue(sessionModel: model))
+        _registration = StateObject(
+            wrappedValue: DeviceRegistrationModel(
+                fileStore: fileStore,
+                deviceID: deviceID,
+                deviceLabel: deviceLabel
+            )
+        )
     }
 
     var body: some View {
@@ -39,6 +52,10 @@ struct HeimdalShellView: View {
                     if let error = folderManager.lastError {
                         Text(error).foregroundStyle(.red)
                     }
+                }
+
+                Section("Consent and Device") {
+                    DeviceRegistrationStatusView(registration: registration)
                 }
 
                 Section("Capture") {
@@ -105,6 +122,7 @@ struct HeimdalShellView: View {
             }
             .task {
                 await retryUndelivered()
+                await registration.load()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
@@ -195,6 +213,81 @@ struct HeimdalShellView: View {
         }
         defer { folderManager.endAccessingBoundFolder(folderURL) }
         await operation(folderURL)
+    }
+}
+
+private struct DeviceRegistrationStatusView: View {
+    @ObservedObject var registration: DeviceRegistrationModel
+
+    @ViewBuilder
+    var body: some View {
+        switch registration.state {
+        case .unavailable:
+            Label("No vault selected — captures may be refused", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("heimdal.registration.unavailable")
+        case .loading:
+            ProgressView("Loading device registration")
+        case let .failed(message):
+            Label(
+                "Registration status unavailable — captures may be refused",
+                systemImage: "exclamationmark.triangle"
+            )
+            .foregroundStyle(.orange)
+            Text(message).font(YggTheme.Typography.caption)
+        case let .loaded(snapshot):
+            if let grant = snapshot.standingGrant {
+                Label(
+                    "Standing grant: \(grant.scope ?? "unspecified scope")",
+                    systemImage: "checkmark.shield"
+                )
+                if let grantedAt = grant.grantedAt {
+                    Text("Granted \(grantedAt)")
+                        .font(YggTheme.Typography.caption)
+                        .foregroundStyle(YggTheme.Color.textSecondary)
+                }
+            } else {
+                Label("No standing grant found", systemImage: "exclamationmark.shield")
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("heimdal.consent.empty")
+            }
+
+            if snapshot.isRegistered {
+                Label("This device is registered", systemImage: "checkmark.circle.fill")
+                    .accessibilityIdentifier("heimdal.registration.registered")
+                if let deviceNote = snapshot.deviceNote {
+                    Text("Device ID: \(deviceNote.deviceID ?? "missing")")
+                        .font(YggTheme.Typography.caption)
+                        .foregroundStyle(YggTheme.Color.textSecondary)
+                    Text("Label: \(deviceNote.label ?? "missing")")
+                        .font(YggTheme.Typography.caption)
+                        .foregroundStyle(YggTheme.Color.textSecondary)
+                    Text(
+                        deviceNote.consentGrantRef.map { "Grant reference: \($0)" }
+                            ?? "No grant reference bound"
+                    )
+                    .font(YggTheme.Typography.caption)
+                    .foregroundStyle(YggTheme.Color.textSecondary)
+                }
+            } else {
+                Label(
+                    "Not registered — captures may be refused",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("heimdal.registration.unregistered")
+                Button("Register This Device") {
+                    Task { await registration.register() }
+                }
+                .accessibilityIdentifier("heimdal.registration.register")
+            }
+
+            Text(
+                "Posture A: single-party, discrete, press-to-record capture. Admission is decided by Heimdal."
+            )
+            .font(YggTheme.Typography.caption)
+            .foregroundStyle(YggTheme.Color.textSecondary)
+        }
     }
 }
 
