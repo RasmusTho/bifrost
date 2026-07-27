@@ -2,6 +2,7 @@ import Combine
 import CoreTransferable
 import Foundation
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// The Mimer client: the daily reader/steerer over vault notes, hosted inside
