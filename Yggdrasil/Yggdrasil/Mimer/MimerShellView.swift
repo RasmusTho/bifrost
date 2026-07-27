@@ -236,16 +236,38 @@ struct MimerCanvasNote: Equatable {
 
 /// One ephemeral drag payload representation: its persisted representation is
 /// still the markdown link rendered by `promotionBlock`, never app-local state.
-struct MimerCanvasPromotion: Codable, Hashable, Transferable {
+struct MimerCanvasPromotion: Hashable, Sendable, Transferable {
     let relativePath: String
     let snippet: String
 
+    private var markdownLink: String {
+        let pathWithoutExtension = relativePath.hasSuffix(".md")
+            ? String(relativePath.dropLast(3))
+            : relativePath
+        return "[[\(pathWithoutExtension)]]"
+    }
+
+    var plainTextRepresentation: String {
+        "\(markdownLink)\n\(snippet)"
+    }
+
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .plainText) { promotion in
-            try JSONEncoder().encode(promotion)
+            Data(promotion.plainTextRepresentation.utf8)
         }
         DataRepresentation(importedContentType: .plainText) { data in
-            try JSONDecoder().decode(MimerCanvasPromotion.self, from: data)
+            let lines = String(decoding: data, as: UTF8.self)
+                .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+            guard let markdownLink = lines.first,
+                  markdownLink.hasPrefix("[["),
+                  markdownLink.hasSuffix("]]"),
+                  markdownLink.count > 4 else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return MimerCanvasPromotion(
+                relativePath: String(markdownLink.dropFirst(2).dropLast(2)),
+                snippet: lines.count == 2 ? String(lines[1]) : ""
+            )
         }
     }
 }
@@ -263,10 +285,10 @@ enum MimerCanvasAppend {
     }
 
     static func promotionBlock(_ promotion: MimerCanvasPromotion) -> String {
+        let snippet = promotion.snippet.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathWithoutExtension = promotion.relativePath.hasSuffix(".md")
             ? String(promotion.relativePath.dropLast(3))
             : promotion.relativePath
-        let snippet = promotion.snippet.trimmingCharacters(in: .whitespacesAndNewlines)
         return "[[\(pathWithoutExtension)]]\(snippet.isEmpty ? "" : " — \(snippet)")"
     }
 
@@ -544,6 +566,9 @@ private struct MimerCanvasDetailView: View {
                                 .padding(YggTheme.Spacing.md)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("mimer.canvas.detail.document")
+                        .accessibilityValue(note.text)
                     }
                     .navigationTitle(note.relativePath.split(separator: "/").last.map(String.init) ?? note.relativePath)
                     .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in

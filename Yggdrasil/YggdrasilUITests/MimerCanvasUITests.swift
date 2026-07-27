@@ -187,7 +187,9 @@ final class MimerCanvasUITests: XCTestCase {
         XCTAssertTrue(source.waitForExistence(timeout: 5))
         XCTAssertTrue(detail.exists)
         source.press(forDuration: 1.0, thenDragTo: detail)
-        XCTAssertTrue(app.staticTexts["Source note"].waitForExistence(timeout: 5))
+        let renderedDocument = app.descendants(matching: .any)["mimer.canvas.detail.document"]
+        XCTAssertTrue(renderedDocument.waitForExistence(timeout: 5))
+        assertAccessibilityValueContains("[[Projects/source]] — source.md", for: renderedDocument)
     }
 
     private func assertAccessibilityValue(
@@ -204,6 +206,25 @@ final class MimerCanvasUITests: XCTestCase {
             XCTWaiter.wait(for: [expectation], timeout: 5),
             .completed,
             "Expected accessibility value \(expectedValue), got \(String(describing: element.value)).",
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertAccessibilityValueContains(
+        _ expectedValue: String,
+        for element: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", expectedValue),
+            object: element
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: 5),
+            .completed,
+            "Expected accessibility value to contain \(expectedValue), got \(String(describing: element.value)).",
             file: file,
             line: line
         )

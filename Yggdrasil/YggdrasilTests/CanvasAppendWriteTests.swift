@@ -45,12 +45,13 @@ final class CanvasAppendWriteTests: XCTestCase {
         let path = "Projects/target.md"
         let store = VaultFileStore(rootURL: tempDirectory)
         try await store.write("---\ntitle: Target\n---\n\n# Target\n", to: path)
+        let promotion = MimerCanvasPromotion(relativePath: "People/Acme AB.md", snippet: "Acme AB")
+
+        XCTAssertEqual(promotion.plainTextRepresentation, "[[People/Acme AB]]\nAcme AB")
 
         try await MimerCanvasAppend.appendBlock(
             to: path,
-            block: MimerCanvasAppend.promotionBlock(
-                MimerCanvasPromotion(relativePath: "People/Acme AB.md", snippet: "Acme AB")
-            ),
+            block: MimerCanvasAppend.promotionBlock(promotion),
             using: store
         )
 

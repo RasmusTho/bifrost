@@ -30,6 +30,12 @@ struct AttentionLensView: View {
                                     Text(override.note).font(YggTheme.Typography.caption)
                                 }
                             }
+                            .draggable(
+                                MimerCanvasPromotion(
+                                    relativePath: relativePath,
+                                    snippet: "\(override.itemId): \(override.note)"
+                                )
+                            )
                         }
                     } else {
                         Text("No overrides recorded yet today.")
@@ -44,6 +50,12 @@ struct AttentionLensView: View {
                                 Spacer()
                                 Text("\(entry.count)").foregroundStyle(YggTheme.Color.textSecondary)
                             }
+                            .draggable(
+                                MimerCanvasPromotion(
+                                    relativePath: relativePath,
+                                    snippet: "\(entry.key): \(entry.count)"
+                                )
+                            )
                         }
                     } else {
                         Text("No attention activity recorded yet today.")
