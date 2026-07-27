@@ -183,13 +183,28 @@ final class MimerCanvasUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["check the June numbers"].waitForExistence(timeout: 5))
 
         let source = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/source.md"]
-        let detail = app.descendants(matching: .any)["mimer.canvas.detail"]
         XCTAssertTrue(source.waitForExistence(timeout: 5))
-        XCTAssertTrue(detail.exists)
-        source.press(forDuration: 1.0, thenDragTo: detail)
+        // The promotion drop surface is the open detail note, not the whole detail
+        // column: `mimer.canvas.detail` also spans the 260pt metadata inspector, so
+        // on a narrow iPad the centre of that container sits over the inspector,
+        // which is not a drop destination.
         let renderedDocument = app.descendants(matching: .any)["mimer.canvas.detail.document"]
         XCTAssertTrue(renderedDocument.waitForExistence(timeout: 5))
-        assertAccessibilityValueContains("[[Projects/source]] — source.md", for: renderedDocument)
+        // A drag-and-drop session only delivers when the touch is held over the
+        // destination long enough for the drop interaction to register the drop.
+        // The `press(forDuration:thenDragTo:)` overload holds for 0.0s and lifts
+        // before the destination is entered.
+        source.press(
+            forDuration: 1.0,
+            thenDragTo: renderedDocument,
+            withVelocity: .slow,
+            thenHoldForDuration: 1.5
+        )
+        assertAccessibilityValueContains(
+            "[[Projects/source]] — source.md",
+            for: renderedDocument,
+            timeout: 15
+        )
     }
 
     private func assertAccessibilityValue(
@@ -214,6 +229,7 @@ final class MimerCanvasUITests: XCTestCase {
     private func assertAccessibilityValueContains(
         _ expectedValue: String,
         for element: XCUIElement,
+        timeout: TimeInterval = 5,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
@@ -222,7 +238,7 @@ final class MimerCanvasUITests: XCTestCase {
             object: element
         )
         XCTAssertEqual(
-            XCTWaiter.wait(for: [expectation], timeout: 5),
+            XCTWaiter.wait(for: [expectation], timeout: timeout),
             .completed,
             "Expected accessibility value to contain \(expectedValue), got \(String(describing: element.value)).",
             file: file,
