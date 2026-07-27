@@ -400,6 +400,9 @@ private struct MimerVaultColumnView: View {
             if let failureMessage = appendDraft.failureMessage {
                 Section("Append needs attention") {
                     Text(failureMessage).foregroundStyle(.red)
+                    if !appendDraft.failureText.isEmpty {
+                        Text(appendDraft.failureText).textSelection(.enabled)
+                    }
                     HStack {
                         Button("Retry Append") {
                             Task { _ = await appendDraft.retry() }
@@ -524,6 +527,9 @@ private struct MimerCanvasDetailView: View {
                         }
                         if let failureMessage = appendDraft.failureMessage {
                             Text(failureMessage).foregroundStyle(.red)
+                            if !appendDraft.failureText.isEmpty {
+                                Text(appendDraft.failureText).textSelection(.enabled)
+                            }
                             HStack {
                                 Button("Retry Append") {
                                     Task {
