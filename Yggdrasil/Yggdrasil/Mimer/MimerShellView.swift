@@ -1,5 +1,8 @@
+import Combine
+import CoreTransferable
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The Mimer client: the daily reader/steerer over vault notes, hosted inside
 /// the Yggdrasil shell. Compact widths preserve the shipped tab experience;
@@ -94,12 +97,19 @@ private struct MimerTabView: View {
 struct MimerCanvasView: View {
     let fileStore: VaultFileStore
     @ObservedObject var keyboardRouter: MimerCanvasKeyboardRouter
+    @StateObject private var appendDraft: MimerCanvasAppendDraft
     @State private var selectedLens: MimerLens? = .today
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedNote: MimerCanvasNote?
     @State private var inspectorIsPresented = true
     @State private var focusedColumn: MimerCanvasFocus = .sidebar
     @FocusState private var focusedElement: MimerCanvasFocus?
+
+    init(fileStore: VaultFileStore, keyboardRouter: MimerCanvasKeyboardRouter) {
+        self.fileStore = fileStore
+        self.keyboardRouter = keyboardRouter
+        _appendDraft = StateObject(wrappedValue: MimerCanvasAppendDraft(fileStore: fileStore))
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -131,7 +141,8 @@ struct MimerCanvasView: View {
                         fileStore: fileStore,
                         selectedNote: $selectedNote,
                         focusedElement: $focusedElement,
-                        focusFilter: { setFocus(.filter) }
+                        focusFilter: { setFocus(.filter) },
+                        appendDraft: appendDraft
                     )
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
@@ -149,8 +160,10 @@ struct MimerCanvasView: View {
             }
         } detail: {
             MimerCanvasDetailView(
-                note: selectedNote,
-                inspectorIsPresented: inspectorIsPresented
+                note: $selectedNote,
+                inspectorIsPresented: inspectorIsPresented,
+                fileStore: fileStore,
+                appendDraft: appendDraft
             )
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("mimer.canvas.detail")
@@ -215,10 +228,134 @@ private enum MimerCanvasFocus: Hashable {
     case sidebar, content, detail, filter
 }
 
-private struct MimerCanvasNote: Equatable {
+struct MimerCanvasNote: Equatable {
     let relativePath: String
     let text: String
     let modificationDate: Date?
+}
+
+/// One ephemeral drag payload representation: its persisted representation is
+/// still the markdown link rendered by `promotionBlock`, never app-local state.
+struct MimerCanvasPromotion: Codable, Hashable, Transferable {
+    let relativePath: String
+    let snippet: String
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .plainText) { promotion in
+            try JSONEncoder().encode(promotion)
+        }
+        DataRepresentation(importedContentType: .plainText) { data in
+            try JSONDecoder().decode(MimerCanvasPromotion.self, from: data)
+        }
+    }
+}
+
+/// The sole canvas write shape. It deliberately delegates to the existing
+/// coordinated store seam; it owns only suffix construction, not conflict or
+/// retry policy.
+enum MimerCanvasAppend {
+    static func annotationBlock(_ text: String) -> String {
+        let quotedText = text
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { "> \($0)" }
+            .joined(separator: "\n")
+        return "> [!note] Annotation\n\(quotedText)\n> — bifrost-ios"
+    }
+
+    static func promotionBlock(_ promotion: MimerCanvasPromotion) -> String {
+        let pathWithoutExtension = promotion.relativePath.hasSuffix(".md")
+            ? String(promotion.relativePath.dropLast(3))
+            : promotion.relativePath
+        let snippet = promotion.snippet.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "[[\(pathWithoutExtension)]]\(snippet.isEmpty ? "" : " — \(snippet)")"
+    }
+
+    static func appendBlock(
+        to relativePath: String,
+        block: String,
+        using fileStore: VaultFileStore
+    ) async throws {
+        let normalizedBlock = block.trimmingCharacters(in: .newlines)
+        guard !normalizedBlock.isEmpty else { return }
+
+        try await fileStore.readModifyWrite(relativePath) { document in
+            let separator: String
+            if document.body.isEmpty || document.body.hasSuffix("\n\n") {
+                separator = ""
+            } else if document.body.hasSuffix("\n") {
+                separator = "\n"
+            } else {
+                separator = "\n\n"
+            }
+            document.body += "\(separator)\(normalizedBlock)\n"
+        }
+    }
+}
+
+/// In-memory composition and visible failure state for one human-directed
+/// append. It is intentionally not a queue: leaving the canvas loses it.
+@MainActor
+final class MimerCanvasAppendDraft: ObservableObject {
+    @Published var annotationText = ""
+    @Published private(set) var failureMessage: String?
+    @Published private(set) var failureText = ""
+
+    private let fileStore: VaultFileStore
+    private var failedPath: String?
+    private var failedBlock: String?
+
+    init(fileStore: VaultFileStore) {
+        self.fileStore = fileStore
+    }
+
+    func submitAnnotation(to relativePath: String) async -> Bool {
+        let text = annotationText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            failureMessage = "Enter an annotation before saving."
+            failureText = annotationText
+            return false
+        }
+        return await submit(
+            block: MimerCanvasAppend.annotationBlock(text),
+            visibleText: annotationText,
+            to: relativePath
+        )
+    }
+
+    func submitPromotion(_ promotion: MimerCanvasPromotion, to relativePath: String) async -> Bool {
+        await submit(
+            block: MimerCanvasAppend.promotionBlock(promotion),
+            visibleText: promotion.snippet.isEmpty ? promotion.relativePath : promotion.snippet,
+            to: relativePath
+        )
+    }
+
+    func retry() async -> Bool {
+        guard let failedPath, let failedBlock else { return false }
+        return await submit(block: failedBlock, visibleText: failureText, to: failedPath)
+    }
+
+    func copyFailureText() {
+        UIPasteboard.general.string = failureText
+    }
+
+    private func submit(block: String, visibleText: String, to relativePath: String) async -> Bool {
+        do {
+            try await MimerCanvasAppend.appendBlock(to: relativePath, block: block, using: fileStore)
+            annotationText = ""
+            failureMessage = nil
+            failureText = ""
+            failedPath = nil
+            failedBlock = nil
+            return true
+        } catch {
+            failureMessage = "Couldn't save. Your text is still here: \(error.localizedDescription)"
+            failureText = visibleText
+            failedPath = relativePath
+            failedBlock = block
+            return false
+        }
+    }
 }
 
 /// Read-only, filesystem-backed Notes column. Its selection is deliberately
@@ -229,6 +366,7 @@ private struct MimerVaultColumnView: View {
     @Binding var selectedNote: MimerCanvasNote?
     let focusedElement: FocusState<MimerCanvasFocus?>.Binding
     let focusFilter: () -> Void
+    @ObservedObject var appendDraft: MimerCanvasAppendDraft
 
     @State private var directory = ""
     @State private var entries: [VaultEntry] = []
@@ -259,6 +397,17 @@ private struct MimerVaultColumnView: View {
             if let loadError {
                 Text(loadError).foregroundStyle(.red)
             }
+            if let failureMessage = appendDraft.failureMessage {
+                Section("Append needs attention") {
+                    Text(failureMessage).foregroundStyle(.red)
+                    HStack {
+                        Button("Retry Append") {
+                            Task { _ = await appendDraft.retry() }
+                        }
+                        Button("Copy Pending Text") { appendDraft.copyFailureText() }
+                    }
+                }
+            }
             ForEach(visibleEntries) { entry in
                 Button {
                     select(entry)
@@ -266,6 +415,16 @@ private struct MimerVaultColumnView: View {
                     Label(entry.name, systemImage: entry.isDirectory ? "folder" : "doc.text")
                 }
                 .accessibilityIdentifier("mimer.canvas.vault.entry.\(entry.relativePath)")
+                .draggable(MimerCanvasPromotion(relativePath: entry.relativePath, snippet: entry.name))
+                .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
+                    guard !entry.isDirectory, let promotion = promotions.first else { return false }
+                    Task {
+                        if await appendDraft.submitPromotion(promotion, to: entry.relativePath) {
+                            select(entry)
+                        }
+                    }
+                    return true
+                }
             }
             if visibleEntries.isEmpty && loadError == nil {
                 Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
@@ -334,19 +493,62 @@ private struct MimerVaultColumnView: View {
 }
 
 private struct MimerCanvasDetailView: View {
-    let note: MimerCanvasNote?
+    @Binding var note: MimerCanvasNote?
     let inspectorIsPresented: Bool
+    let fileStore: VaultFileStore
+    @ObservedObject var appendDraft: MimerCanvasAppendDraft
+    @State private var isAnnotationComposerPresented = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             Group {
                 if let note {
-                    ScrollView {
-                        MarkdownRendererView(text: note.text)
-                            .padding(YggTheme.Spacing.md)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: YggTheme.Spacing.sm) {
+                        HStack {
+                            Button("Annotate") { isAnnotationComposerPresented = true }
+                                .accessibilityIdentifier("mimer.canvas.annotate")
+                            Spacer()
+                        }
+                        if isAnnotationComposerPresented {
+                            TextField("Annotation", text: $appendDraft.annotationText, axis: .vertical)
+                                .accessibilityIdentifier("mimer.canvas.annotation.field")
+                            Button("Save Annotation") {
+                                Task {
+                                    if await appendDraft.submitAnnotation(to: note.relativePath) {
+                                        isAnnotationComposerPresented = false
+                                        await refresh(note)
+                                    }
+                                }
+                            }
+                            .accessibilityIdentifier("mimer.canvas.annotation.commit")
+                        }
+                        if let failureMessage = appendDraft.failureMessage {
+                            Text(failureMessage).foregroundStyle(.red)
+                            HStack {
+                                Button("Retry Append") {
+                                    Task {
+                                        if await appendDraft.retry() { await refresh(note) }
+                                    }
+                                }
+                                Button("Copy Pending Text") { appendDraft.copyFailureText() }
+                            }
+                        }
+                        ScrollView {
+                            MarkdownRendererView(text: note.text)
+                                .padding(YggTheme.Spacing.md)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                     .navigationTitle(note.relativePath.split(separator: "/").last.map(String.init) ?? note.relativePath)
+                    .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
+                        guard let promotion = promotions.first else { return false }
+                        Task {
+                            if await appendDraft.submitPromotion(promotion, to: note.relativePath) {
+                                await refresh(note)
+                            }
+                        }
+                        return true
+                    }
                 } else {
                     YggEmptyState(
                         systemImage: "rectangle.on.rectangle",
@@ -367,6 +569,22 @@ private struct MimerCanvasDetailView: View {
                     .background(YggTheme.Color.secondaryBackground)
                     .accessibilityIdentifier("mimer.canvas.inspector")
             }
+        }
+    }
+
+    private func refresh(_ previousNote: MimerCanvasNote) async {
+        do {
+            async let text = fileStore.read(previousNote.relativePath)
+            async let modificationDate = fileStore.modificationDate(of: previousNote.relativePath)
+            note = try await MimerCanvasNote(
+                relativePath: previousNote.relativePath,
+                text: text,
+                modificationDate: modificationDate
+            )
+        } catch {
+            // The append draft already preserves the human's unsaved text only
+            // on a failed append. A post-write refresh failure does not create
+            // another write path; reopening the note performs the normal read.
         }
     }
 }

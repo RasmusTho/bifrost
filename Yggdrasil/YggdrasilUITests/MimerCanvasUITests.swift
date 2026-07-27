@@ -158,6 +158,38 @@ final class MimerCanvasUITests: XCTestCase {
         )
     }
 
+    func testAnnotateAndDragPromoteJourney() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        let app = launchMimerShell(withFixture: true)
+
+        let vaultLens = app.descendants(matching: .any)["mimer.canvas.lens.vault"]
+        XCTAssertTrue(vaultLens.waitForExistence(timeout: 10))
+        vaultLens.tap()
+        let projects = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects"]
+        XCTAssertTrue(projects.waitForExistence(timeout: 10))
+        projects.tap()
+
+        let target = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
+        XCTAssertTrue(target.waitForExistence(timeout: 5))
+        target.tap()
+        let annotate = app.buttons["mimer.canvas.annotate"]
+        XCTAssertTrue(annotate.waitForExistence(timeout: 5))
+        annotate.tap()
+        let annotationField = app.textFields["mimer.canvas.annotation.field"]
+        XCTAssertTrue(annotationField.waitForExistence(timeout: 5))
+        annotationField.tap()
+        annotationField.typeText("check the June numbers")
+        app.buttons["mimer.canvas.annotation.commit"].tap()
+        XCTAssertTrue(app.staticTexts["check the June numbers"].waitForExistence(timeout: 5))
+
+        let source = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/source.md"]
+        let detail = app.descendants(matching: .any)["mimer.canvas.detail"]
+        XCTAssertTrue(source.waitForExistence(timeout: 5))
+        XCTAssertTrue(detail.exists)
+        source.press(forDuration: 1.0, thenDragTo: detail)
+        XCTAssertTrue(app.staticTexts["Source note"].waitForExistence(timeout: 5))
+    }
+
     private func assertAccessibilityValue(
         _ expectedValue: String,
         for element: XCUIElement,
