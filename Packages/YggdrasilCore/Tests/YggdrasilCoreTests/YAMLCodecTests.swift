@@ -52,6 +52,44 @@ final class YAMLCodecTests: XCTestCase {
         XCTAssertEqual(map["watched"]?.stringArray, ["example.com", "another.com"])
     }
 
+    func testBlockSequenceTreatsEntityIDsAsScalars() throws {
+        let yaml = """
+        candidate_entity_ids:
+          - ent:anna
+          - ent:missing
+        """
+
+        let value = try YAMLCodec.parse(yaml)
+        guard case .map(let map) = value else { return XCTFail("expected map") }
+        XCTAssertEqual(map["candidate_entity_ids"]?.stringArray, ["ent:anna", "ent:missing"])
+        XCTAssertEqual(
+            try YAMLCodec.parse(YAMLCodec.serialize(value)),
+            value
+        )
+    }
+
+    func testNestedEntityCandidateSequenceRoundTrips() throws {
+        let yaml = """
+        pending:
+          - queue_entry_id: queue-1
+            mention_id: mention-1
+            candidate_entity_ids:
+              - ent:anna
+              - ent:missing
+            resolution: ambiguous
+        decisions: []
+        """
+
+        let parsed = try YAMLCodec.parse(yaml)
+        let reparsed = try YAMLCodec.parse(YAMLCodec.serialize(parsed))
+        XCTAssertEqual(reparsed, parsed)
+        XCTAssertEqual(
+            reparsed.mapValue?["pending"]?.arrayValue?.first?
+                .mapValue?["candidate_entity_ids"]?.stringArray,
+            ["ent:anna", "ent:missing"]
+        )
+    }
+
     func testSequenceOfMappings() throws {
         let yaml = """
         pending:

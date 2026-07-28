@@ -68,8 +68,8 @@ public enum YAMLCodec {
                 let itemIndent = indent + 2
                 var synthetic: [Line] = [Line(indent: itemIndent, content: after)]
                 index += 1
-                while index < lines.count, lines[index].indent == itemIndent, !lines[index].content.hasPrefix("-") {
-                    synthetic.append(Line(indent: itemIndent, content: lines[index].content))
+                while index < lines.count, lines[index].indent > indent {
+                    synthetic.append(lines[index])
                     index += 1
                 }
                 var synthIndex = 0
@@ -109,7 +109,9 @@ public enum YAMLCodec {
     }
 
     private static func isMapEntry(_ text: String) -> Bool {
-        topLevelColon(text) != nil
+        guard let colon = topLevelColon(text) else { return false }
+        let valueStart = text.index(after: colon)
+        return valueStart == text.endIndex || text[valueStart].isWhitespace
     }
 
     private static func isSequenceMarker(_ content: String) -> Bool {

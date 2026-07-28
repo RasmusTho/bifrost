@@ -2,6 +2,50 @@ import XCTest
 @testable import Yggdrasil
 import YggdrasilCore
 extension VaultFileStoreTests {
+    func testDecisionWriteCarriesProvenance() async throws {
+        let path = HeimdalPaths.entityReview
+        let url = tempDirectory.appendingPathComponent(path)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try """
+        ---
+        pending:
+          - queue_entry_id: queue-1
+            mention_id: mention-1
+            surface_form: "Anna"
+            resolution: ambiguous
+            candidate_entity_ids: [ent:anna]
+        decisions: []
+        ---
+        """.write(to: url, atomically: true, encoding: .utf8)
+        let store = VaultFileStore(
+            rootURL: tempDirectory,
+            provenanceTimestampProvider: { "2026-07-28T09:00:00Z" }
+        )
+        let review = EntityReviewNote(
+            document: try FrontmatterDocument.parse(try await store.read(path))
+        )
+
+        try await MimerEntityDecisionWriter.append(
+            .reject,
+            for: try XCTUnwrap(review.pending.first),
+            decidedAt: "2026-07-28T09:00:00Z",
+            using: store
+        )
+
+        let saved = try FrontmatterDocument.parse(try await store.read(path))
+        let provenance = try XCTUnwrap(saved.frontmatter["agent_provenance"]?.mapValue)
+        XCTAssertEqual(provenance["author"]?.stringValue, "bifrost-ios")
+        XCTAssertEqual(provenance["written_at"]?.stringValue, "2026-07-28T09:00:00Z")
+        XCTAssertEqual(provenance["origin"]?.stringValue, "direct-fs")
+        XCTAssertEqual(
+            saved.frontmatter["decisions"]?.arrayValue?.last?.mapValue?["action"]?.stringValue,
+            "reject"
+        )
+    }
+
     func testExistingProvenanceRetainsPriorWriterBeforeRefresh() async throws {
         let timestamp = "2026-07-21T10:30:00Z"
         let loggedFailures = MutationValueRecorder()

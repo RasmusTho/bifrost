@@ -22,7 +22,7 @@ struct MimerShellView: View {
     }
 }
 
-private enum MimerLens: String, CaseIterable, Hashable, Identifiable {
+enum MimerLens: String, CaseIterable, Hashable, Identifiable {
     case today
     case interests
     case entities
@@ -95,6 +95,7 @@ struct MimerCanvasView: View {
     let fileStore: VaultFileStore
     @ObservedObject var keyboardRouter: MimerCanvasKeyboardRouter
     @StateObject private var appendDraft: MimerCanvasAppendDraft
+    @StateObject private var entityCompareModel: MimerEntityCompareModel
     @State private var selectedLens: MimerLens? = .today
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedNote: MimerCanvasNote?
@@ -106,6 +107,9 @@ struct MimerCanvasView: View {
         self.fileStore = fileStore
         self.keyboardRouter = keyboardRouter
         _appendDraft = StateObject(wrappedValue: MimerCanvasAppendDraft(fileStore: fileStore))
+        _entityCompareModel = StateObject(
+            wrappedValue: MimerEntityCompareModel(fileStore: fileStore)
+        )
     }
 
     var body: some View {
@@ -144,6 +148,13 @@ struct MimerCanvasView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
                     .accessibilityValue(focusValue(for: .content))
+                } else if selectedLens == .entities {
+                    MimerEntityQueueView(model: entityCompareModel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
+                        .focusable()
+                        .focused($focusedElement, equals: .content)
+                        .accessibilityValue(focusValue(for: .content))
                 } else {
                     MimerLensContentView(lens: selectedLens, fileStore: fileStore)
                         .accessibilityElement(children: .contain)
@@ -156,12 +167,18 @@ struct MimerCanvasView: View {
                 ContentUnavailableView("Choose a Lens", systemImage: "sidebar.left")
             }
         } detail: {
-            MimerCanvasDetailView(
-                note: $selectedNote,
-                inspectorIsPresented: inspectorIsPresented,
-                fileStore: fileStore,
-                appendDraft: appendDraft
-            )
+            Group {
+                if selectedLens == .entities {
+                    MimerEntityCompareDetailView(model: entityCompareModel)
+                } else {
+                    MimerCanvasDetailView(
+                        note: $selectedNote,
+                        inspectorIsPresented: inspectorIsPresented,
+                        fileStore: fileStore,
+                        appendDraft: appendDraft
+                    )
+                }
+            }
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("mimer.canvas.detail")
                 .focusable()
@@ -467,33 +484,6 @@ private struct MimerCanvasDetailView: View {
             // The append draft already preserves the human's unsaved text only
             // on a failed append. A post-write refresh failure does not create
             // another write path; reopening the note performs the normal read.
-        }
-    }
-}
-
-private struct MimerLensContentView: View {
-    let lens: MimerLens
-    let fileStore: VaultFileStore
-
-    @ViewBuilder
-    var body: some View {
-        switch lens {
-        case .today:
-            AttentionLensView(fileStore: fileStore)
-        case .interests:
-            InterestsLensView(fileStore: fileStore)
-        case .entities:
-            EntityConfirmLensView(fileStore: fileStore)
-        case .consent:
-            ConsentLensView(fileStore: fileStore)
-        case .vault:
-            // NoteBrowserView assumes a navigation context for folder drills;
-            // the canvas supplies it without changing the compact tab path.
-            NavigationStack {
-                NoteBrowserView(fileStore: fileStore)
-            }
-        case .settings:
-            SettingsLensView(fileStore: fileStore)
         }
     }
 }

@@ -136,10 +136,12 @@ public struct EntityReviewNote: HeimdalNote {
         }
     }
 
-    /// Appends a human decision (`merge` or `reject`). Idempotent: the
+    /// Appends a human decision (`merge`, `reject`, or compensating `undo`). Idempotent: the
     /// backend applies decisions and removes the matching pending entry, and
     /// a duplicate write for an id no longer pending is a no-op there — but
-    /// this client still avoids appending an exact duplicate decision.
+    /// this client still avoids appending an immediately repeated decision.
+    /// Only the latest matching entry is compared so a later decision after
+    /// `undo` remains representable in the ordered append-only log.
     public mutating func addDecision(
         queueEntryId: String,
         action: String,
@@ -150,16 +152,21 @@ public struct EntityReviewNote: HeimdalNote {
         var decision = YAMLMap()
         decision["queue_entry_id"] = .string(queueEntryId)
         decision["action"] = .string(action)
-        decision["from_id"] = .string(fromId)
-        decision["into_id"] = .string(intoId)
+        if action != "undo" {
+            decision["from_id"] = .string(fromId)
+            decision["into_id"] = .string(intoId)
+        }
         decision["decided_at"] = .string(decidedAt)
 
         var decisions = document.frontmatter["decisions"]?.arrayValue ?? []
-        let alreadyPresent = decisions.contains { existing in
-            guard let existingMap = existing.mapValue else { return false }
-            return existingMap["queue_entry_id"]?.stringValue == queueEntryId
-                && existingMap["action"]?.stringValue == action
+        let lastForQueue = decisions.reversed().compactMap(\.mapValue).first {
+            $0["queue_entry_id"]?.stringValue == queueEntryId
         }
+        let alreadyPresent = lastForQueue?["action"]?.stringValue == action
+            && (action == "undo" || (
+                lastForQueue?["from_id"]?.stringValue == fromId
+                    && lastForQueue?["into_id"]?.stringValue == intoId
+            ))
         if !alreadyPresent {
             decisions.append(.map(decision))
             document.frontmatter["decisions"] = .array(decisions)
