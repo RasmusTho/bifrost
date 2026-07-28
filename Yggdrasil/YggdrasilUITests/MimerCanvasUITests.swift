@@ -158,6 +158,55 @@ final class MimerCanvasUITests: XCTestCase {
         )
     }
 
+    func testAnnotateAndDragPromoteJourney() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        let app = launchMimerShell(withFixture: true)
+
+        let vaultLens = app.descendants(matching: .any)["mimer.canvas.lens.vault"]
+        XCTAssertTrue(vaultLens.waitForExistence(timeout: 10))
+        vaultLens.tap()
+        let projects = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects"]
+        XCTAssertTrue(projects.waitForExistence(timeout: 10))
+        projects.tap()
+
+        let target = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
+        XCTAssertTrue(target.waitForExistence(timeout: 5))
+        target.tap()
+        let annotate = app.buttons["mimer.canvas.annotate"]
+        XCTAssertTrue(annotate.waitForExistence(timeout: 5))
+        annotate.tap()
+        let annotationField = app.textFields["mimer.canvas.annotation.field"]
+        XCTAssertTrue(annotationField.waitForExistence(timeout: 5))
+        annotationField.tap()
+        annotationField.typeText("check the June numbers")
+        app.buttons["mimer.canvas.annotation.commit"].tap()
+        XCTAssertTrue(app.staticTexts["check the June numbers"].waitForExistence(timeout: 5))
+
+        let source = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/source.md"]
+        XCTAssertTrue(source.waitForExistence(timeout: 5))
+        // The promotion drop surface is the open detail note, not the whole detail
+        // column: `mimer.canvas.detail` also spans the 260pt metadata inspector, so
+        // on a narrow iPad the centre of that container sits over the inspector,
+        // which is not a drop destination.
+        let renderedDocument = app.descendants(matching: .any)["mimer.canvas.detail.document"]
+        XCTAssertTrue(renderedDocument.waitForExistence(timeout: 5))
+        // A drag-and-drop session only delivers when the touch is held over the
+        // destination long enough for the drop interaction to register the drop.
+        // The `press(forDuration:thenDragTo:)` overload holds for 0.0s and lifts
+        // before the destination is entered.
+        source.press(
+            forDuration: 1.0,
+            thenDragTo: renderedDocument,
+            withVelocity: .slow,
+            thenHoldForDuration: 1.5
+        )
+        assertAccessibilityValueContains(
+            "[[Projects/source]] — source.md",
+            for: renderedDocument,
+            timeout: 15
+        )
+    }
+
     private func assertAccessibilityValue(
         _ expectedValue: String,
         for element: XCUIElement,
@@ -172,6 +221,26 @@ final class MimerCanvasUITests: XCTestCase {
             XCTWaiter.wait(for: [expectation], timeout: 5),
             .completed,
             "Expected accessibility value \(expectedValue), got \(String(describing: element.value)).",
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertAccessibilityValueContains(
+        _ expectedValue: String,
+        for element: XCUIElement,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", expectedValue),
+            object: element
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: timeout),
+            .completed,
+            "Expected accessibility value to contain \(expectedValue), got \(String(describing: element.value)).",
             file: file,
             line: line
         )
