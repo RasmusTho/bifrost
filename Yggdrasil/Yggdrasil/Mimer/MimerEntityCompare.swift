@@ -120,31 +120,65 @@ enum MimerEntityDecisionWrite: Equatable, Sendable {
 }
 
 enum MimerEntityDecisionWriteError: LocalizedError, Equatable {
-    case staleEffectiveDecision
+    case staleAuthorityState
 
     var errorDescription: String? {
         switch self {
-        case .staleEffectiveDecision:
+        case .staleAuthorityState:
             "Entity review changed after it was loaded. Reload before recording another decision."
         }
     }
 }
 
-private extension MimerEntityDecision {
-    static func effective(
+struct MimerEntityPendingAuthority: Equatable, Sendable {
+    let queueEntryID: String
+    let canonicalRow: String
+
+    static func capture(
         for queueEntryID: String,
         in document: FrontmatterDocument
-    ) -> MimerEntityDecision? {
-        guard let decisions = document.frontmatter["decisions"]?.arrayValue else {
+    ) -> MimerEntityPendingAuthority? {
+        guard let pending = document.frontmatter["pending"]?.arrayValue else {
             return nil
         }
+        let matchingRows = pending.filter {
+            $0.mapValue?["queue_entry_id"]?.stringValue == queueEntryID
+        }
+        guard matchingRows.count == 1, let row = matchingRows.first else {
+            return nil
+        }
+        return MimerEntityPendingAuthority(
+            queueEntryID: queueEntryID,
+            canonicalRow: YAMLCodec.serialize(row)
+        )
+    }
+}
+
+struct MimerEntityDecisionAuthority: Equatable, Sendable {
+    let queueEntryID: String
+    let canonicalLatestRow: String?
+    let effectiveDecision: MimerEntityDecision?
+
+    static func capture(
+        for queueEntryID: String,
+        in document: FrontmatterDocument
+    ) -> MimerEntityDecisionAuthority {
+        guard let decisions = document.frontmatter["decisions"]?.arrayValue else {
+            return MimerEntityDecisionAuthority(
+                queueEntryID: queueEntryID,
+                canonicalLatestRow: nil,
+                effectiveDecision: nil
+            )
+        }
         var effective: MimerEntityDecision?
+        var latestRow: YAMLValue?
         for decision in decisions {
             guard let map = decision.mapValue,
                   map["queue_entry_id"]?.stringValue == queueEntryID,
                   let action = map["action"]?.stringValue else {
                 continue
             }
+            latestRow = decision
             switch action {
             case "merge":
                 if let candidateID = map["into_id"]?.stringValue {
@@ -158,7 +192,35 @@ private extension MimerEntityDecision {
                 continue
             }
         }
-        return effective
+        return MimerEntityDecisionAuthority(
+            queueEntryID: queueEntryID,
+            canonicalLatestRow: latestRow.map(YAMLCodec.serialize),
+            effectiveDecision: effective
+        )
+    }
+}
+
+struct MimerEntityAuthoritySnapshot: Equatable, Sendable {
+    let pending: MimerEntityPendingAuthority
+    let decision: MimerEntityDecisionAuthority
+
+    static func capture(
+        for queueEntryID: String,
+        in document: FrontmatterDocument
+    ) -> MimerEntityAuthoritySnapshot? {
+        guard let pending = MimerEntityPendingAuthority.capture(
+            for: queueEntryID,
+            in: document
+        ) else {
+            return nil
+        }
+        return MimerEntityAuthoritySnapshot(
+            pending: pending,
+            decision: MimerEntityDecisionAuthority.capture(
+                for: queueEntryID,
+                in: document
+            )
+        )
     }
 }
 
@@ -166,7 +228,7 @@ enum MimerEntityDecisionWriter {
     static func append(
         _ decision: MimerEntityDecisionWrite,
         for entry: EntityReviewEntry,
-        expectedEffectiveDecision: MimerEntityDecision?,
+        expectedAuthority: MimerEntityAuthoritySnapshot,
         decidedAt: String,
         using fileStore: VaultFileStore
     ) async throws {
@@ -195,11 +257,15 @@ enum MimerEntityDecisionWriter {
             // a stale enabled action cannot append to a shape the hub cannot
             // safely consume.
             _ = try EntityReviewNote(document: document).validatedPending()
-            guard MimerEntityDecision.effective(
+            guard MimerEntityPendingAuthority.capture(
                 for: queueEntryID,
                 in: document
-            ) == expectedEffectiveDecision else {
-                throw MimerEntityDecisionWriteError.staleEffectiveDecision
+            ) == expectedAuthority.pending,
+                MimerEntityDecisionAuthority.capture(
+                    for: queueEntryID,
+                    in: document
+                ) == expectedAuthority.decision else {
+                throw MimerEntityDecisionWriteError.staleAuthorityState
             }
             var review = EntityReviewNote(document: document)
             review.addDecision(
@@ -248,6 +314,7 @@ final class MimerEntityCompareModel: ObservableObject {
         reviewDocument != nil
             && loadError == nil
             && selectedCandidateID != nil
+            && selectedAuthority != nil
             && effectiveDecision == nil
             && !isLoading
             && !isWriting
@@ -257,6 +324,7 @@ final class MimerEntityCompareModel: ObservableObject {
         reviewDocument != nil
             && loadError == nil
             && selectedEntry != nil
+            && selectedAuthority != nil
             && effectiveDecision == nil
             && !isLoading
             && !isWriting
@@ -265,6 +333,7 @@ final class MimerEntityCompareModel: ObservableObject {
     var canUndo: Bool {
         reviewDocument != nil
             && loadError == nil
+            && selectedAuthority != nil
             && effectiveDecision != nil
             && !isLoading
             && !isWriting
@@ -334,15 +403,17 @@ final class MimerEntityCompareModel: ObservableObject {
     }
 
     private func append(_ decision: MimerEntityDecisionWrite) async {
-        guard let entry = selectedEntry else { return }
-        let expectedEffectiveDecision = effectiveDecision
+        guard let entry = selectedEntry,
+              let expectedAuthority = selectedAuthority else {
+            return
+        }
         isWriting = true
         defer { isWriting = false }
         do {
             try await MimerEntityDecisionWriter.append(
                 decision,
                 for: entry,
-                expectedEffectiveDecision: expectedEffectiveDecision,
+                expectedAuthority: expectedAuthority,
                 decidedAt: timestampProvider(),
                 using: fileStore
             )
@@ -387,10 +458,14 @@ final class MimerEntityCompareModel: ObservableObject {
     }
 
     private func effectiveDecisionForSelectedEntry() -> MimerEntityDecision? {
+        selectedAuthority?.decision.effectiveDecision
+    }
+
+    private var selectedAuthority: MimerEntityAuthoritySnapshot? {
         guard let selectedEntryID, let reviewDocument else {
             return nil
         }
-        return MimerEntityDecision.effective(
+        return MimerEntityAuthoritySnapshot.capture(
             for: selectedEntryID,
             in: reviewDocument
         )

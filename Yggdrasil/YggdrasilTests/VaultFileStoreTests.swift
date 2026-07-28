@@ -400,7 +400,11 @@ final class VaultFileStoreTests: XCTestCase {
         try await MimerEntityDecisionWriter.append(
             .merge(candidateID: "ent:anna"),
             for: EntityReviewNote(document: before).pending[0],
-            expectedEffectiveDecision: nil,
+            expectedAuthority: try XCTUnwrap(
+                MimerEntityAuthoritySnapshot.capture(
+                    for: "queue-1", in: before
+                )
+            ),
             decidedAt: "2026-07-28T09:00:00Z",
             using: store
         )

@@ -76,6 +76,7 @@
 		A19000010000000000000001 /* MimerCanvasUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19000110000000000000001 /* MimerCanvasUITests.swift */; };
 		C16000010000000000000001 /* CaptureDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16000110000000000000001 /* CaptureDeliveryTests.swift */; };
 		B10000010000000000000010 /* NoteInspectorModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000100000000000000010 /* NoteInspectorModelTests.swift */; };
+		E14000010000000000000014 /* EntityReviewAuthorityCASTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14000020000000000000014 /* EntityReviewAuthorityCASTests.swift */; };
 		5BB61A3A3A42C1521CE396AF /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 		661D4087FF716F6CB52A808E /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 /* End PBXBuildFile section */
@@ -169,6 +170,7 @@
 		A19000110000000000000001 /* MimerCanvasUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasUITests.swift; sourceTree = "<group>"; };
 		C16000110000000000000001 /* CaptureDeliveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDeliveryTests.swift; sourceTree = "<group>"; };
 		B10000100000000000000010 /* NoteInspectorModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteInspectorModelTests.swift; sourceTree = "<group>"; };
+		E14000020000000000000014 /* EntityReviewAuthorityCASTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityReviewAuthorityCASTests.swift; sourceTree = "<group>"; };
 		5CAEF267DA8A9A8592B0B826 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7D497DBFC684E0B65B3E9AD0 /* Yggdrasil.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yggdrasil.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD7AA2B15AA01B81DC5A28A2 /* YggdrasilTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YggdrasilTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -368,6 +370,7 @@
 				A14000160000000000000006 /* CaptureSessionModelTests.swift */,
 				A17000120000000000000002 /* DeviceRegistrationTests.swift */,
 				B10000100000000000000010 /* NoteInspectorModelTests.swift */,
+				E14000020000000000000014 /* EntityReviewAuthorityCASTests.swift */,
 				A15000120000000000000002 /* CaptureRecorderTests.swift */,
 				C16000110000000000000001 /* CaptureDeliveryTests.swift */,
 				C20000120000000000000002 /* CaptureSidecarTests.swift */,
@@ -618,6 +621,7 @@
 				A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */,
 				A17000020000000000000002 /* DeviceRegistrationTests.swift in Sources */,
 				B10000010000000000000010 /* NoteInspectorModelTests.swift in Sources */,
+				E14000010000000000000014 /* EntityReviewAuthorityCASTests.swift in Sources */,
 				A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */,
 				C16000010000000000000001 /* CaptureDeliveryTests.swift in Sources */,
 				C20000020000000000000002 /* CaptureSidecarTests.swift in Sources */,
