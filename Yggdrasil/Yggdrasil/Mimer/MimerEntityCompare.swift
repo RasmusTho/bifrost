@@ -190,15 +190,29 @@ final class MimerEntityCompareModel: ObservableObject {
     }
 
     var canMerge: Bool {
-        selectedCandidateID != nil && effectiveDecision == nil && !isWriting
+        reviewDocument != nil
+            && loadError == nil
+            && selectedCandidateID != nil
+            && effectiveDecision == nil
+            && !isLoading
+            && !isWriting
     }
 
     var canReject: Bool {
-        selectedEntry != nil && effectiveDecision == nil && !isWriting
+        reviewDocument != nil
+            && loadError == nil
+            && selectedEntry != nil
+            && effectiveDecision == nil
+            && !isLoading
+            && !isWriting
     }
 
     var canUndo: Bool {
-        effectiveDecision != nil && !isWriting
+        reviewDocument != nil
+            && loadError == nil
+            && effectiveDecision != nil
+            && !isLoading
+            && !isWriting
     }
 
     var decisionStatus: String {
@@ -218,7 +232,7 @@ final class MimerEntityCompareModel: ObservableObject {
         do {
             let text = try await fileStore.read(HeimdalPaths.entityReview)
             let document = try FrontmatterDocument.parse(text)
-            let entries = EntityReviewNote(document: document).pending
+            let entries = try EntityReviewNote(document: document).validatedPending()
             reviewDocument = document
             pending = entries
             if !entries.contains(where: { $0.id == selectedEntryID }) {
@@ -227,14 +241,10 @@ final class MimerEntityCompareModel: ObservableObject {
             loadError = nil
             await loadSelectedCandidates(preservingSelection: true)
         } catch VaultFileStoreError.notFound {
-            reviewDocument = nil
-            pending = []
-            selectedEntryID = nil
-            candidates = []
-            selectedCandidateID = nil
-            effectiveDecision = nil
+            clearLoadedReviewState()
             loadError = nil
         } catch {
+            clearLoadedReviewState()
             loadError = error.localizedDescription
         }
     }
@@ -284,6 +294,16 @@ final class MimerEntityCompareModel: ObservableObject {
         } catch {
             loadError = error.localizedDescription
         }
+    }
+
+    private func clearLoadedReviewState() {
+        candidateLoadID = UUID()
+        reviewDocument = nil
+        pending = []
+        selectedEntryID = nil
+        candidates = []
+        selectedCandidateID = nil
+        effectiveDecision = nil
     }
 
     private func loadSelectedCandidates(preservingSelection: Bool) async {

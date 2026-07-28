@@ -3,6 +3,13 @@ import YggdrasilCore
 @testable import Yggdrasil
 
 final class NoteInspectorModelTests: XCTestCase {
+    private struct EntityReviewValidationFixture {
+        let root: URL
+        let reviewURL: URL
+        let store: VaultFileStore
+        let model: MimerEntityCompareModel
+    }
+
     func testInspectorFieldsFromFrontmatterAndMissingUuid() throws {
         let inspected = NoteInspectorModel(
             text: """
@@ -73,5 +80,148 @@ final class NoteInspectorModelTests: XCTestCase {
         XCTAssertEqual(candidates[1].label, "ent:missing")
         XCTAssertEqual(candidates[1].availability, .missing)
         XCTAssertEqual(candidates[1].markdown, "")
+    }
+
+    @MainActor
+    func testUnsupportedEntityReviewActionFailsClosed() async throws {
+        try await assertEntityReviewLoadFailsClosed(
+            invalidReview: """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                mention_id: mention-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: 0.71
+                candidate_entity_ids: [ent:anna]
+            decisions:
+              - queue_entry_id: queue-1
+                action: split
+                decided_at: 2026-07-28T09:00:00Z
+            ---
+            """,
+            expectedError: "decisions[0] has unsupported action 'split'"
+        )
+    }
+
+    @MainActor
+    func testEntityReviewMergeWithoutIntoIDFailsClosed() async throws {
+        try await assertEntityReviewLoadFailsClosed(
+            invalidReview: """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                mention_id: mention-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: 0.71
+                candidate_entity_ids: [ent:anna]
+            decisions:
+              - queue_entry_id: queue-1
+                action: merge
+                from_id: mention-1
+                decided_at: 2026-07-28T09:00:00Z
+            ---
+            """,
+            expectedError: "decisions[0].into_id must be a non-empty string"
+        )
+    }
+
+    @MainActor
+    func testMalformedEntityReviewPendingRowFailsClosed() async throws {
+        try await assertEntityReviewLoadFailsClosed(
+            invalidReview: """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: 0.71
+                candidate_entity_ids: [ent:anna]
+            decisions: []
+            ---
+            """,
+            expectedError: "pending[0].mention_id must be a non-empty string"
+        )
+    }
+
+    @MainActor
+    private func assertEntityReviewLoadFailsClosed(
+        invalidReview: String,
+        expectedError: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let fixture = try makeEntityReviewValidationFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        await fixture.model.load()
+        fixture.model.selectCandidate("ent:anna")
+        XCTAssertTrue(fixture.model.canMerge, file: file, line: line)
+        XCTAssertTrue(fixture.model.canReject, file: file, line: line)
+        await fixture.model.merge()
+        XCTAssertTrue(fixture.model.canUndo, file: file, line: line)
+
+        try invalidReview.write(to: fixture.reviewURL, atomically: true, encoding: .utf8)
+        let beforeGuardedActions = try await fixture.store.read(HeimdalPaths.entityReview)
+        await fixture.model.load()
+
+        XCTAssertTrue(fixture.model.pending.isEmpty, file: file, line: line)
+        XCTAssertNil(fixture.model.selectedEntryID, file: file, line: line)
+        XCTAssertNil(fixture.model.effectiveDecision, file: file, line: line)
+        XCTAssertFalse(fixture.model.canMerge, file: file, line: line)
+        XCTAssertFalse(fixture.model.canReject, file: file, line: line)
+        XCTAssertFalse(fixture.model.canUndo, file: file, line: line)
+        XCTAssertTrue(
+            fixture.model.loadError?.contains(expectedError) == true,
+            file: file,
+            line: line
+        )
+
+        await fixture.model.merge()
+        await fixture.model.reject()
+        await fixture.model.undo()
+        let afterGuardedActions = try await fixture.store.read(HeimdalPaths.entityReview)
+        XCTAssertEqual(
+            afterGuardedActions,
+            beforeGuardedActions,
+            "disabled authority-bearing actions must not write",
+            file: file,
+            line: line
+        )
+    }
+
+    @MainActor
+    private func makeEntityReviewValidationFixture() throws -> EntityReviewValidationFixture {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MimerEntityReviewValidationTests-\(UUID().uuidString)")
+        let reviewURL = root.appendingPathComponent(HeimdalPaths.entityReview)
+        try FileManager.default.createDirectory(
+            at: reviewURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try """
+        ---
+        pending:
+          - queue_entry_id: queue-1
+            mention_id: mention-1
+            surface_form: "Anna"
+            resolution: ambiguous
+            confidence: 0.71
+            candidate_entity_ids: [ent:anna]
+        decisions: []
+        ---
+        """.write(to: reviewURL, atomically: true, encoding: .utf8)
+        let store = VaultFileStore(rootURL: root)
+        let model = MimerEntityCompareModel(
+            fileStore: store,
+            timestampProvider: { "2026-07-28T09:00:00Z" }
+        )
+        return EntityReviewValidationFixture(
+            root: root,
+            reviewURL: reviewURL,
+            store: store,
+            model: model
+        )
     }
 }
