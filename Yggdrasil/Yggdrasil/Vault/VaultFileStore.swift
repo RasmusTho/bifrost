@@ -224,7 +224,7 @@ struct VaultFileStore: Sendable {
     func readModifyWrite(
         _ relativePath: String,
         sourcePreservingAppendToRootSequence sequenceName: String? = nil,
-        mutate: @escaping @Sendable (inout FrontmatterDocument) -> Void
+        mutate: @escaping @Sendable (inout FrontmatterDocument) throws -> Void
     ) async throws {
         try await performIO {
             try withWriteAccess(relativePath) {
@@ -239,7 +239,7 @@ struct VaultFileStore: Sendable {
                         document = try FrontmatterDocument.parse(text)
                     }
                     let originalDocument = document
-                    mutate(&document)
+                    try mutate(&document)
                     guard let textToWrite = try mutationText(
                         snapshot: snapshot,
                         originalDocument: originalDocument,

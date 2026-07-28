@@ -10,6 +10,11 @@ final class NoteInspectorModelTests: XCTestCase {
         let model: MimerEntityCompareModel
     }
 
+    private enum EntityReviewMutationAction {
+        case merge
+        case undo
+    }
+
     func testInspectorFieldsFromFrontmatterAndMissingUuid() throws {
         let inspected = NoteInspectorModel(
             text: """
@@ -81,7 +86,9 @@ final class NoteInspectorModelTests: XCTestCase {
         XCTAssertEqual(candidates[1].availability, .missing)
         XCTAssertEqual(candidates[1].markdown, "")
     }
+}
 
+extension NoteInspectorModelTests {
     @MainActor
     func testUnsupportedEntityReviewActionFailsClosed() async throws {
         try await assertEntityReviewLoadFailsClosed(
@@ -146,6 +153,77 @@ final class NoteInspectorModelTests: XCTestCase {
     }
 
     @MainActor
+    func testFreshUnsupportedEntityReviewActionBlocksMergeWithoutWriting() async throws {
+        try await assertFreshInvalidEntityReviewBlocksMutation(
+            invalidReview: """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                mention_id: mention-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: 0.71
+                candidate_entity_ids: [ent:anna]
+            decisions:
+              - queue_entry_id: queue-1
+                action: split
+                decided_at: 2026-07-28T09:00:00Z
+            ---
+            """,
+            action: .merge,
+            expectedError: "decisions[0] has unsupported action 'split'"
+        )
+    }
+
+    @MainActor
+    func testFreshMergeMissingFromIDBlocksMergeWithoutWriting() async throws {
+        try await assertFreshInvalidEntityReviewBlocksMutation(
+            invalidReview: """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                mention_id: mention-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: 0.71
+                candidate_entity_ids: [ent:anna]
+            decisions:
+              - queue_entry_id: queue-1
+                action: merge
+                into_id: ent:anna
+                decided_at: 2026-07-28T09:00:00Z
+            ---
+            """,
+            action: .merge,
+            expectedError: "decisions[0].from_id must be a non-empty string"
+        )
+    }
+
+    @MainActor
+    func testFreshInvalidUndoShapeBlocksUndoWithoutWriting() async throws {
+        try await assertFreshInvalidEntityReviewBlocksMutation(
+            invalidReview: """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                mention_id: mention-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: 0.71
+                candidate_entity_ids: [ent:anna]
+            decisions:
+              - queue_entry_id: queue-1
+                action: undo
+                from_id: mention-1
+                decided_at: 2026-07-28T09:00:00Z
+            ---
+            """,
+            action: .undo,
+            expectedError: "action 'undo' must compensate by queue_entry_id only"
+        )
+    }
+
+    @MainActor
     private func assertEntityReviewLoadFailsClosed(
         invalidReview: String,
         expectedError: String,
@@ -186,6 +264,58 @@ final class NoteInspectorModelTests: XCTestCase {
             afterGuardedActions,
             beforeGuardedActions,
             "disabled authority-bearing actions must not write",
+            file: file,
+            line: line
+        )
+    }
+
+    @MainActor
+    private func assertFreshInvalidEntityReviewBlocksMutation(
+        invalidReview: String,
+        action: EntityReviewMutationAction,
+        expectedError: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let fixture = try makeEntityReviewValidationFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        await fixture.model.load()
+        fixture.model.selectCandidate("ent:anna")
+        switch action {
+        case .merge:
+            XCTAssertTrue(fixture.model.canMerge, file: file, line: line)
+        case .undo:
+            await fixture.model.merge()
+            XCTAssertTrue(fixture.model.canUndo, file: file, line: line)
+        }
+
+        try invalidReview.write(to: fixture.reviewURL, atomically: true, encoding: .utf8)
+        let beforeAction = try await fixture.store.read(HeimdalPaths.entityReview)
+
+        switch action {
+        case .merge:
+            await fixture.model.merge()
+        case .undo:
+            await fixture.model.undo()
+        }
+
+        let afterAction = try await fixture.store.read(HeimdalPaths.entityReview)
+        XCTAssertEqual(
+            afterAction,
+            beforeAction,
+            "invalid fresh authority must remain byte-identical",
+            file: file,
+            line: line
+        )
+        XCTAssertTrue(fixture.model.pending.isEmpty, file: file, line: line)
+        XCTAssertNil(fixture.model.selectedEntryID, file: file, line: line)
+        XCTAssertNil(fixture.model.effectiveDecision, file: file, line: line)
+        XCTAssertFalse(fixture.model.canMerge, file: file, line: line)
+        XCTAssertFalse(fixture.model.canReject, file: file, line: line)
+        XCTAssertFalse(fixture.model.canUndo, file: file, line: line)
+        XCTAssertTrue(
+            fixture.model.loadError?.contains(expectedError) == true,
             file: file,
             line: line
         )

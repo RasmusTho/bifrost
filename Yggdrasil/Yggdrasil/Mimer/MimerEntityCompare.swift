@@ -146,6 +146,11 @@ enum MimerEntityDecisionWriter {
             HeimdalPaths.entityReview,
             sourcePreservingAppendToRootSequence: "decisions"
         ) { document in
+            // The compare UI is an ephemeral lens. Revalidate the complete,
+            // freshly coordinated authority document at the mutation seam so
+            // a stale enabled action cannot append to a shape the hub cannot
+            // safely consume.
+            _ = try EntityReviewNote(document: document).validatedPending()
             var review = EntityReviewNote(document: document)
             review.addDecision(
                 queueEntryId: queueEntryID,
@@ -292,6 +297,7 @@ final class MimerEntityCompareModel: ObservableObject {
             loadError = nil
             await load()
         } catch {
+            clearLoadedReviewState()
             loadError = error.localizedDescription
         }
     }
