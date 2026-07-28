@@ -1,4 +1,4 @@
-# Yggdrasil (app shell) + Mimer-iPhone client
+# Yggdrasil (app shell) + Mimer client surfaces
 
 Implements bifrost#1 / hub `RasmusTho/agentic-pkm-mvp#3023` (B1), per ADR-0049 §4 (topology C).
 
@@ -16,9 +16,9 @@ Implements bifrost#1 / hub `RasmusTho/agentic-pkm-mvp#3023` (B1), per ADR-0049 �
   (`VaultFileStore`).
 - `Yggdrasil/Markdown` — the generic `.md` renderer (`MarkdownRendererView`) and read/write note editor
   (`NoteDetailView`) that work over *any* vault note, not just `_heimdal/**`.
-- `Yggdrasil/Mimer` — the Mimer-iPhone client: `MimerShellView` hosts one lens per A14–A19 `_heimdal/**`
-  control-surface note (Attention/A16, Interests+watchlist/A18, Entity confirmation/A17, Consent/A19,
-  Settings/A14), plus a generic vault browser.
+- `Yggdrasil/Mimer` — the Mimer client: `MimerShellView` hosts the compact iPhone lenses over A14–A19
+  `_heimdal/**` control-surface notes, while `MimerCanvasView` and the governed canvas append/promotion
+  seam provide the iPad-first thinking canvas; both surfaces share the generic vault browser.
 
 `../Packages/YggdrasilCore` holds the platform-agnostic logic: the constrained-YAML codec used by
 typed `_heimdal/**` wrappers, the production Yams + Tree-sitter semantic/source-range boundary used

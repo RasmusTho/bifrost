@@ -23,9 +23,10 @@ Builder-System governance scaffolded (setup `RasmusTho/agentic-pkm-mvp#3055`): `
 authority), Issue/PR contracts, delivery-skill routing + shared contracts (`.codex/skills/`), the label
 taxonomy, and Swift/iOS CI (`.github/workflows/ci.yml`).
 
-B1 (bifrost#1 / hub `RasmusTho/agentic-pkm-mvp#3023`) has landed the `Yggdrasil.xcodeproj` app shell +
-Mimer-iPhone client — the Swift build/test/lint gate is now a real hard gate (see `Yggdrasil/README.md`
-for the app's structure). B2 (Mimer-iPad) and B3 (Heimdal-iPhone + Watch) are not yet built.
+B1 (bifrost#1 / hub `RasmusTho/agentic-pkm-mvp#3023`) established the `Yggdrasil.xcodeproj` app shell +
+Mimer-iPhone client and the Swift build/test/lint gate. The same project now also hosts Mimer's
+iPad-first canvas and the Heimdal client; delivery status stays in the Epic B slice tracking below
+(see `Yggdrasil/README.md` for the app's structure).
 
 App slices: Epic B (#3020) → B1 (#3023) shell + Mimer-iPhone (landed) · B2 (#3024) Mimer-iPad · B3 (#3026)
 Heimdal-iPhone + Watch.
@@ -35,7 +36,8 @@ Heimdal-iPhone + Watch.
 - `.codex/skills/` — delivery-skill routing + `_shared/` Issue & label contracts.
 - `.github/` — Issue template, PR template, CI.
 - `docs/adr/` — pointer to the hub ADR record (ecosystem constitution is not forked here).
-- `Yggdrasil/` — the Xcode project: the Yggdrasil shell + Mimer-iPhone client (B1).
+- `Yggdrasil/` — the Xcode project: the Yggdrasil shell plus bounded Mimer client surfaces for
+  iPhone and iPad, and the Heimdal client for iPhone and Apple Watch.
 - `Packages/YggdrasilCore/` — the platform-agnostic Swift package (frontmatter/markdown parsing,
   `_heimdal/**` note models, vault path resolution) the app target depends on; `swift test` runs its
   unit tests without needing a simulator.
