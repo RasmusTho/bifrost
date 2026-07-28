@@ -126,7 +126,13 @@ struct HeimdalShellView: View {
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
-                Task { await retryUndelivered() }
+                Task {
+                    await retryUndelivered()
+                    // The vault is the source of truth. A hub, human, or iCloud
+                    // update while the app was inactive must not leave a cached
+                    // consent grant presented as current on return.
+                    await registration.load()
+                }
             }
             .onChange(of: sessionModel.stagedItems.map(\.id)) { _, _ in
                 Task { await deliverNewlyStaged() }

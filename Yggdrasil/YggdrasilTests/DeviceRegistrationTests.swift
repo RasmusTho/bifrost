@@ -261,3 +261,66 @@ final class DeviceRegistrationTests: XCTestCase {
         try text.write(to: url, atomically: true, encoding: .utf8)
     }
 }
+
+@MainActor
+extension DeviceRegistrationTests {
+    /// A foreground refresh must replace cached consent facts rather than
+    /// keeping a formerly active grant visible after the hub mirrors its
+    /// revocation into the vault.
+    func testReloadReplacesRevokedStandingGrantWithEmptyState() async throws {
+        let vault = try makeVault()
+        let deviceID = "device-reload-after-revocation"
+        try write(
+            """
+            ---
+            grants:
+              - grant_ref: active-self-record-grant
+                basis: self_record
+                scope: device+adapter:v1-voice-memo
+                granted_at: 2026-07-21T09:00:00+00:00
+                expiry: null
+            ---
+            """ + "\n",
+            to: HeimdalPaths.consent,
+            in: vault
+        )
+        let model = DeviceRegistrationModel(
+            fileStore: VaultFileStore(rootURL: vault),
+            deviceID: deviceID,
+            deviceLabel: "Refreshable phone"
+        )
+
+        await model.load()
+        guard case let .loaded(initial) = model.state else {
+            return XCTFail("Expected an initially loaded registration state")
+        }
+        XCTAssertEqual(initial.standingGrant?.grantRef, "active-self-record-grant")
+
+        try write(
+            """
+            ---
+            grants:
+              - grant_ref: active-self-record-grant
+                basis: self_record
+                scope: device+adapter:v1-voice-memo
+                granted_at: 2026-07-21T09:00:00+00:00
+                expiry: null
+              - grant_ref: revocation-row
+                basis: revocation
+                revokes_grant_ref: active-self-record-grant
+                granted_at: 2026-07-28T12:00:00+00:00
+            ---
+            """ + "\n",
+            to: HeimdalPaths.consent,
+            in: vault
+        )
+
+        await model.load()
+
+        guard case let .loaded(refreshed) = model.state else {
+            return XCTFail("Expected a refreshed registration state")
+        }
+        XCTAssertNil(refreshed.standingGrant)
+        XCTAssertFalse(refreshed.isRegistered)
+    }
+}
