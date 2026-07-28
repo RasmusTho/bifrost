@@ -400,6 +400,7 @@ final class VaultFileStoreTests: XCTestCase {
         try await MimerEntityDecisionWriter.append(
             .merge(candidateID: "ent:anna"),
             for: EntityReviewNote(document: before).pending[0],
+            expectedEffectiveDecision: nil,
             decidedAt: "2026-07-28T09:00:00Z",
             using: store
         )
@@ -428,6 +429,42 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertEqual(appended["into_id"]?.stringValue, "ent:anna")
         XCTAssertEqual(appended["decided_at"]?.stringValue, "2026-07-28T09:00:00Z")
         XCTAssertEqual(coordinator.operations.filter { $0 == .write }.count, 1)
+    }
+
+    func testUnconsumedSequenceMappingPayloadCannotPartiallyRewriteSource() async throws {
+        let path = HeimdalPaths.entityReview
+        let url = tempDirectory.appendingPathComponent(path)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let original = """
+        ---
+        pending:
+          - queue_entry_id: queue-1
+            note: |
+              source-of-record payload
+            resolution: ambiguous
+        decisions: []
+        ---
+
+        Preserve this body.
+        """
+        try original.write(to: url, atomically: true, encoding: .utf8)
+        let coordinator = RecordingCoordinator()
+        let store = VaultFileStore(rootURL: tempDirectory, coordinator: coordinator)
+
+        do {
+            try await store.readModifyWrite(path) { document in
+                document.frontmatter["decisions"] = .array([])
+            }
+            XCTFail("unsupported nested payload must fail before serialization")
+        } catch let error as YAMLCodec.CodecError {
+            XCTAssertEqual(error, .malformedLine("source-of-record payload"))
+        }
+
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), original)
+        XCTAssertEqual(coordinator.operations.filter { $0 == .write }.count, 0)
     }
 }
 

@@ -116,16 +116,21 @@ private struct EntityReviewDocumentValidator {
 
     private func optionalNumber(_ value: YAMLValue?, at path: String) throws -> Double? {
         guard let value else { return nil }
+        let number: Double
         switch value {
         case .null:
             return nil
-        case .int(let number):
-            return Double(number)
-        case .double(let number):
-            return number
+        case .int(let intValue):
+            number = Double(intValue)
+        case .double(let doubleValue):
+            number = doubleValue
         default:
             throw validationError("\(path) must be numeric when present")
         }
+        guard number.isFinite, (0.0...1.0).contains(number) else {
+            throw validationError("\(path) must be finite and between 0 and 1 when present")
+        }
+        return number
     }
 
     private func optionalStringArray(_ value: YAMLValue?, at path: String) throws -> [String] {

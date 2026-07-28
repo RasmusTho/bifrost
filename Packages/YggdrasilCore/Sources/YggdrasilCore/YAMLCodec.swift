@@ -74,6 +74,9 @@ public enum YAMLCodec {
                 }
                 var synthIndex = 0
                 let map = try parseMapping(synthetic, &synthIndex, indent: itemIndent)
+                guard synthIndex == synthetic.count else {
+                    throw CodecError.malformedLine(synthetic[synthIndex].content)
+                }
                 items.append(map)
             } else {
                 items.append(try parseScalar(after))

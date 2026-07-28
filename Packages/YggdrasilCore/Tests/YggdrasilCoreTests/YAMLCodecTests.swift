@@ -25,6 +25,24 @@ final class YAMLCodecTests: XCTestCase {
         XCTAssertThrowsError(try YAMLCodec.parse(yaml))
     }
 
+    func testSequenceMappingRejectsUnconsumedNestedBlockScalarPayload() {
+        let yaml = """
+        pending:
+          - queue_entry_id: queue-1
+            note: |
+              source-of-record payload
+            resolution: ambiguous
+        decisions: []
+        """
+
+        XCTAssertThrowsError(try YAMLCodec.parse(yaml)) { error in
+            XCTAssertEqual(
+                error as? YAMLCodec.CodecError,
+                .malformedLine("source-of-record payload")
+            )
+        }
+    }
+
     func testStringWithEmbeddedNewlineRoundTrips() throws {
         var map = YAMLMap()
         map["note"] = .string("line one\nline two")

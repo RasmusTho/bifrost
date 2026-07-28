@@ -31,6 +31,7 @@ extension VaultFileStoreTests {
         try await MimerEntityDecisionWriter.append(
             .reject,
             for: try XCTUnwrap(review.pending.first),
+            expectedEffectiveDecision: nil,
             decidedAt: "2026-07-28T09:00:00Z",
             using: store
         )

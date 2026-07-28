@@ -10,8 +10,9 @@ final class NoteInspectorModelTests: XCTestCase {
         let model: MimerEntityCompareModel
     }
 
-    private enum EntityReviewMutationAction {
+    private enum EntityReviewMutationAction: Equatable {
         case merge
+        case reject
         case undo
     }
 
@@ -153,6 +154,69 @@ extension NoteInspectorModelTests {
     }
 
     @MainActor
+    func testInvalidEntityReviewConfidenceFailsClosedBeforePublication() async throws {
+        for invalidConfidence in ["1e309", "NaN", "-0.01", "1.01"] {
+            try await assertEntityReviewLoadFailsClosed(
+                invalidReview: """
+                ---
+                pending:
+                  - queue_entry_id: queue-1
+                    mention_id: mention-1
+                    surface_form: "Anna"
+                    resolution: ambiguous
+                    confidence: \(invalidConfidence)
+                    candidate_entity_ids: [ent:anna]
+                decisions: []
+                ---
+                """,
+                expectedError: "confidence must be finite and between 0 and 1 when present"
+            )
+        }
+    }
+
+    @MainActor
+    func testConcurrentDecisionBlocksMergeWithoutWriting() async throws {
+        try await assertFreshConcurrentDecisionBlocksMutation(
+            action: .merge,
+            concurrentDecision: """
+              - queue_entry_id: queue-1
+                action: reject
+                from_id: mention-1
+                into_id: ""
+                decided_at: 2026-07-28T09:00:01Z
+            """
+        )
+    }
+
+    @MainActor
+    func testConcurrentDecisionBlocksRejectWithoutWriting() async throws {
+        try await assertFreshConcurrentDecisionBlocksMutation(
+            action: .reject,
+            concurrentDecision: """
+              - queue_entry_id: queue-1
+                action: merge
+                from_id: mention-1
+                into_id: ent:anna
+                decided_at: 2026-07-28T09:00:01Z
+            """
+        )
+    }
+
+    @MainActor
+    func testConcurrentDecisionBlocksUndoWithoutWriting() async throws {
+        try await assertFreshConcurrentDecisionBlocksMutation(
+            action: .undo,
+            concurrentDecision: """
+              - queue_entry_id: queue-1
+                action: reject
+                from_id: mention-1
+                into_id: ""
+                decided_at: 2026-07-28T09:00:01Z
+            """
+        )
+    }
+
+    @MainActor
     func testFreshUnsupportedEntityReviewActionBlocksMergeWithoutWriting() async throws {
         try await assertFreshInvalidEntityReviewBlocksMutation(
             invalidReview: """
@@ -285,6 +349,8 @@ extension NoteInspectorModelTests {
         switch action {
         case .merge:
             XCTAssertTrue(fixture.model.canMerge, file: file, line: line)
+        case .reject:
+            XCTAssertTrue(fixture.model.canReject, file: file, line: line)
         case .undo:
             await fixture.model.merge()
             XCTAssertTrue(fixture.model.canUndo, file: file, line: line)
@@ -296,6 +362,8 @@ extension NoteInspectorModelTests {
         switch action {
         case .merge:
             await fixture.model.merge()
+        case .reject:
+            await fixture.model.reject()
         case .undo:
             await fixture.model.undo()
         }
@@ -319,6 +387,78 @@ extension NoteInspectorModelTests {
             file: file,
             line: line
         )
+    }
+
+    @MainActor
+    private func assertFreshConcurrentDecisionBlocksMutation(
+        action: EntityReviewMutationAction,
+        concurrentDecision: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let fixture = try makeEntityReviewValidationFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        await fixture.model.load()
+        fixture.model.selectCandidate("ent:anna")
+        if action == .undo {
+            await fixture.model.merge()
+            XCTAssertEqual(fixture.model.effectiveDecision, .merge(candidateID: "ent:anna"))
+        }
+
+        let replacement = """
+        ---
+        pending:
+          - queue_entry_id: queue-1
+            mention_id: mention-1
+            surface_form: "Anna"
+            resolution: ambiguous
+            confidence: 0.71
+            candidate_entity_ids: [ent:anna]
+        decisions:
+        \(concurrentDecision)
+        ---
+        """
+        try replacement.write(to: fixture.reviewURL, atomically: true, encoding: .utf8)
+        let beforeAction = try await fixture.store.read(HeimdalPaths.entityReview)
+
+        switch action {
+        case .merge:
+            await fixture.model.merge()
+        case .reject:
+            await fixture.model.reject()
+        case .undo:
+            await fixture.model.undo()
+        }
+
+        let afterAction = try await fixture.store.read(HeimdalPaths.entityReview)
+        XCTAssertEqual(
+            afterAction,
+            beforeAction,
+            "a fresh effective-intent mismatch must be a byte-identical no-write",
+            file: file,
+            line: line
+        )
+        XCTAssertTrue(
+            fixture.model.loadError?.contains("changed after it was loaded") == true,
+            file: file,
+            line: line
+        )
+        assertEntityReviewActionsCleared(fixture.model, file: file, line: line)
+    }
+
+    @MainActor
+    private func assertEntityReviewActionsCleared(
+        _ model: MimerEntityCompareModel,
+        file: StaticString,
+        line: UInt
+    ) {
+        XCTAssertTrue(model.pending.isEmpty, file: file, line: line)
+        XCTAssertNil(model.selectedEntryID, file: file, line: line)
+        XCTAssertNil(model.effectiveDecision, file: file, line: line)
+        XCTAssertFalse(model.canMerge, file: file, line: line)
+        XCTAssertFalse(model.canReject, file: file, line: line)
+        XCTAssertFalse(model.canUndo, file: file, line: line)
     }
 
     @MainActor

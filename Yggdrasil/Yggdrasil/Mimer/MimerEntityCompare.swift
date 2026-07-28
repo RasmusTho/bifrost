@@ -119,10 +119,54 @@ enum MimerEntityDecisionWrite: Equatable, Sendable {
     case undo
 }
 
+enum MimerEntityDecisionWriteError: LocalizedError, Equatable {
+    case staleEffectiveDecision
+
+    var errorDescription: String? {
+        switch self {
+        case .staleEffectiveDecision:
+            "Entity review changed after it was loaded. Reload before recording another decision."
+        }
+    }
+}
+
+private extension MimerEntityDecision {
+    static func effective(
+        for queueEntryID: String,
+        in document: FrontmatterDocument
+    ) -> MimerEntityDecision? {
+        guard let decisions = document.frontmatter["decisions"]?.arrayValue else {
+            return nil
+        }
+        var effective: MimerEntityDecision?
+        for decision in decisions {
+            guard let map = decision.mapValue,
+                  map["queue_entry_id"]?.stringValue == queueEntryID,
+                  let action = map["action"]?.stringValue else {
+                continue
+            }
+            switch action {
+            case "merge":
+                if let candidateID = map["into_id"]?.stringValue {
+                    effective = .merge(candidateID: candidateID)
+                }
+            case "reject":
+                effective = .reject
+            case "undo":
+                effective = nil
+            default:
+                continue
+            }
+        }
+        return effective
+    }
+}
+
 enum MimerEntityDecisionWriter {
     static func append(
         _ decision: MimerEntityDecisionWrite,
         for entry: EntityReviewEntry,
+        expectedEffectiveDecision: MimerEntityDecision?,
         decidedAt: String,
         using fileStore: VaultFileStore
     ) async throws {
@@ -151,6 +195,12 @@ enum MimerEntityDecisionWriter {
             // a stale enabled action cannot append to a shape the hub cannot
             // safely consume.
             _ = try EntityReviewNote(document: document).validatedPending()
+            guard MimerEntityDecision.effective(
+                for: queueEntryID,
+                in: document
+            ) == expectedEffectiveDecision else {
+                throw MimerEntityDecisionWriteError.staleEffectiveDecision
+            }
             var review = EntityReviewNote(document: document)
             review.addDecision(
                 queueEntryId: queueEntryID,
@@ -285,12 +335,14 @@ final class MimerEntityCompareModel: ObservableObject {
 
     private func append(_ decision: MimerEntityDecisionWrite) async {
         guard let entry = selectedEntry else { return }
+        let expectedEffectiveDecision = effectiveDecision
         isWriting = true
         defer { isWriting = false }
         do {
             try await MimerEntityDecisionWriter.append(
                 decision,
                 for: entry,
+                expectedEffectiveDecision: expectedEffectiveDecision,
                 decidedAt: timestampProvider(),
                 using: fileStore
             )
@@ -335,30 +387,12 @@ final class MimerEntityCompareModel: ObservableObject {
     }
 
     private func effectiveDecisionForSelectedEntry() -> MimerEntityDecision? {
-        guard let selectedEntryID,
-              let decisions = reviewDocument?.frontmatter["decisions"]?.arrayValue else {
+        guard let selectedEntryID, let reviewDocument else {
             return nil
         }
-        var effective: MimerEntityDecision?
-        for decision in decisions {
-            guard let map = decision.mapValue,
-                  map["queue_entry_id"]?.stringValue == selectedEntryID,
-                  let action = map["action"]?.stringValue else {
-                continue
-            }
-            switch action {
-            case "merge":
-                if let candidateID = map["into_id"]?.stringValue {
-                    effective = .merge(candidateID: candidateID)
-                }
-            case "reject":
-                effective = .reject
-            case "undo":
-                effective = nil
-            default:
-                continue
-            }
-        }
-        return effective
+        return MimerEntityDecision.effective(
+            for: selectedEntryID,
+            in: reviewDocument
+        )
     }
 }
