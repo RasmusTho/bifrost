@@ -156,7 +156,7 @@ extension NoteInspectorModelTests {
 
     @MainActor
     func testInvalidEntityReviewConfidenceFailsClosedBeforePublication() async throws {
-        for invalidConfidence in ["1e309", "NaN", "-0.01", "1.01"] {
+        for invalidConfidence in ["1e309", ".nan", "-0.01", "1.01"] {
             try await assertEntityReviewLoadFailsClosed(
                 invalidReview: """
                 ---
@@ -173,6 +173,21 @@ extension NoteInspectorModelTests {
                 expectedError: "confidence must be finite and between 0 and 1 when present"
             )
         }
+        try await assertEntityReviewLoadFailsClosed(
+            invalidReview: """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                mention_id: mention-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: NaN
+                candidate_entity_ids: [ent:anna]
+            decisions: []
+            ---
+            """,
+            expectedError: "confidence must be numeric when present"
+        )
     }
 
     @MainActor

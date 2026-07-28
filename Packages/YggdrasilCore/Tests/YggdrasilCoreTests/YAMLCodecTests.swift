@@ -52,6 +52,34 @@ final class YAMLCodecTests: XCTestCase {
         XCTAssertEqual(second.mapValue?["extension"]?.mapValue?["bar"], .null)
     }
 
+    func testInlineCommentSemanticMismatchFailsClosed() throws {
+        XCTAssertThrowsError(try YAMLCodec.parse("extension: foo # comment\n"))
+        XCTAssertEqual(
+            try YAMLCodec.parse("extension: \"foo # comment\"\n")
+                .mapValue?["extension"]?.stringValue,
+            "foo # comment"
+        )
+    }
+
+    func testNonFiniteFloatSpellingsRetainNumericSemantics() throws {
+        XCTAssertEqual(
+            try YAMLCodec.parse("confidence: 1e309\n")
+                .mapValue?["confidence"]?.doubleValue,
+            .infinity
+        )
+        XCTAssertTrue(
+            try XCTUnwrap(
+                YAMLCodec.parse("confidence: .nan\n")
+                    .mapValue?["confidence"]?.doubleValue
+            ).isNaN
+        )
+        XCTAssertEqual(
+            try YAMLCodec.parse("confidence: NaN\n")
+                .mapValue?["confidence"]?.stringValue,
+            "NaN"
+        )
+    }
+
     func testDuplicateMappingKeysFailClosed() {
         XCTAssertThrowsError(
             try YAMLCodec.parse("extension: one\nextension: two\n")
