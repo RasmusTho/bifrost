@@ -132,6 +132,42 @@ final class HeimdalNotesTests: XCTestCase {
         XCTAssertNil(note.standingSelfRecordGrant(asOf: now))
     }
 
+    func testStandingSelfRecordGrantRejectsMalformedRequiredReadoutFields() throws {
+        let text = """
+        ---
+        grants:
+          - basis: self_record
+            scope: device+adapter:v1-voice-memo
+            granted_at: 2026-07-01T09:00:00+00:00
+          - grant_ref: "   "
+            basis: self_record
+            scope: device+adapter:v1-voice-memo
+            granted_at: 2026-07-01T09:00:00+00:00
+          - grant_ref: missing-scope
+            basis: self_record
+            granted_at: 2026-07-01T09:00:00+00:00
+          - grant_ref: blank-scope
+            basis: self_record
+            scope: "   "
+            granted_at: 2026-07-01T09:00:00+00:00
+          - grant_ref: missing-granted-at
+            basis: self_record
+            scope: device+adapter:v1-voice-memo
+          - grant_ref: blank-granted-at
+            basis: self_record
+            scope: device+adapter:v1-voice-memo
+            granted_at: "   "
+          - grant_ref: malformed-granted-at
+            basis: self_record
+            scope: device+adapter:v1-voice-memo
+            granted_at: "sometime next spring"
+        ---
+        """
+        let note = ConsentNote(document: try FrontmatterDocument.parse(text))
+
+        XCTAssertNil(note.standingSelfRecordGrant())
+    }
+
     func testExpiryActivityRuleAcceptsMirrorTimestampForms() throws {
         let now = try XCTUnwrap(ConsentNote.parseTimestamp("2026-07-10T00:00:00Z"))
 

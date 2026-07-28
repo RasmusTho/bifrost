@@ -268,6 +268,62 @@ final class DeviceRegistrationTests: XCTestCase {
 
 @MainActor
 extension DeviceRegistrationTests {
+    func testMalformedGrantFieldsDoNotCreateStandingConsentBinding() async throws {
+        let vault = try makeVault()
+        let deviceID = "device-malformed-consent"
+        try write(
+            """
+            ---
+            grants:
+              - basis: self_record
+                scope: device+adapter:v1-voice-memo
+                granted_at: 2026-07-01T09:00:00+00:00
+              - grant_ref: "   "
+                basis: self_record
+                scope: device+adapter:v1-voice-memo
+                granted_at: 2026-07-01T09:00:00+00:00
+              - grant_ref: missing-scope
+                basis: self_record
+                granted_at: 2026-07-01T09:00:00+00:00
+              - grant_ref: blank-scope
+                basis: self_record
+                scope: "   "
+                granted_at: 2026-07-01T09:00:00+00:00
+              - grant_ref: missing-granted-at
+                basis: self_record
+                scope: device+adapter:v1-voice-memo
+              - grant_ref: blank-granted-at
+                basis: self_record
+                scope: device+adapter:v1-voice-memo
+                granted_at: "   "
+              - grant_ref: malformed-granted-at
+                basis: self_record
+                scope: device+adapter:v1-voice-memo
+                granted_at: "sometime next spring"
+            ---
+            """ + "\n",
+            to: HeimdalPaths.consent,
+            in: vault
+        )
+        let model = DeviceRegistrationModel(
+            fileStore: VaultFileStore(rootURL: vault),
+            deviceID: deviceID,
+            deviceLabel: "Fail-closed phone"
+        )
+
+        await model.register()
+
+        guard case let .loaded(snapshot) = model.state else {
+            return XCTFail("Expected a loaded registration state")
+        }
+        XCTAssertNil(snapshot.standingGrant)
+        XCTAssertTrue(snapshot.isRegistered)
+
+        let text = try String(contentsOf: vault.appendingPathComponent(HeimdalPaths.device(id: deviceID)))
+        let document = try FrontmatterDocument.parse(text)
+        XCTAssertNil(document.frontmatter["consent_grant_ref"])
+    }
+
     /// A foreground refresh must replace cached consent facts rather than
     /// keeping a formerly active grant visible after the hub mirrors its
     /// revocation into the vault.

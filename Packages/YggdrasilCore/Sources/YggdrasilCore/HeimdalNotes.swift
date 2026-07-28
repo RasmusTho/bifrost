@@ -225,6 +225,8 @@ public struct ConsentNote: HeimdalNote {
     ///
     /// - keep only `basis == "self_record"` rows — the standing-grant basis
     ///   named by HCAP-04 and FABLE_COMPANION §6.1 basis 1;
+    /// - require the hub readout's identity/display fields (`grant_ref`,
+    ///   `scope`, and parseable `granted_at`) before asserting the row;
     /// - drop any grant whose `grant_ref` a `revocation` row in the same
     ///   mirror lapses;
     /// - drop any grant whose `expiry` is at or before `now`;
@@ -241,7 +243,16 @@ public struct ConsentNote: HeimdalNote {
         let revokedRefs = Set(allGrants.compactMap { $0.isRevocation ? $0.revokesGrantRef : nil })
         return allGrants.last { grant in
             guard grant.basis == ConsentGrant.selfRecordBasis else { return false }
-            if let ref = grant.grantRef, revokedRefs.contains(ref) { return false }
+            guard let grantRef = grant.grantRef,
+                  !grantRef.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let scope = grant.scope,
+                  !scope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let grantedAt = grant.grantedAt,
+                  ConsentNote.parseTimestamp(grantedAt) != nil
+            else {
+                return false
+            }
+            if revokedRefs.contains(grantRef) { return false }
             return ConsentNote.isActive(expiry: grant.expiry, asOf: now)
         }
     }
