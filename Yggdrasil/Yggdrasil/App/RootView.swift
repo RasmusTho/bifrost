@@ -194,29 +194,71 @@ private func uatFixtureFiles() -> [String: String] {
     decisions: []
     ---
     """ + "\n"
-    let consentFixture = """
-    ---
-    grants:
-      - grant_ref: fixture-grant
-        scope: fixture consent
-        basis: test fixture
-        granted_at: 2026-07-26
-    ---
-    """ + "\n"
     var files = [
         HeimdalPaths.attention(for: Date()): "---\ncounts:\n  fixture_attention: 1\n---\n",
         HeimdalPaths.interests: "---\nweights:\n  fixture_interest: 0.5\n---\n",
         HeimdalPaths.watchlist: "---\nwatched:\n  - fixture watch\n---\n",
         HeimdalPaths.never: "---\nnever:\n  - fixture never\n---\n",
         HeimdalPaths.entityReview: entityReviewFixture,
-        HeimdalPaths.consent: consentFixture,
+        HeimdalPaths.consent: standingGrantConsentFixture(),
         HeimdalPaths.settings: "---\nretention_window_days: 45\n---\n",
         "_heimdal/uat-roundtrip.md": "# UAT fixture note\n\nInitial fixture content.\n"
     ]
-    if ProcessInfo.processInfo.arguments.contains("-ui-testing-no-consent") {
+    let arguments = ProcessInfo.processInfo.arguments
+    if arguments.contains("-ui-testing-no-consent") {
         files.removeValue(forKey: HeimdalPaths.consent)
+    } else if arguments.contains("-ui-testing-consent-no-active-grant") {
+        files[HeimdalPaths.consent] = noActiveGrantConsentFixture()
     }
     return files
+}
+
+/// Mirrors the hub readout: oldest-first by ledger sequence, with `basis`
+/// carrying the grant kind. The leading `place_optin` row is the decoy an
+/// unfiltered `grants.first` would surface as the standing grant.
+private func standingGrantConsentFixture() -> String {
+    """
+    ---
+    grants:
+      - grant_ref: fixture-place-optin
+        scope: fixture place opt-in
+        basis: place_optin
+        granted_at: 2026-07-20
+      - grant_ref: fixture-grant
+        scope: fixture consent
+        basis: self_record
+        granted_at: 2026-07-26
+        expiry: null
+    ---
+    """ + "\n"
+}
+
+/// Grants present, but none of them an active self-record grant: an unrelated
+/// basis, an expired self-record grant, and a revoked one.
+private func noActiveGrantConsentFixture() -> String {
+    """
+    ---
+    grants:
+      - grant_ref: fixture-place-optin
+        scope: fixture place opt-in
+        basis: place_optin
+        granted_at: 2026-07-20
+      - grant_ref: fixture-expired-self-record
+        scope: fixture expired consent
+        basis: self_record
+        granted_at: 2026-07-01
+        expiry: 2026-07-10T00:00:00+00:00
+      - grant_ref: fixture-revoked-self-record
+        scope: fixture revoked consent
+        basis: self_record
+        granted_at: 2026-07-02
+        expiry: null
+      - grant_ref: fixture-revocation
+        basis: revocation
+        revokes_grant_ref: fixture-revoked-self-record
+        granted_at: 2026-07-03
+    ---
+    """ + "\n"
 }
 
 private struct VaultSwitcherBar: View {

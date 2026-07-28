@@ -77,6 +77,77 @@ final class HeimdalNotesTests: XCTestCase {
         XCTAssertFalse(note.retentionErasureSupported)
     }
 
+    func testStandingSelfRecordGrantIgnoresOrderAndLapsedGrants() throws {
+        let text = """
+        ---
+        grants:
+          - grant_ref: place-grant
+            basis: place_optin
+            scope: place:kitchen
+            granted_at: 2026-07-01T00:00:00Z
+          - grant_ref: expired-grant
+            basis: self_record
+            scope: voice_memo
+            granted_at: 2026-07-02T00:00:00Z
+            expiry: 2026-07-03T00:00:00Z
+          - grant_ref: revoked-grant
+            basis: self_record
+            scope: voice_memo
+            granted_at: 2026-07-04T00:00:00Z
+          - grant_ref: standing-grant
+            basis: self_record
+            scope: voice_memo
+            granted_at: 2026-07-05T00:00:00Z
+            expiry: null
+          - grant_ref: revocation-row
+            basis: revocation
+            revokes_grant_ref: revoked-grant
+            granted_at: 2026-07-06T00:00:00Z
+        ---
+        """
+        let note = ConsentNote(document: try FrontmatterDocument.parse(text))
+        let now = try XCTUnwrap(ConsentNote.parseTimestamp("2026-07-10T00:00:00Z"))
+
+        XCTAssertEqual(note.standingSelfRecordGrant(asOf: now)?.grantRef, "standing-grant")
+    }
+
+    func testStandingSelfRecordGrantIsNilWhenEveryCandidateLapsed() throws {
+        let text = """
+        ---
+        grants:
+          - grant_ref: place-grant
+            basis: place_optin
+            scope: place:kitchen
+            granted_at: 2026-07-01T00:00:00Z
+          - grant_ref: expired-grant
+            basis: self_record
+            scope: voice_memo
+            granted_at: 2026-07-02T00:00:00Z
+            expiry: 2026-07-03T00:00:00Z
+        ---
+        """
+        let note = ConsentNote(document: try FrontmatterDocument.parse(text))
+        let now = try XCTUnwrap(ConsentNote.parseTimestamp("2026-07-10T00:00:00Z"))
+
+        XCTAssertNil(note.standingSelfRecordGrant(asOf: now))
+    }
+
+    func testExpiryActivityRuleAcceptsMirrorTimestampForms() throws {
+        let now = try XCTUnwrap(ConsentNote.parseTimestamp("2026-07-10T00:00:00Z"))
+
+        XCTAssertTrue(ConsentNote.isActive(expiry: nil, asOf: now))
+        XCTAssertTrue(ConsentNote.isActive(expiry: "", asOf: now))
+        XCTAssertTrue(ConsentNote.isActive(expiry: "2026-07-11T00:00:00+00:00", asOf: now))
+        XCTAssertTrue(ConsentNote.isActive(expiry: "2026-07-11T00:00:00.500Z", asOf: now))
+        XCTAssertTrue(ConsentNote.isActive(expiry: "2026-07-11", asOf: now))
+        XCTAssertFalse(ConsentNote.isActive(expiry: "2026-07-09T00:00:00+00:00", asOf: now))
+        XCTAssertFalse(ConsentNote.isActive(expiry: "2026-07-09", asOf: now))
+        // Boundary: the hub treats `expiry <= at` as lapsed.
+        XCTAssertFalse(ConsentNote.isActive(expiry: "2026-07-10T00:00:00Z", asOf: now))
+        // Unverifiable expiry fails closed rather than asserting a standing grant.
+        XCTAssertFalse(ConsentNote.isActive(expiry: "sometime next spring", asOf: now))
+    }
+
     func testListNoteAppendsBodyLineWithoutClobberingExisting() throws {
         let text = """
         ---

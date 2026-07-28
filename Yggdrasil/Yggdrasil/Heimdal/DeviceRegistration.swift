@@ -108,7 +108,12 @@ final class DeviceRegistrationModel: ObservableObject {
         let standingGrant: ConsentGrant?
         do {
             let consent = try await consentResult
-            standingGrant = ConsentNote(document: try FrontmatterDocument.parse(consent)).grants.first
+            // Not `grants.first`: the mirror is an oldest-first snapshot of the
+            // hub ledger, so the leading row can be an unrelated, expired, or
+            // revoked grant. `standingSelfRecordGrant` re-applies the ledger's
+            // activity rule, and yields nil rather than a mis-attributed ref.
+            standingGrant = ConsentNote(document: try FrontmatterDocument.parse(consent))
+                .standingSelfRecordGrant()
         } catch VaultFileStoreError.notFound(_) {
             standingGrant = nil
         }
