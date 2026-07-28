@@ -94,6 +94,9 @@ public enum YAMLCodec {
                 throw CodecError.malformedLine(content)
             }
             let key = unquote(String(content[content.startIndex..<colon]).trimmingCharacters(in: .whitespaces))
+            guard map[key] == nil else {
+                throw CodecError.malformedLine("duplicate key: \(key)")
+            }
             let rest = String(content[content.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
             if rest.isEmpty {
                 index += 1
@@ -151,14 +154,7 @@ public enum YAMLCodec {
         }
         if text.hasPrefix("{") && text.hasSuffix("}") {
             let inner = String(text.dropFirst().dropLast())
-            var map = YAMLMap()
-            for part in splitFlow(inner) {
-                guard let colon = topLevelColon(part) else { continue }
-                let key = unquote(String(part[part.startIndex..<colon]).trimmingCharacters(in: .whitespaces))
-                let value = String(part[part.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-                map[key] = try parseScalar(value)
-            }
-            return .map(map)
+            return try parseFlowMapping(inner)
         }
         if text.isEmpty || text == "~" || text == "null" || text == "Null" || text == "NULL" {
             return .null
@@ -170,6 +166,30 @@ public enum YAMLCodec {
         }
         if let numericValue = parseNumericScalar(text) { return numericValue }
         return .string(text)
+    }
+
+    private static func parseFlowMapping(_ text: String) throws -> YAMLValue {
+        var map = YAMLMap()
+        for part in splitFlow(text) {
+            if let colon = topLevelColon(part) {
+                let key = unquote(
+                    String(part[part.startIndex..<colon]).trimmingCharacters(in: .whitespaces)
+                )
+                guard map[key] == nil else {
+                    throw CodecError.malformedLine("duplicate key: \(key)")
+                }
+                let value = String(part[part.index(after: colon)...])
+                    .trimmingCharacters(in: .whitespaces)
+                map[key] = try parseScalar(value)
+            } else {
+                let key = unquote(part.trimmingCharacters(in: .whitespaces))
+                guard !key.isEmpty, map[key] == nil else {
+                    throw CodecError.malformedLine(part)
+                }
+                map[key] = .null
+            }
+        }
+        return .map(map)
     }
 
     private static func parseNumericScalar(_ text: String) -> YAMLValue? {

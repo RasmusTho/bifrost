@@ -156,7 +156,7 @@ struct MimerEntityPendingAuthority: Equatable, Sendable {
 
 struct MimerEntityDecisionAuthority: Equatable, Sendable {
     let queueEntryID: String
-    let canonicalLatestRow: String?
+    let canonicalRows: [String]
     let effectiveDecision: MimerEntityDecision?
 
     static func capture(
@@ -166,19 +166,21 @@ struct MimerEntityDecisionAuthority: Equatable, Sendable {
         guard let decisions = document.frontmatter["decisions"]?.arrayValue else {
             return MimerEntityDecisionAuthority(
                 queueEntryID: queueEntryID,
-                canonicalLatestRow: nil,
+                canonicalRows: [],
                 effectiveDecision: nil
             )
         }
         var effective: MimerEntityDecision?
-        var latestRow: YAMLValue?
+        var canonicalRows: [String] = []
         for decision in decisions {
             guard let map = decision.mapValue,
-                  map["queue_entry_id"]?.stringValue == queueEntryID,
-                  let action = map["action"]?.stringValue else {
+                  map["queue_entry_id"]?.stringValue == queueEntryID else {
                 continue
             }
-            latestRow = decision
+            canonicalRows.append(YAMLCodec.serialize(decision))
+            guard let action = map["action"]?.stringValue else {
+                continue
+            }
             switch action {
             case "merge":
                 if let candidateID = map["into_id"]?.stringValue {
@@ -194,7 +196,7 @@ struct MimerEntityDecisionAuthority: Equatable, Sendable {
         }
         return MimerEntityDecisionAuthority(
             queueEntryID: queueEntryID,
-            canonicalLatestRow: latestRow.map(YAMLCodec.serialize),
+            canonicalRows: canonicalRows,
             effectiveDecision: effective
         )
     }

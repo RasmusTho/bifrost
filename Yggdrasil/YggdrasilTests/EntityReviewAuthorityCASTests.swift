@@ -2,11 +2,29 @@ import XCTest
 import YggdrasilCore
 @testable import Yggdrasil
 
+private final class InvocationCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func increment() {
+        lock.lock()
+        count += 1
+        lock.unlock()
+    }
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+}
+
 final class EntityReviewAuthorityCASTests: XCTestCase {
     private struct Fixture {
         let root: URL
         let reviewURL: URL
         let coordinator: RecordingCoordinator
+        let provenanceInvocations: InvocationCounter
         let store: VaultFileStore
         let model: MimerEntityCompareModel
     }
@@ -111,6 +129,115 @@ final class EntityReviewAuthorityCASTests: XCTestCase {
     func testSameQueueIDRequeueBlocksUndoWithoutWriting() async throws {
         try await assertSameQueueIDRequeueBlocksMutation(action: .undo)
     }
+
+    @MainActor
+    func testExactDuplicateLatestDecisionRowBlocksUndoWithoutWriting() async throws {
+        try await assertConcurrentDecisionBlocksMutation(
+            action: .undo,
+            concurrentDecision: """
+              - queue_entry_id: queue-1
+                action: merge
+                from_id: mention-1
+                into_id: ent:anna
+                decided_at: 2026-07-28T09:00:00Z
+              - queue_entry_id: queue-1
+                action: merge
+                from_id: mention-1
+                into_id: ent:anna
+                decided_at: 2026-07-28T09:00:00Z
+            """
+        )
+    }
+
+    @MainActor
+    func testDistinctFlowSetPendingExtensionBlocksMergeWithoutWriting() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        try reviewDocument(extensionValue: "foo").write(
+            to: fixture.reviewURL,
+            atomically: true,
+            encoding: .utf8
+        )
+        await prepare(.merge, in: fixture.model)
+        try reviewDocument(extensionValue: "bar").write(
+            to: fixture.reviewURL,
+            atomically: true,
+            encoding: .utf8
+        )
+        let beforeAction = try Data(contentsOf: fixture.reviewURL)
+        let writesBeforeAction = writeCount(in: fixture.coordinator)
+        let provenanceBeforeAction = fixture.provenanceInvocations.value
+
+        await perform(.merge, in: fixture.model)
+
+        XCTAssertEqual(try Data(contentsOf: fixture.reviewURL), beforeAction)
+        XCTAssertEqual(writeCount(in: fixture.coordinator), writesBeforeAction)
+        XCTAssertEqual(fixture.provenanceInvocations.value, provenanceBeforeAction)
+        assertStaleAuthorityFailure(fixture.model, file: #filePath, line: #line)
+    }
+
+    @MainActor
+    func testAuthorityChangeBetweenWriteAttemptsFailsBeforeRetryPublication() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        await prepare(.merge, in: fixture.model)
+        let replacement = reviewDocument(
+            mentionID: "mention-2",
+            candidates: "[ent:bea]",
+            extensionValue: "fresh"
+        )
+        fixture.coordinator.beforeNextWrite = { url in
+            try replacement.write(to: url, atomically: true, encoding: .utf8)
+        }
+
+        await perform(.merge, in: fixture.model)
+
+        XCTAssertEqual(
+            try String(contentsOf: fixture.reviewURL, encoding: .utf8),
+            replacement
+        )
+        XCTAssertEqual(writeCount(in: fixture.coordinator), 1)
+        XCTAssertEqual(fixture.provenanceInvocations.value, 1)
+        assertStaleAuthorityFailure(fixture.model, file: #filePath, line: #line)
+    }
+
+    @MainActor
+    func testMissingPendingRowBlocksMergeWithoutWriting() async throws {
+        try await assertPendingReplacementBlocksMerge(
+            """
+            ---
+            pending: []
+            decisions: []
+            ---
+            """
+        )
+    }
+
+    @MainActor
+    func testDuplicatePendingQueueIDBlocksMergeWithoutWriting() async throws {
+        try await assertPendingReplacementBlocksMerge(
+            """
+            ---
+            pending:
+              - queue_entry_id: queue-1
+                mention_id: mention-1
+                surface_form: "Anna"
+                resolution: ambiguous
+                confidence: 0.71
+                candidate_entity_ids: [ent:anna]
+              - queue_entry_id: queue-1
+                mention_id: mention-2
+                surface_form: "Bea"
+                resolution: ambiguous
+                confidence: 0.42
+                candidate_entity_ids: [ent:bea]
+            decisions: []
+            ---
+            """
+        )
+    }
 }
 
 extension EntityReviewAuthorityCASTests {
@@ -140,6 +267,7 @@ extension EntityReviewAuthorityCASTests {
         """
         try replacement.write(to: fixture.reviewURL, atomically: true, encoding: .utf8)
         let beforeAction = try await fixture.store.read(HeimdalPaths.entityReview)
+        let provenanceBeforeAction = fixture.provenanceInvocations.value
 
         await perform(action, in: fixture.model)
         let afterAction = try await fixture.store.read(HeimdalPaths.entityReview)
@@ -151,6 +279,7 @@ extension EntityReviewAuthorityCASTests {
             file: file,
             line: line
         )
+        XCTAssertEqual(fixture.provenanceInvocations.value, provenanceBeforeAction)
         assertStaleAuthorityFailure(fixture.model, file: file, line: line)
     }
 
@@ -187,6 +316,7 @@ extension EntityReviewAuthorityCASTests {
         try replacement.write(to: fixture.reviewURL, atomically: true, encoding: .utf8)
         let beforeAction = try Data(contentsOf: fixture.reviewURL)
         let writesBeforeAction = writeCount(in: fixture.coordinator)
+        let provenanceBeforeAction = fixture.provenanceInvocations.value
 
         await perform(action, in: fixture.model)
 
@@ -204,6 +334,33 @@ extension EntityReviewAuthorityCASTests {
             file: file,
             line: line
         )
+        XCTAssertEqual(
+            fixture.provenanceInvocations.value,
+            provenanceBeforeAction,
+            file: file,
+            line: line
+        )
+        assertStaleAuthorityFailure(fixture.model, file: file, line: line)
+    }
+
+    @MainActor
+    private func assertPendingReplacementBlocksMerge(
+        _ replacement: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        await prepare(.merge, in: fixture.model)
+        try replacement.write(to: fixture.reviewURL, atomically: true, encoding: .utf8)
+        let beforeAction = try Data(contentsOf: fixture.reviewURL)
+
+        await perform(.merge, in: fixture.model)
+
+        XCTAssertEqual(try Data(contentsOf: fixture.reviewURL), beforeAction, file: file, line: line)
+        XCTAssertEqual(writeCount(in: fixture.coordinator), 0, file: file, line: line)
+        XCTAssertEqual(fixture.provenanceInvocations.value, 0, file: file, line: line)
         assertStaleAuthorityFailure(fixture.model, file: file, line: line)
     }
 
@@ -238,6 +395,26 @@ extension EntityReviewAuthorityCASTests {
             from_id: mention-1
             into_id: ent:anna
             decided_at: 2026-07-28T09:00:00Z
+        """
+    }
+
+    private func reviewDocument(
+        mentionID: String = "mention-1",
+        candidates: String = "[ent:anna]",
+        extensionValue: String
+    ) -> String {
+        """
+        ---
+        pending:
+          - queue_entry_id: queue-1
+            mention_id: \(mentionID)
+            surface_form: "Anna"
+            resolution: ambiguous
+            confidence: 0.71
+            candidate_entity_ids: \(candidates)
+            extension: {\(extensionValue)}
+        decisions: []
+        ---
         """
     }
 
@@ -286,7 +463,15 @@ extension EntityReviewAuthorityCASTests {
         ---
         """.write(to: reviewURL, atomically: true, encoding: .utf8)
         let coordinator = RecordingCoordinator()
-        let store = VaultFileStore(rootURL: root, coordinator: coordinator)
+        let provenanceInvocations = InvocationCounter()
+        let store = VaultFileStore(
+            rootURL: root,
+            coordinator: coordinator,
+            provenanceTimestampProvider: {
+                provenanceInvocations.increment()
+                return "2026-07-28T09:00:00Z"
+            }
+        )
         let model = MimerEntityCompareModel(
             fileStore: store,
             timestampProvider: { "2026-07-28T09:00:00Z" }
@@ -295,6 +480,7 @@ extension EntityReviewAuthorityCASTests {
             root: root,
             reviewURL: reviewURL,
             coordinator: coordinator,
+            provenanceInvocations: provenanceInvocations,
             store: store,
             model: model
         )

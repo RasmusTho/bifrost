@@ -43,6 +43,24 @@ final class YAMLCodecTests: XCTestCase {
         }
     }
 
+    func testFlowSetEntriesRetainSemanticIdentity() throws {
+        let first = try YAMLCodec.parse("extension: {foo}\n")
+        let second = try YAMLCodec.parse("extension: {bar}\n")
+
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(first.mapValue?["extension"]?.mapValue?["foo"], .null)
+        XCTAssertEqual(second.mapValue?["extension"]?.mapValue?["bar"], .null)
+    }
+
+    func testDuplicateMappingKeysFailClosed() {
+        XCTAssertThrowsError(
+            try YAMLCodec.parse("extension: one\nextension: two\n")
+        )
+        XCTAssertThrowsError(
+            try YAMLCodec.parse("extension: {key: one, key: two}\n")
+        )
+    }
+
     func testStringWithEmbeddedNewlineRoundTrips() throws {
         var map = YAMLMap()
         map["note"] = .string("line one\nline two")
