@@ -41,6 +41,12 @@ struct EntityConfirmLensView: View {
                             }
                         }
                         .padding(.vertical, YggTheme.Spacing.xs)
+                        .draggable(
+                            MimerCanvasPromotion(
+                                relativePath: HeimdalPaths.entityReview,
+                                snippet: entry.surfaceForm
+                            )
+                        )
                     }
                 }
             }

@@ -133,6 +133,7 @@ private func canvasTestingVaultURL() -> URL {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("MimerCanvasUITestVault")
     let projects = root.appendingPathComponent("Projects")
     let note = projects.appendingPathComponent("fixture.md")
+    let sourceNote = projects.appendingPathComponent("source.md")
     try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
     let fixture = """
     ---
@@ -145,6 +146,7 @@ private func canvasTestingVaultURL() -> URL {
     # Fixture note
     """ + "\n"
     try? Data(fixture.utf8).write(to: note, options: .atomic)
+    try? Data("---\ntitle: Source\n---\n\n# Source note\n".utf8).write(to: sourceNote, options: .atomic)
     return root
 }
 

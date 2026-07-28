@@ -94,12 +94,19 @@ private struct MimerTabView: View {
 struct MimerCanvasView: View {
     let fileStore: VaultFileStore
     @ObservedObject var keyboardRouter: MimerCanvasKeyboardRouter
+    @StateObject private var appendDraft: MimerCanvasAppendDraft
     @State private var selectedLens: MimerLens? = .today
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedNote: MimerCanvasNote?
     @State private var inspectorIsPresented = true
     @State private var focusedColumn: MimerCanvasFocus = .sidebar
     @FocusState private var focusedElement: MimerCanvasFocus?
+
+    init(fileStore: VaultFileStore, keyboardRouter: MimerCanvasKeyboardRouter) {
+        self.fileStore = fileStore
+        self.keyboardRouter = keyboardRouter
+        _appendDraft = StateObject(wrappedValue: MimerCanvasAppendDraft(fileStore: fileStore))
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -131,7 +138,8 @@ struct MimerCanvasView: View {
                         fileStore: fileStore,
                         selectedNote: $selectedNote,
                         focusedElement: $focusedElement,
-                        focusFilter: { setFocus(.filter) }
+                        focusFilter: { setFocus(.filter) },
+                        appendDraft: appendDraft
                     )
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("mimer.canvas.content.\(selectedLens.rawValue)")
@@ -149,8 +157,10 @@ struct MimerCanvasView: View {
             }
         } detail: {
             MimerCanvasDetailView(
-                note: selectedNote,
-                inspectorIsPresented: inspectorIsPresented
+                note: $selectedNote,
+                inspectorIsPresented: inspectorIsPresented,
+                fileStore: fileStore,
+                appendDraft: appendDraft
             )
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("mimer.canvas.detail")
@@ -215,7 +225,7 @@ private enum MimerCanvasFocus: Hashable {
     case sidebar, content, detail, filter
 }
 
-private struct MimerCanvasNote: Equatable {
+struct MimerCanvasNote: Equatable {
     let relativePath: String
     let text: String
     let modificationDate: Date?
@@ -229,6 +239,7 @@ private struct MimerVaultColumnView: View {
     @Binding var selectedNote: MimerCanvasNote?
     let focusedElement: FocusState<MimerCanvasFocus?>.Binding
     let focusFilter: () -> Void
+    @ObservedObject var appendDraft: MimerCanvasAppendDraft
 
     @State private var directory = ""
     @State private var entries: [VaultEntry] = []
@@ -259,6 +270,20 @@ private struct MimerVaultColumnView: View {
             if let loadError {
                 Text(loadError).foregroundStyle(.red)
             }
+            if let failureMessage = appendDraft.failureMessage {
+                Section("Append needs attention") {
+                    Text(failureMessage).foregroundStyle(.red)
+                    if !appendDraft.failureText.isEmpty {
+                        Text(appendDraft.failureText).textSelection(.enabled)
+                    }
+                    HStack {
+                        Button("Retry Append") {
+                            Task { _ = await appendDraft.retry() }
+                        }
+                        Button("Copy Pending Text") { appendDraft.copyFailureText() }
+                    }
+                }
+            }
             ForEach(visibleEntries) { entry in
                 Button {
                     select(entry)
@@ -266,6 +291,16 @@ private struct MimerVaultColumnView: View {
                     Label(entry.name, systemImage: entry.isDirectory ? "folder" : "doc.text")
                 }
                 .accessibilityIdentifier("mimer.canvas.vault.entry.\(entry.relativePath)")
+                .draggable(MimerCanvasPromotion(relativePath: entry.relativePath, snippet: entry.name))
+                .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
+                    guard !entry.isDirectory, let promotion = promotions.first else { return false }
+                    Task {
+                        if await appendDraft.submitPromotion(promotion, to: entry.relativePath) {
+                            select(entry)
+                        }
+                    }
+                    return true
+                }
             }
             if visibleEntries.isEmpty && loadError == nil {
                 Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
@@ -334,19 +369,68 @@ private struct MimerVaultColumnView: View {
 }
 
 private struct MimerCanvasDetailView: View {
-    let note: MimerCanvasNote?
+    @Binding var note: MimerCanvasNote?
     let inspectorIsPresented: Bool
+    let fileStore: VaultFileStore
+    @ObservedObject var appendDraft: MimerCanvasAppendDraft
+    @State private var isAnnotationComposerPresented = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             Group {
                 if let note {
-                    ScrollView {
-                        MarkdownRendererView(text: note.text)
-                            .padding(YggTheme.Spacing.md)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: YggTheme.Spacing.sm) {
+                        HStack {
+                            Button("Annotate") { isAnnotationComposerPresented = true }
+                                .accessibilityIdentifier("mimer.canvas.annotate")
+                            Spacer()
+                        }
+                        if isAnnotationComposerPresented {
+                            TextField("Annotation", text: $appendDraft.annotationText, axis: .vertical)
+                                .accessibilityIdentifier("mimer.canvas.annotation.field")
+                            Button("Save Annotation") {
+                                Task {
+                                    if await appendDraft.submitAnnotation(to: note.relativePath) {
+                                        isAnnotationComposerPresented = false
+                                        await refresh(note)
+                                    }
+                                }
+                            }
+                            .accessibilityIdentifier("mimer.canvas.annotation.commit")
+                        }
+                        if let failureMessage = appendDraft.failureMessage {
+                            Text(failureMessage).foregroundStyle(.red)
+                            if !appendDraft.failureText.isEmpty {
+                                Text(appendDraft.failureText).textSelection(.enabled)
+                            }
+                            HStack {
+                                Button("Retry Append") {
+                                    Task {
+                                        if await appendDraft.retry() { await refresh(note) }
+                                    }
+                                }
+                                Button("Copy Pending Text") { appendDraft.copyFailureText() }
+                            }
+                        }
+                        ScrollView {
+                            MarkdownRendererView(text: note.text)
+                                .padding(YggTheme.Spacing.md)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("mimer.canvas.detail.document")
+                        .accessibilityValue(note.text)
                     }
                     .navigationTitle(note.relativePath.split(separator: "/").last.map(String.init) ?? note.relativePath)
+                    .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
+                        guard let promotion = promotions.first else { return false }
+                        Task {
+                            if await appendDraft.submitPromotion(promotion, to: note.relativePath) {
+                                await refresh(note)
+                            }
+                        }
+                        return true
+                    }
                 } else {
                     YggEmptyState(
                         systemImage: "rectangle.on.rectangle",
@@ -367,6 +451,22 @@ private struct MimerCanvasDetailView: View {
                     .background(YggTheme.Color.secondaryBackground)
                     .accessibilityIdentifier("mimer.canvas.inspector")
             }
+        }
+    }
+
+    private func refresh(_ previousNote: MimerCanvasNote) async {
+        do {
+            async let text = fileStore.read(previousNote.relativePath)
+            async let modificationDate = fileStore.modificationDate(of: previousNote.relativePath)
+            note = try await MimerCanvasNote(
+                relativePath: previousNote.relativePath,
+                text: text,
+                modificationDate: modificationDate
+            )
+        } catch {
+            // The append draft already preserves the human's unsaved text only
+            // on a failed append. A post-write refresh failure does not create
+            // another write path; reopening the note performs the normal read.
         }
     }
 }
