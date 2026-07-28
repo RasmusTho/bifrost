@@ -189,7 +189,14 @@ private final class SidecarTestClock {
     }
 
     func next() -> Date {
-        values.removeFirst()
+        // The terminal callback is synchronous in this test double, but the
+        // recorder may legitimately ask for the terminal time more than once
+        // while finalizing. Keep the final sample stable instead of trapping
+        // the whole test process when that happens.
+        if values.count > 1 {
+            return values.removeFirst()
+        }
+        return values[0]
     }
 }
 
