@@ -29,6 +29,18 @@ final class HeimdalShellUITests: XCTestCase {
         XCTAssertTrue(granted.staticTexts["Not registered — captures may be refused"].exists)
         XCTAssertTrue(granted.buttons["heimdal.registration.register"].exists)
 
+        granted.buttons["heimdal.registration.register"].tap()
+        XCTAssertTrue(
+            granted.descendants(matching: .any)
+                .matching(identifier: "heimdal.registration.registered")
+                .firstMatch
+                .waitForExistence(timeout: 15)
+        )
+        XCTAssertTrue(granted.staticTexts["heimdal.registration.deviceID"].exists)
+        XCTAssertTrue(granted.staticTexts["heimdal.registration.label"].exists)
+        XCTAssertTrue(granted.staticTexts["heimdal.registration.grantRef"].exists)
+        XCTAssertTrue(granted.staticTexts["Grant reference: fixture-grant"].exists)
+
         granted.terminate()
 
         let missing = launchHeimdal(arguments: ["-ui-testing-no-consent"])

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import XCTest
 import YggdrasilCore
 @testable import Yggdrasil
@@ -77,10 +78,11 @@ final class DeviceRegistrationTests: XCTestCase {
     }
 
     func testNoGrantMeansNoFabricatedRef() async throws {
-        // Both shapes that carry no standing self-record grant: the empty
-        // mirror, and a populated mirror whose grants are all other bases. The
-        // second is the case an empty-array-only fixture never reaches.
-        let consentFixtures: [(name: String, contents: String)] = [
+        // Missing, empty, and non-self-record mirrors all lack a standing
+        // grant. The missing-file case must take the real register() path,
+        // not merely exercise an empty parsed document.
+        let consentFixtures: [(name: String, contents: String?)] = [
+            (name: "missing-consent-note", contents: nil),
             (name: "empty-grants", contents: "---\ngrants: []\n---\n"),
             (
                 name: "no-self-record-grant",
@@ -103,7 +105,9 @@ final class DeviceRegistrationTests: XCTestCase {
         for fixture in consentFixtures {
             let vault = try makeVault()
             let deviceID = "device-no-grant-\(fixture.name)"
-            try write(fixture.contents, to: HeimdalPaths.consent, in: vault)
+            if let contents = fixture.contents {
+                try write(contents, to: HeimdalPaths.consent, in: vault)
+            }
             let model = DeviceRegistrationModel(
                 fileStore: VaultFileStore(rootURL: vault),
                 deviceID: deviceID,
@@ -270,6 +274,7 @@ extension DeviceRegistrationTests {
     func testReloadReplacesRevokedStandingGrantWithEmptyState() async throws {
         let vault = try makeVault()
         let deviceID = "device-reload-after-revocation"
+        let devicePath = HeimdalPaths.device(id: deviceID)
         try write(
             """
             ---
@@ -282,6 +287,17 @@ extension DeviceRegistrationTests {
             ---
             """ + "\n",
             to: HeimdalPaths.consent,
+            in: vault
+        )
+        try write(
+            """
+            ---
+            device_id: \(deviceID)
+            label: Historical phone
+            consent_grant_ref: active-self-record-grant
+            ---
+            """ + "\n",
+            to: devicePath,
             in: vault
         )
         let model = DeviceRegistrationModel(
@@ -295,25 +311,9 @@ extension DeviceRegistrationTests {
             return XCTFail("Expected an initially loaded registration state")
         }
         XCTAssertEqual(initial.standingGrant?.grantRef, "active-self-record-grant")
+        XCTAssertEqual(initial.deviceNote?.consentGrantRef, "active-self-record-grant")
 
-        try write(
-            """
-            ---
-            grants:
-              - grant_ref: active-self-record-grant
-                basis: self_record
-                scope: device+adapter:v1-voice-memo
-                granted_at: 2026-07-21T09:00:00+00:00
-                expiry: null
-              - grant_ref: revocation-row
-                basis: revocation
-                revokes_grant_ref: active-self-record-grant
-                granted_at: 2026-07-28T12:00:00+00:00
-            ---
-            """ + "\n",
-            to: HeimdalPaths.consent,
-            in: vault
-        )
+        try write("---\ngrants: []\n---\n", to: HeimdalPaths.consent, in: vault)
 
         await model.load()
 
@@ -321,6 +321,19 @@ extension DeviceRegistrationTests {
             return XCTFail("Expected a refreshed registration state")
         }
         XCTAssertNil(refreshed.standingGrant)
-        XCTAssertFalse(refreshed.isRegistered)
+        XCTAssertTrue(refreshed.isRegistered)
+        XCTAssertEqual(refreshed.deviceNote?.consentGrantRef, "active-self-record-grant")
+    }
+
+    func testActiveSceneRefreshesBeforeDeliveryRetry() async {
+        var events: [String] = []
+
+        await refreshHeimdalStateOnActivation(
+            .active,
+            refreshRegistration: { events.append("refresh") },
+            retryUndelivered: { events.append("retry") }
+        )
+
+        XCTAssertEqual(events, ["refresh", "retry"])
     }
 }

@@ -2,6 +2,20 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// The foreground boundary for vault-backed Heimdal state. Registration facts
+/// are refreshed before delivery work, because delivery may take time while a
+/// cached consent grant must never continue to be presented as current.
+@MainActor
+func refreshHeimdalStateOnActivation(
+    _ newPhase: ScenePhase,
+    refreshRegistration: () async -> Void,
+    retryUndelivered: () async -> Void
+) async {
+    guard newPhase == .active else { return }
+    await refreshRegistration()
+    await retryUndelivered()
+}
+
 /// Heimdal's isolated capture-client entry surface. It owns no Mimer lens
 /// state and writes only this device's registration note through its model.
 struct HeimdalShellView: View {
@@ -125,13 +139,12 @@ struct HeimdalShellView: View {
                 await registration.load()
             }
             .onChange(of: scenePhase) { _, newPhase in
-                guard newPhase == .active else { return }
                 Task {
-                    await retryUndelivered()
-                    // The vault is the source of truth. A hub, human, or iCloud
-                    // update while the app was inactive must not leave a cached
-                    // consent grant presented as current on return.
-                    await registration.load()
+                    await refreshHeimdalStateOnActivation(
+                        newPhase,
+                        refreshRegistration: { await registration.load() },
+                        retryUndelivered: { await retryUndelivered() }
+                    )
                 }
             }
             .onChange(of: sessionModel.stagedItems.map(\.id)) { _, _ in
@@ -265,15 +278,18 @@ private struct DeviceRegistrationStatusView: View {
                     Text("Device ID: \(deviceNote.deviceID ?? "missing")")
                         .font(YggTheme.Typography.caption)
                         .foregroundStyle(YggTheme.Color.textSecondary)
+                        .accessibilityIdentifier("heimdal.registration.deviceID")
                     Text("Label: \(deviceNote.label ?? "missing")")
                         .font(YggTheme.Typography.caption)
                         .foregroundStyle(YggTheme.Color.textSecondary)
+                        .accessibilityIdentifier("heimdal.registration.label")
                     Text(
                         deviceNote.consentGrantRef.map { "Grant reference: \($0)" }
                             ?? "No grant reference bound"
                     )
                     .font(YggTheme.Typography.caption)
                     .foregroundStyle(YggTheme.Color.textSecondary)
+                    .accessibilityIdentifier("heimdal.registration.grantRef")
                 }
             } else {
                 Label(
