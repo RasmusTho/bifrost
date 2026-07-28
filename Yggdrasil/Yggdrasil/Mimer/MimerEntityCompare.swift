@@ -142,7 +142,10 @@ enum MimerEntityDecisionWriter {
             intoID = ""
         }
 
-        try await fileStore.readModifyWrite(HeimdalPaths.entityReview) { document in
+        try await fileStore.readModifyWrite(
+            HeimdalPaths.entityReview,
+            sourcePreservingAppendToRootSequence: "decisions"
+        ) { document in
             var review = EntityReviewNote(document: document)
             review.addDecision(
                 queueEntryId: queueEntryID,

@@ -11,6 +11,11 @@ extension YAMLCodec {
         return dump(map: map, indent: 0)
     }
 
+    static func serializeSequence(_ items: [YAMLValue]) -> String {
+        guard !items.isEmpty else { return "[]\n" }
+        return dumpSequenceItems(items, indent: 0) + "\n"
+    }
+
     private static func dump(map: YAMLMap, indent: Int) -> String {
         guard !map.isEmpty else { return String(repeating: " ", count: indent) + "{}\n" }
         var lines: [String] = []

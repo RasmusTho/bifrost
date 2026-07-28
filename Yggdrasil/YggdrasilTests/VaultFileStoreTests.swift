@@ -342,25 +342,51 @@ final class VaultFileStoreTests: XCTestCase {
         )
         let original = """
         ---
-        schema_version: 1
+        schema_version: "1"
+        # Hub-owned queue bytes must survive a Bifrost decision append.
         pending:
-          - queue_entry_id: queue-1
-            mention_id: mention-1
-            surface_form: "Anna"
+          - queue_entry_id: "queue-1"
+            mention_id: 'mention-1'
+            surface_form: "Anna: quoted"
             resolution: ambiguous
             confidence: 0.71
-            candidate_entity_ids: [ent:anna, ent:anne]
+            candidate_entity_ids: ["ent:anna", 'ent:anne']
         decisions:
-          - queue_entry_id: historical
-            action: reject
-            from_id: old-mention
+          # Historical decisions are append-only evidence.
+          - queue_entry_id: "historical"
+            action: 'reject'
+            from_id: "old:mention"
             into_id: ""
             decided_at: 2026-07-01T00:00:00Z
-        agent_owned:
-          keep: exactly
+        foreign_extension:
+          keep: "exactly: as-authored"
+          opaque: ['x:y', "z"]
         ---
 
         Human-authored review notes stay byte-for-byte intact.
+        """
+        let pendingBytes = """
+        # Hub-owned queue bytes must survive a Bifrost decision append.
+        pending:
+          - queue_entry_id: "queue-1"
+            mention_id: 'mention-1'
+            surface_form: "Anna: quoted"
+            resolution: ambiguous
+            confidence: 0.71
+            candidate_entity_ids: ["ent:anna", 'ent:anne']
+        """
+        let priorDecisionBytes = """
+          # Historical decisions are append-only evidence.
+          - queue_entry_id: "historical"
+            action: 'reject'
+            from_id: "old:mention"
+            into_id: ""
+            decided_at: 2026-07-01T00:00:00Z
+        """
+        let foreignBytes = """
+        foreign_extension:
+          keep: "exactly: as-authored"
+          opaque: ['x:y', "z"]
         """
         try original.write(to: url, atomically: true, encoding: .utf8)
         let before = try FrontmatterDocument.parse(original)
@@ -378,16 +404,19 @@ final class VaultFileStoreTests: XCTestCase {
             using: store
         )
 
-        let after = try FrontmatterDocument.parse(try await store.read(path))
+        let savedText = try await store.read(path)
+        let savedBytes = Data(savedText.utf8)
+        XCTAssertNotNil(savedBytes.range(of: Data(pendingBytes.utf8)))
+        XCTAssertNotNil(savedBytes.range(of: Data(priorDecisionBytes.utf8)))
+        XCTAssertNotNil(savedBytes.range(of: Data(foreignBytes.utf8)))
+        XCTAssertTrue(savedText.hasSuffix("\nHuman-authored review notes stay byte-for-byte intact."))
+        let after = try FrontmatterDocument.parse(savedText)
         XCTAssertEqual(
             YAMLCodec.serialize(try XCTUnwrap(after.frontmatter["pending"])),
             YAMLCodec.serialize(try XCTUnwrap(before.frontmatter["pending"]))
         )
-        XCTAssertEqual(after.frontmatter["agent_owned"], before.frontmatter["agent_owned"])
-        XCTAssertEqual(
-            after.body.trimmingCharacters(in: .newlines),
-            before.body.trimmingCharacters(in: .newlines)
-        )
+        XCTAssertEqual(after.frontmatter["foreign_extension"], before.frontmatter["foreign_extension"])
+        XCTAssertEqual(after.body, before.body)
         let beforeDecisions = try XCTUnwrap(before.frontmatter["decisions"]?.arrayValue)
         let afterDecisions = try XCTUnwrap(after.frontmatter["decisions"]?.arrayValue)
         XCTAssertEqual(afterDecisions.count, beforeDecisions.count + 1)
@@ -400,8 +429,11 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertEqual(appended["decided_at"]?.stringValue, "2026-07-28T09:00:00Z")
         XCTAssertEqual(coordinator.operations.filter { $0 == .write }.count, 1)
     }
+}
 
+extension VaultFileStoreTests {
     @MainActor
+    // swiftlint:disable:next function_body_length
     func testUndoAppendsCompensatingDecision() async throws {
         let path = HeimdalPaths.entityReview
         let url = tempDirectory.appendingPathComponent(path)
@@ -438,17 +470,25 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertEqual(model.effectiveDecision, .merge(candidateID: "ent:anna"))
         await model.undo()
 
-        XCTAssertNil(model.effectiveDecision)
-        XCTAssertEqual(model.decisionStatus, "Undecided locally")
-        let saved = try FrontmatterDocument.parse(try await store.read(path))
-        XCTAssertEqual(saved.body, "Keep this body.\n")
+        XCTAssertNil(model.effectiveDecision, "undo must restore the still-pending entry to undecided")
+        model.selectCandidate("ent:anne")
+        await model.merge()
+
+        XCTAssertEqual(model.effectiveDecision, .merge(candidateID: "ent:anne"))
+        XCTAssertEqual(model.decisionStatus, "Merge proposed: ent:anne")
+        let savedText = try await store.read(path)
+        XCTAssertTrue(savedText.hasSuffix("---\n\nKeep this body."))
+        let saved = try FrontmatterDocument.parse(savedText)
+        XCTAssertEqual(saved.body, "Keep this body.")
         let decisions = try XCTUnwrap(saved.frontmatter["decisions"]?.arrayValue)
-        XCTAssertEqual(decisions.count, 2)
+        XCTAssertEqual(decisions.count, 3)
         XCTAssertEqual(decisions[0].mapValue?["action"]?.stringValue, "merge")
         XCTAssertEqual(decisions[1].mapValue?["action"]?.stringValue, "undo")
         XCTAssertEqual(decisions[1].mapValue?["queue_entry_id"]?.stringValue, "queue-1")
         XCTAssertNil(decisions[1].mapValue?["from_id"])
         XCTAssertNil(decisions[1].mapValue?["into_id"])
+        XCTAssertEqual(decisions[2].mapValue?["action"]?.stringValue, "merge")
+        XCTAssertEqual(decisions[2].mapValue?["into_id"]?.stringValue, "ent:anne")
         XCTAssertNotNil(saved.frontmatter["pending"])
     }
 }

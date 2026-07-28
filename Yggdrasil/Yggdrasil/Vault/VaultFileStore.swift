@@ -6,6 +6,7 @@ enum VaultFileStoreError: Error, LocalizedError {
     case notFound(String)
     case readFailed(String, Error)
     case writeFailed(String, Error)
+    case sourcePreservingMutationRejected(String)
     case staleWriteContention(String)
 
     var errorDescription: String? {
@@ -16,6 +17,8 @@ enum VaultFileStoreError: Error, LocalizedError {
             return "Couldn't read \(path): \(underlying.localizedDescription)"
         case .writeFailed(let path, let underlying):
             return "Couldn't save \(path): \(underlying.localizedDescription)"
+        case .sourcePreservingMutationRejected(let path):
+            return "Couldn't save \(path) because the append could not be proven source-preserving."
         case .staleWriteContention(let path):
             return "Couldn't save \(path) because it kept changing. Please try again."
         }
@@ -220,6 +223,7 @@ struct VaultFileStore: Sendable {
     /// TOCTOU window remains), but it never emits a version known to be stale.
     func readModifyWrite(
         _ relativePath: String,
+        sourcePreservingAppendToRootSequence sequenceName: String? = nil,
         mutate: @escaping @Sendable (inout FrontmatterDocument) -> Void
     ) async throws {
         try await performIO {
@@ -234,16 +238,20 @@ struct VaultFileStore: Sendable {
                     case .contents(let text):
                         document = try FrontmatterDocument.parse(text)
                     }
+                    let originalDocument = document
                     mutate(&document)
-                    VaultWriteProvenance.apply(
-                        to: &document,
-                        relativePath: relativePath,
-                        timestampProvider: provenanceTimestampProvider,
-                        failureLogger: provenanceFailureLogger
-                    )
+                    guard let textToWrite = try mutationText(
+                        snapshot: snapshot,
+                        originalDocument: originalDocument,
+                        mutatedDocument: document,
+                        sourcePreservingSequenceName: sequenceName,
+                        relativePath: relativePath
+                    ) else {
+                        return
+                    }
 
                     let result = try writeIfUnchanged(
-                        document.rendered(),
+                        textToWrite,
                         relativePath: relativePath,
                         to: url,
                         expectedHash: snapshot.hash
@@ -348,5 +356,78 @@ struct VaultFileStore: Sendable {
 
     private static func atomicReplace(_ text: String, at url: URL) throws {
         try text.write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+
+private extension VaultFileStore {
+    private func mutationText(
+        snapshot: FileSnapshot,
+        originalDocument: FrontmatterDocument,
+        mutatedDocument: FrontmatterDocument,
+        sourcePreservingSequenceName: String?,
+        relativePath: String
+    ) throws -> String? {
+        guard let sequenceName = sourcePreservingSequenceName else {
+            var renderedDocument = mutatedDocument
+            VaultWriteProvenance.apply(
+                to: &renderedDocument,
+                relativePath: relativePath,
+                timestampProvider: provenanceTimestampProvider,
+                failureLogger: provenanceFailureLogger
+            )
+            return renderedDocument.rendered()
+        }
+        guard case .contents(let originalText) = snapshot,
+              let appendedText = try sourcePreservingAppend(
+                  from: originalText,
+                  originalDocument: originalDocument,
+                  mutatedDocument: mutatedDocument,
+                  sequenceName: sequenceName,
+                  relativePath: relativePath
+              ) else {
+            return nil
+        }
+        return VaultWriteProvenance.applying(
+            to: appendedText,
+            relativePath: relativePath,
+            timestampProvider: provenanceTimestampProvider,
+            failureLogger: provenanceFailureLogger
+        )
+    }
+
+    func sourcePreservingAppend(
+        from originalText: String,
+        originalDocument: FrontmatterDocument,
+        mutatedDocument: FrontmatterDocument,
+        sequenceName: String,
+        relativePath: String
+    ) throws -> String? {
+        if mutatedDocument == originalDocument {
+            return nil
+        }
+        var originalOtherFields = originalDocument.frontmatter
+        var mutatedOtherFields = mutatedDocument.frontmatter
+        let originalItems = originalOtherFields[sequenceName]?.arrayValue
+        let mutatedItems = mutatedOtherFields[sequenceName]?.arrayValue
+        originalOtherFields[sequenceName] = nil
+        mutatedOtherFields[sequenceName] = nil
+
+        guard originalDocument.body == mutatedDocument.body,
+              originalOtherFields == mutatedOtherFields,
+              let originalItems,
+              let mutatedItems,
+              mutatedItems.count == originalItems.count + 1,
+              Array(mutatedItems.dropLast()) == originalItems,
+              let appendedItem = mutatedItems.last,
+              let appendedText = YAMLSourcePreservingArrayAppender.appending(
+                  appendedItem,
+                  toRootSequenceNamed: sequenceName,
+                  in: originalText
+              ),
+              let verifiedDocument = try? FrontmatterDocument.parse(appendedText),
+              verifiedDocument == mutatedDocument else {
+            throw VaultFileStoreError.sourcePreservingMutationRejected(relativePath)
+        }
+        return appendedText
     }
 }
