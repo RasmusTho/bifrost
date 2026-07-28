@@ -175,6 +175,20 @@ public struct ConsentGrant {
     public let scope: String?
     public let grantedAt: String?
     public let expiry: String?
+    /// Set only on a revocation row (`basis == "revocation"`); names the
+    /// `grant_ref` that row lapses. Mirrors the hub ledger's own field.
+    public let revokesGrantRef: String?
+}
+
+public extension ConsentGrant {
+    /// The hub ledger's basis value for the standing self-record grant
+    /// (`app.heimdal.consent_ledger.SELF_RECORD_BASIS`).
+    static let selfRecordBasis = "self_record"
+    /// The hub ledger's sentinel basis for a revocation row, which lapses the
+    /// grant named by its `revokes_grant_ref`.
+    static let revocationBasis = "revocation"
+
+    var isRevocation: Bool { basis == ConsentGrant.revocationBasis }
 }
 
 public struct ConsentNote: HeimdalNote {
@@ -191,9 +205,85 @@ public struct ConsentNote: HeimdalNote {
                 basis: map["basis"]?.stringValue,
                 scope: map["scope"]?.stringValue,
                 grantedAt: map["granted_at"]?.stringValue,
-                expiry: map["expiry"]?.stringValue
+                expiry: map["expiry"]?.stringValue,
+                revokesGrantRef: map["revokes_grant_ref"]?.stringValue
             )
         }
+    }
+
+    /// The standing self-record grant, or `nil` when none is active.
+    ///
+    /// `_heimdal/consent.md` is a *snapshot* of the hub's append-only consent
+    /// ledger, rendered oldest-first by ledger sequence. Picking `grants.first`
+    /// is therefore wrong twice over: the oldest row is whichever grant was
+    /// appended first (a `place_optin`/`session_optin` row in Posture B, or a
+    /// lapsed one), and the snapshot can be stale relative to `now` because an
+    /// `expiry` may have passed since `last_ledger_sync`. Binding or displaying
+    /// such a grant as "the standing grant" is exactly the misattribution
+    /// INV-B3-3 forbids, so this client re-applies the ledger's own activity
+    /// rule (`app.heimdal.consent_ledger.list_active_grants`) over the mirror:
+    ///
+    /// - keep only `basis == "self_record"` rows — the standing-grant basis
+    ///   named by HCAP-04 and FABLE_COMPANION §6.1 basis 1;
+    /// - require the hub readout's identity/display fields (`grant_ref`,
+    ///   `scope`, and parseable `granted_at`) before asserting the row;
+    /// - drop any grant whose `grant_ref` a `revocation` row in the same
+    ///   mirror lapses;
+    /// - drop any grant whose `expiry` is at or before `now`;
+    /// - among the survivors take the last, matching the ledger's
+    ///   last-appended-wins resolution (`resolve_active_grant`).
+    ///
+    /// An `expiry` that is present but unparseable makes the grant's validity
+    /// unverifiable, so it is treated as *not* active. Failing closed keeps the
+    /// surface truthful ("no standing grant found") instead of asserting a
+    /// standing grant this client cannot stand behind; capture itself is never
+    /// blocked client-side, the hub still adjudicates admission (INV-B3-3).
+    public func standingSelfRecordGrant(asOf now: Date = Date()) -> ConsentGrant? {
+        let allGrants = grants
+        let revokedRefs = Set(allGrants.compactMap { $0.isRevocation ? $0.revokesGrantRef : nil })
+        return allGrants.last { grant in
+            guard grant.basis == ConsentGrant.selfRecordBasis else { return false }
+            guard let grantRef = grant.grantRef,
+                  !grantRef.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let scope = grant.scope,
+                  !scope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let grantedAt = grant.grantedAt,
+                  ConsentNote.parseTimestamp(grantedAt) != nil
+            else {
+                return false
+            }
+            if revokedRefs.contains(grantRef) { return false }
+            return ConsentNote.isActive(expiry: grant.expiry, asOf: now)
+        }
+    }
+
+    /// `true` when `expiry` is absent (an open-ended grant) or parses to an
+    /// instant strictly after `now`. An unparseable value returns `false`.
+    public static func isActive(expiry: String?, asOf now: Date) -> Bool {
+        guard let expiry, !expiry.trimmingCharacters(in: .whitespaces).isEmpty else { return true }
+        guard let expiresAt = parseTimestamp(expiry) else { return false }
+        return expiresAt > now
+    }
+
+    /// Parses the timestamp forms the hub mirror can carry: `datetime.isoformat()`
+    /// output (with either a `+00:00` or `Z` offset, with or without fractional
+    /// seconds) and a bare `yyyy-MM-dd` date, read as midnight UTC.
+    public static func parseTimestamp(_ text: String) -> Date? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+
+        let internetDate = ISO8601DateFormatter()
+        internetDate.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let parsed = internetDate.date(from: trimmed) { return parsed }
+
+        internetDate.formatOptions = [.withInternetDateTime]
+        if let parsed = internetDate.date(from: trimmed) { return parsed }
+
+        let plainDate = DateFormatter()
+        plainDate.locale = Locale(identifier: "en_US_POSIX")
+        plainDate.timeZone = TimeZone(secondsFromGMT: 0)
+        plainDate.dateFormat = "yyyy-MM-dd"
+        return plainDate.date(from: trimmed)
     }
 
     public var withholdReviewEnabled: Bool {
