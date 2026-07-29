@@ -1,6 +1,13 @@
 import XCTest
 
 final class HeimdalBoundaryTests: XCTestCase {
+    // TEMPORARY — bifrost#52 AC3 fail-closed probe. Proves a failing YggdrasilTests
+    // assertion turns the "Swift lint + package + app builds" check red. Reverted
+    // before merge; this branch is never merged.
+    func testAC3DeliberateFailureProbe() throws {
+        XCTFail("bifrost#52 AC3 probe: CI must report this run as failed.")
+    }
+
     func testHeimdalSourcesImportNoMimerInternals() throws {
         let scanner = try makeScanner()
         let sourceFiles = try swiftFiles(in: sourceRoot.appendingPathComponent("Heimdal"))
