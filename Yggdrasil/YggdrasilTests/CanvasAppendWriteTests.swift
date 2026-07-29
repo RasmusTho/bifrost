@@ -98,6 +98,98 @@ final class CanvasAppendWriteTests: XCTestCase {
         XCTAssertNotNil(draft.failureMessage)
         XCTAssertEqual(try String(contentsOf: tempDirectory.appendingPathComponent(path)), original)
     }
+
+    func testPromotionKeepsPendingAnnotationDraft() async throws {
+        let path = "Projects/target.md"
+        try FileManager.default.createDirectory(
+            at: tempDirectory.appendingPathComponent("Projects"),
+            withIntermediateDirectories: true
+        )
+        try "---\ntitle: Target\n---\n\n# Target\n".write(
+            to: tempDirectory.appendingPathComponent(path), atomically: true, encoding: .utf8
+        )
+        let store = VaultFileStore(rootURL: tempDirectory)
+        let draft = MimerCanvasAppendDraft(fileStore: store)
+        draft.annotationText = "pending, unsaved annotation"
+
+        let promotionSaved = await draft.submitPromotion(
+            MimerCanvasPromotion(relativePath: "People/Acme AB.md", snippet: "Acme AB"),
+            to: path
+        )
+
+        XCTAssertTrue(promotionSaved)
+        XCTAssertEqual(draft.annotationText, "pending, unsaved annotation")
+    }
+
+    func testAnnotationTargetsComposedNoteAfterSelectionChange() async throws {
+        let noteA = "Projects/noteA.md"
+        let noteB = "Projects/noteB.md"
+        try FileManager.default.createDirectory(
+            at: tempDirectory.appendingPathComponent("Projects"),
+            withIntermediateDirectories: true
+        )
+        for path in [noteA, noteB] {
+            try "---\ntitle: \(path)\n---\n\n# \(path)\n".write(
+                to: tempDirectory.appendingPathComponent(path), atomically: true, encoding: .utf8
+            )
+        }
+        let store = VaultFileStore(rootURL: tempDirectory)
+        let draft = MimerCanvasAppendDraft(fileStore: store)
+        let coordinator = MimerCanvasDetailCoordinator(fileStore: store)
+
+        // The composer is opened against noteA...
+        coordinator.beginAnnotationComposition(for: noteA)
+        draft.annotationText = "composed while looking at noteA"
+        // ...then the human's selection moves to noteB before they commit.
+        coordinator.selectionChanged()
+        // If the human were to open the Annotate action again for the newly
+        // selected note, the already-pending draft's target must not move.
+        coordinator.beginAnnotationComposition(for: noteB)
+        // The composer must still target noteA (INV-B2-3): never silently
+        // retargeted to whatever is now selected.
+        let targetPath = coordinator.composedAnnotationPath
+        XCTAssertEqual(targetPath, noteA)
+
+        let saved = await draft.submitAnnotation(to: targetPath ?? noteB)
+
+        XCTAssertTrue(saved)
+        let savedNoteA = try await store.read(noteA)
+        let savedNoteB = try await store.read(noteB)
+        XCTAssertTrue(savedNoteA.contains("composed while looking at noteA"))
+        XCTAssertFalse(savedNoteB.contains("composed while looking at noteA"))
+    }
+
+    func testStaleRefreshDoesNotReplaceNewerSelection() async throws {
+        let noteA = "Projects/noteA.md"
+        try FileManager.default.createDirectory(
+            at: tempDirectory.appendingPathComponent("Projects"),
+            withIntermediateDirectories: true
+        )
+        try "---\ntitle: noteA\n---\n\n# noteA\n".write(
+            to: tempDirectory.appendingPathComponent(noteA), atomically: true, encoding: .utf8
+        )
+        let slowCoordinator = SlowReadCoordinator(delay: 0.3)
+        let store = VaultFileStore(rootURL: tempDirectory, coordinator: slowCoordinator)
+        let coordinator = MimerCanvasDetailCoordinator(fileStore: store)
+
+        var appliedNote: MimerCanvasNote?
+        let refreshTask = Task {
+            await coordinator.refresh(
+                path: noteA,
+                currentSelectedPath: { "Projects/noteB.md" },
+                applyRefreshedNote: { refreshed in appliedNote = refreshed }
+            )
+        }
+
+        // Simulate the human moving their selection to a different note
+        // while the append's post-write refresh for noteA is still in
+        // flight reading from disk.
+        try await Task.sleep(nanoseconds: 50_000_000)
+        coordinator.selectionChanged()
+        await refreshTask.value
+
+        XCTAssertNil(appliedNote, "a stale refresh for a no-longer-selected note must not apply")
+    }
 }
 
 private final class AppendFailingCoordinator: VaultFileCoordinating, @unchecked Sendable {
@@ -107,5 +199,24 @@ private final class AppendFailingCoordinator: VaultFileCoordinating, @unchecked 
 
     func coordinateWrite<T: Sendable>(at _: URL, accessor _: @Sendable (URL) throws -> T) throws -> T {
         throw CocoaError(.fileWriteNoPermission)
+    }
+}
+
+/// A read coordinator that sleeps before returning, so tests can reliably
+/// land a state change (e.g. a selection change) while a read is in flight.
+private final class SlowReadCoordinator: VaultFileCoordinating, @unchecked Sendable {
+    private let delay: TimeInterval
+
+    init(delay: TimeInterval) {
+        self.delay = delay
+    }
+
+    func coordinateRead<T: Sendable>(at url: URL, accessor: @Sendable (URL) throws -> T) throws -> T {
+        Thread.sleep(forTimeInterval: delay)
+        return try accessor(url)
+    }
+
+    func coordinateWrite<T: Sendable>(at url: URL, accessor: @Sendable (URL) throws -> T) throws -> T {
+        try accessor(url)
     }
 }
