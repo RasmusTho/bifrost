@@ -160,6 +160,10 @@ private func canvasTestingVaultURL() -> URL {
 
 private func writeCanvasEntityFixture(to root: URL) {
     let files = [
+        // Three pending rows deliberately cover 0/1/2 candidate shapes so
+        // composed journeys and slice tests can exercise every compare
+        // surface (empty candidate column, single-candidate merge, and the
+        // ambiguous two-candidate case) without inventing new fixture files.
         "_heimdal/entities/review.md": """
         ---
         pending:
@@ -169,6 +173,18 @@ private func writeCanvasEntityFixture(to root: URL) {
             resolution: ambiguous
             confidence: 0.71
             candidate_entity_ids: [ent:anna, ent:missing]
+          - queue_entry_id: entity-compare-fixture-single
+            mention_id: mention:bob
+            surface_form: "Bob"
+            resolution: ambiguous
+            confidence: 0.65
+            candidate_entity_ids: [ent:anna]
+          - queue_entry_id: entity-compare-fixture-none
+            mention_id: mention:orphan
+            surface_form: "Orphan"
+            resolution: ambiguous
+            confidence: 0.4
+            candidate_entity_ids: []
         decisions: []
         ---
 
