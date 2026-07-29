@@ -25,7 +25,12 @@ struct HeimdalShellView: View {
     @StateObject private var recorder: CaptureRecorder
     @StateObject private var deliveryQueue: CaptureDeliveryQueue
     @StateObject private var registration: DeviceRegistrationModel
+    @StateObject private var healthPanel: DeviceHealthPanelModel
     @State private var isFolderPickerPresented = false
+
+    /// Delivery failures older than this are nameable gaps
+    /// (`delivery_failed_aged`), not merely "still retrying".
+    private static let deliveryFailedAgeThreshold: TimeInterval = 15 * 60
 
     init(
         sessionModel: CaptureSessionModel,
@@ -44,6 +49,7 @@ struct HeimdalShellView: View {
                 deviceLabel: deviceLabel
             )
         )
+        _healthPanel = StateObject(wrappedValue: DeviceHealthPanelModel(captureSession: model))
     }
 
     var body: some View {
@@ -125,6 +131,14 @@ struct HeimdalShellView: View {
                         }
                     }
                 }
+
+                // Placed last: this section is new, ephemeral (ADR-0049 §2's
+                // declared bend), and must never push an existing element
+                // (e.g. `heimdal.record`) out of the List's initially
+                // rendered viewport.
+                Section("Device Health") {
+                    DeviceHealthPanelView(healthPanel: healthPanel)
+                }
             }
             .navigationTitle("Heimdal")
             .sheet(isPresented: $isFolderPickerPresented) {
@@ -146,6 +160,12 @@ struct HeimdalShellView: View {
                         retryUndelivered: { await retryUndelivered() }
                     )
                 }
+                if newPhase == .background {
+                    Task { await recordLastKnownSnapshot() }
+                }
+            }
+            .onChange(of: sessionModel.stagedItems.map(\.deliveryState)) { _, _ in
+                Task { await recordDeliveryFailedAgedGaps() }
             }
             .onChange(of: sessionModel.stagedItems.map(\.id)) { _, _ in
                 Task { await deliverNewlyStaged() }
@@ -205,6 +225,36 @@ struct HeimdalShellView: View {
         }
     }
 
+    /// The durable half of the device-health bend: a coarse, low-churn
+    /// readout, written on entering background. `updateLastKnownSnapshot`
+    /// itself skips the write when nothing changed.
+    private func recordLastKnownSnapshot() async {
+        let recording = sessionModel.phase == .recording || sessionModel.phase == .paused
+        await registration.updateLastKnownSnapshot(
+            DeviceRegistrationModel.LastKnownSnapshot(
+                battery: healthPanel.battery.level,
+                queueDepth: healthPanel.queueDepth,
+                recording: recording
+            )
+        )
+    }
+
+    /// Names one gap per staged item whose delivery has been failing for
+    /// longer than `deliveryFailedAgeThreshold`. `recordGapEvent` is
+    /// idempotent on `(kind, detail)`, so repeated calls for the same item
+    /// append at most one entry.
+    private func recordDeliveryFailedAgedGaps() async {
+        let now = Date()
+        for item in sessionModel.stagedItems {
+            guard case let .failed(message, failedAt) = item.deliveryState,
+                  now.timeIntervalSince(failedAt) >= Self.deliveryFailedAgeThreshold else { continue }
+            await registration.recordGapEvent(
+                kind: DeviceRegistrationModel.GapKind.deliveryFailedAged,
+                detail: "item \(item.id.uuidString): \(message)"
+            )
+        }
+    }
+
     private func retryUndelivered() async {
         await withBoundCaptureFolder { folderURL in
             await deliveryQueue.retryUndelivered(to: folderURL)
@@ -232,6 +282,34 @@ struct HeimdalShellView: View {
         }
         defer { folderManager.endAccessingBoundFolder(folderURL) }
         await operation(folderURL)
+    }
+}
+
+/// ADR-0049 §2's declared UI-only bend, rendered: every value here comes
+/// straight from live runtime state and is never written anywhere.
+private struct DeviceHealthPanelView: View {
+    @ObservedObject var healthPanel: DeviceHealthPanelModel
+
+    var body: some View {
+        Group {
+            Text("Session: \(String(describing: healthPanel.recordingPhase))")
+                .accessibilityIdentifier("heimdal.health.phase")
+            Text("Delivery queue: \(healthPanel.queueDepth)")
+                .accessibilityIdentifier("heimdal.health.queueDepth")
+            if let oldestPendingAge = healthPanel.oldestPendingAge {
+                Text("Oldest pending: \(Int(oldestPendingAge))s")
+                    .font(YggTheme.Typography.caption)
+                    .foregroundStyle(YggTheme.Color.textSecondary)
+            }
+            if let level = healthPanel.battery.level {
+                Text("Battery: \(Int(level * 100))%")
+            } else {
+                Text("Battery: unknown")
+            }
+            Text("Mic permission: \(String(describing: healthPanel.micPermission))")
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.textSecondary)
+        }
     }
 }
 
