@@ -154,7 +154,47 @@ private func canvasTestingVaultURL() -> URL {
     """ + "\n"
     try? Data(fixture.utf8).write(to: note, options: .atomic)
     try? Data("---\ntitle: Source\n---\n\n# Source note\n".utf8).write(to: sourceNote, options: .atomic)
+    writeCanvasEntityFixture(to: root)
     return root
+}
+
+private func writeCanvasEntityFixture(to root: URL) {
+    let files = [
+        "_heimdal/entities/review.md": """
+        ---
+        pending:
+          - queue_entry_id: entity-compare-fixture
+            mention_id: mention:anna
+            surface_form: "Anna"
+            resolution: ambiguous
+            confidence: 0.71
+            candidate_entity_ids: [ent:anna, ent:missing]
+        decisions: []
+        ---
+
+        Fixture review note.
+        """ + "\n",
+        "_heimdal/register/ent-anna.md": """
+        ---
+        entity_id: ent:anna
+        label: Anna Andersson
+        kind: person
+        lifecycle: canonical
+        ---
+
+        # Anna Andersson
+
+        Canonical candidate context.
+        """ + "\n"
+    ]
+    for (relativePath, contents) in files {
+        let url = root.appendingPathComponent(relativePath)
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? Data(contents.utf8).write(to: url, options: .atomic)
+    }
 }
 
 private func uatTestingVaultURL(identifier: String) -> URL {

@@ -207,7 +207,55 @@ final class MimerCanvasUITests: XCTestCase {
         )
     }
 
-    private func assertAccessibilityValue(
+    func testEntityCompareMergeUndoJourney() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only entity compare verification")
+        let app = launchMimerShell(withFixture: true)
+
+        let entitiesLens = app.descendants(matching: .any)["mimer.canvas.lens.entities"]
+        XCTAssertTrue(entitiesLens.waitForExistence(timeout: 10))
+        entitiesLens.tap()
+
+        let queueEntry = app.descendants(matching: .any)["mimer.entity.queue.entity-compare-fixture"]
+        XCTAssertTrue(queueEntry.waitForExistence(timeout: 10))
+        queueEntry.tap()
+        XCTAssertTrue(app.staticTexts["Anna"].waitForExistence(timeout: 5))
+
+        let existingCandidate = app.descendants(matching: .any)["mimer.entity.candidate.ent:anna"]
+        let missingCandidate = app.descendants(matching: .any)["mimer.entity.candidate.ent:missing"]
+        XCTAssertTrue(existingCandidate.waitForExistence(timeout: 10))
+        XCTAssertTrue(missingCandidate.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No note yet"].waitForExistence(timeout: 5))
+
+        let merge = app.buttons["mimer.entity.merge"]
+        XCTAssertTrue(merge.waitForExistence(timeout: 5))
+        XCTAssertFalse(merge.isEnabled, "Merge requires an explicit candidate selection.")
+        existingCandidate.tap()
+        XCTAssertTrue(merge.isEnabled)
+        merge.tap()
+
+        let decisionState = app.descendants(matching: .any)["mimer.entity.decision.state"]
+        let merged = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "Merge proposed: ent:anna"),
+            object: decisionState
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [merged], timeout: 10), .completed)
+
+        let undo = app.buttons["mimer.entity.undo"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        XCTAssertTrue(undo.isEnabled)
+        undo.tap()
+        let undecided = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "Undecided locally"),
+            object: decisionState
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [undecided], timeout: 10), .completed)
+        XCTAssertTrue(queueEntry.exists, "The client must not remove the pending queue entry.")
+    }
+
+}
+
+private extension MimerCanvasUITests {
+    func assertAccessibilityValue(
         _ expectedValue: String,
         for element: XCUIElement,
         file: StaticString = #filePath,
@@ -226,7 +274,7 @@ final class MimerCanvasUITests: XCTestCase {
         )
     }
 
-    private func assertAccessibilityValueContains(
+    func assertAccessibilityValueContains(
         _ expectedValue: String,
         for element: XCUIElement,
         timeout: TimeInterval = 5,
@@ -246,7 +294,7 @@ final class MimerCanvasUITests: XCTestCase {
         )
     }
 
-    private func launchMimerShell(withFixture: Bool = false) -> XCUIApplication {
+    func launchMimerShell(withFixture: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         if app.state != .notRunning {
             app.terminate()

@@ -11,6 +11,11 @@ extension YAMLCodec {
         return dump(map: map, indent: 0)
     }
 
+    static func serializeSequence(_ items: [YAMLValue]) -> String {
+        guard !items.isEmpty else { return "[]\n" }
+        return dumpSequenceItems(items, indent: 0) + "\n"
+    }
+
     private static func dump(map: YAMLMap, indent: Int) -> String {
         guard !map.isEmpty else { return String(repeating: " ", count: indent) + "{}\n" }
         var lines: [String] = []
@@ -84,7 +89,11 @@ extension YAMLCodec {
         case .null: return "null"
         case .bool(let flag): return flag ? "true" : "false"
         case .int(let intValue): return String(intValue)
-        case .double(let doubleValue): return String(doubleValue)
+        case .double(let doubleValue):
+            if doubleValue.isNaN { return ".nan" }
+            if doubleValue == .infinity { return ".inf" }
+            if doubleValue == -.infinity { return "-.inf" }
+            return String(doubleValue)
         case .string(let stringValue): return dumpString(stringValue)
         case .array(let items):
             return "[" + items.map { dumpScalar($0) }.joined(separator: ", ") + "]"
@@ -98,6 +107,7 @@ extension YAMLCodec {
         let containsNewline = text.contains("\n") || text.contains("\r")
         let needsQuoting = containsNewline || text.hasPrefix(" ") || text.hasSuffix(" ")
             || text.contains(": ") || text.hasSuffix(":")
+            || text.contains("#")
             || "-?:[]{}#&*!|>'\"%@`".contains(firstCharacter)
             || text == "true" || text == "false" || text == "null" || text == "~"
             || (Int(text) != nil && !hasLeadingZeroInteger(text))

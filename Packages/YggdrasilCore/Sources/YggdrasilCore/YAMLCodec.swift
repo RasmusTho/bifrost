@@ -1,4 +1,5 @@
 import Foundation
+import Yams
 
 /// Parses and serializes the constrained YAML subset used by the `_heimdal/**`
 /// note substrate: nested block mappings, block sequences, sequences of
@@ -12,6 +13,7 @@ public enum YAMLCodec {
     public enum CodecError: Error, Equatable {
         case malformedLine(String)
         case unexpectedEnd
+        case semanticMismatch
     }
 
     private struct Line {
@@ -37,6 +39,9 @@ public enum YAMLCodec {
         let (value, _) = try parseBlock(lines, &index, indent: lines[0].indent)
         guard index == lines.count else {
             throw CodecError.malformedLine(lines[index].content)
+        }
+        guard YAMLSemanticComparator.equivalent(text, serialize(value)) else {
+            throw CodecError.semanticMismatch
         }
         return value
     }
@@ -68,12 +73,15 @@ public enum YAMLCodec {
                 let itemIndent = indent + 2
                 var synthetic: [Line] = [Line(indent: itemIndent, content: after)]
                 index += 1
-                while index < lines.count, lines[index].indent == itemIndent, !lines[index].content.hasPrefix("-") {
-                    synthetic.append(Line(indent: itemIndent, content: lines[index].content))
+                while index < lines.count, lines[index].indent > indent {
+                    synthetic.append(lines[index])
                     index += 1
                 }
                 var synthIndex = 0
                 let map = try parseMapping(synthetic, &synthIndex, indent: itemIndent)
+                guard synthIndex == synthetic.count else {
+                    throw CodecError.malformedLine(synthetic[synthIndex].content)
+                }
                 items.append(map)
             } else {
                 items.append(try parseScalar(after))
@@ -91,6 +99,9 @@ public enum YAMLCodec {
                 throw CodecError.malformedLine(content)
             }
             let key = unquote(String(content[content.startIndex..<colon]).trimmingCharacters(in: .whitespaces))
+            guard map[key] == nil else {
+                throw CodecError.malformedLine("duplicate key: \(key)")
+            }
             let rest = String(content[content.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
             if rest.isEmpty {
                 index += 1
@@ -109,7 +120,9 @@ public enum YAMLCodec {
     }
 
     private static func isMapEntry(_ text: String) -> Bool {
-        topLevelColon(text) != nil
+        guard let colon = topLevelColon(text) else { return false }
+        let valueStart = text.index(after: colon)
+        return valueStart == text.endIndex || text[valueStart].isWhitespace
     }
 
     private static func isSequenceMarker(_ content: String) -> Bool {
@@ -146,14 +159,7 @@ public enum YAMLCodec {
         }
         if text.hasPrefix("{") && text.hasSuffix("}") {
             let inner = String(text.dropFirst().dropLast())
-            var map = YAMLMap()
-            for part in splitFlow(inner) {
-                guard let colon = topLevelColon(part) else { continue }
-                let key = unquote(String(part[part.startIndex..<colon]).trimmingCharacters(in: .whitespaces))
-                let value = String(part[part.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-                map[key] = try parseScalar(value)
-            }
-            return .map(map)
+            return try parseFlowMapping(inner)
         }
         if text.isEmpty || text == "~" || text == "null" || text == "Null" || text == "NULL" {
             return .null
@@ -167,13 +173,41 @@ public enum YAMLCodec {
         return .string(text)
     }
 
+    private static func parseFlowMapping(_ text: String) throws -> YAMLValue {
+        var map = YAMLMap()
+        for part in splitFlow(text) {
+            if let colon = topLevelColon(part) {
+                let key = unquote(
+                    String(part[part.startIndex..<colon]).trimmingCharacters(in: .whitespaces)
+                )
+                guard map[key] == nil else {
+                    throw CodecError.malformedLine("duplicate key: \(key)")
+                }
+                let value = String(part[part.index(after: colon)...])
+                    .trimmingCharacters(in: .whitespaces)
+                map[key] = try parseScalar(value)
+            } else {
+                let key = unquote(part.trimmingCharacters(in: .whitespaces))
+                guard !key.isEmpty, map[key] == nil else {
+                    throw CodecError.malformedLine(part)
+                }
+                map[key] = .null
+            }
+        }
+        return .map(map)
+    }
+
     private static func parseNumericScalar(_ text: String) -> YAMLValue? {
         // Preserve a leading-zero scalar as text. Parsing it as an Int would
         // discard the spelling on write and can change a note field that this
         // client does not own.
         guard !hasLeadingZeroInteger(text) else { return nil }
         if let intValue = Int(text) { return .int(intValue) }
-        if let doubleValue = Double(text) { return .double(doubleValue) }
+        if let node = try? Yams.compose(yaml: text),
+           node.tag.rawValue == Tag.Name.float.rawValue,
+           let doubleValue = node.float {
+            return .double(doubleValue)
+        }
         return nil
     }
 
@@ -246,5 +280,70 @@ public enum YAMLCodec {
             }
         }
         return result
+    }
+}
+
+private enum YAMLSemanticComparator {
+    static func equivalent(_ source: String, _ rendered: String) -> Bool {
+        do {
+            guard let sourceNode = try Yams.compose(yaml: source),
+                  let renderedNode = try Yams.compose(yaml: rendered) else {
+                return false
+            }
+            return equivalent(sourceNode, renderedNode)
+        } catch {
+            return false
+        }
+    }
+
+    private static func equivalent(_ source: Node, _ rendered: Node) -> Bool {
+        guard source.tag == rendered.tag else { return false }
+        switch (source, rendered) {
+        case (.scalar(let sourceScalar), .scalar(let renderedScalar)):
+            return equivalentScalars(source, sourceScalar, rendered, renderedScalar)
+        case (.sequence(let sourceItems), .sequence(let renderedItems)):
+            return sourceItems.count == renderedItems.count
+                && zip(sourceItems, renderedItems).allSatisfy(equivalent)
+        case (.mapping(let sourcePairs), .mapping(let renderedPairs)):
+            return equivalentMappings(sourcePairs, renderedPairs)
+        default:
+            return false
+        }
+    }
+
+    private static func equivalentScalars(
+        _ source: Node,
+        _ sourceScalar: Node.Scalar,
+        _ rendered: Node,
+        _ renderedScalar: Node.Scalar
+    ) -> Bool {
+        switch source.tag.rawValue {
+        case Tag.Name.null.rawValue:
+            return source.null != nil && rendered.null != nil
+        case Tag.Name.bool.rawValue:
+            return source.bool == rendered.bool
+        case Tag.Name.int.rawValue:
+            return source.int == rendered.int
+        case Tag.Name.float.rawValue:
+            return equivalentFloats(source.float, rendered.float)
+        default:
+            return sourceScalar.string == renderedScalar.string
+        }
+    }
+
+    private static func equivalentFloats(_ source: Double?, _ rendered: Double?) -> Bool {
+        guard let source, let rendered else { return false }
+        return source == rendered || (source.isNaN && rendered.isNaN)
+    }
+
+    private static func equivalentMappings(
+        _ source: Node.Mapping,
+        _ rendered: Node.Mapping
+    ) -> Bool {
+        source.count == rendered.count
+            && zip(source, rendered).allSatisfy { sourcePair, renderedPair in
+                equivalent(sourcePair.key, renderedPair.key)
+                    && equivalent(sourcePair.value, renderedPair.value)
+            }
     }
 }

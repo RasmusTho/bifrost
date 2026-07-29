@@ -476,3 +476,22 @@ private extension ParsedYAML {
         return spelling.dropFirst()
     }
 }
+
+extension ParsedYAML {
+    func directRootSequence(named name: String) -> (pair: SwiftTreeSitter.Node, itemCount: Int)? {
+        guard case .mapping(let rootMapping) = semanticRoot,
+              case .found(let source) = SemanticMapping.effectiveSource(
+                  named: name,
+                  in: rootMapping
+              ),
+              MappingIdentity(source.mapping) == MappingIdentity(rootMapping),
+              source.pairIndex < source.mapping.count,
+              case .sequence(let items) = source.mapping[source.pairIndex].value,
+              let mappingNode = uniqueSyntaxMapping(for: source.mapping) else {
+            return nil
+        }
+        let pairs = syntaxPairs(in: mappingNode)
+        guard source.pairIndex < pairs.count else { return nil }
+        return (pairs[source.pairIndex], items.count)
+    }
+}

@@ -31,6 +31,35 @@ final class HeimdalNotesTests: XCTestCase {
         XCTAssertEqual(decisions.count, 1, message)
     }
 
+    func testEntityReviewAllowsMergeAfterCompensatingUndo() throws {
+        let doc = try FrontmatterDocument.parse("""
+        ---
+        pending:
+          - queue_entry_id: q1
+            mention_id: m1
+            surface_form: "Alice"
+            resolution: candidate
+        decisions: []
+        ---
+        """)
+        var note = EntityReviewNote(document: doc)
+
+        note.addDecision(
+            queueEntryId: "q1", action: "merge", fromId: "m1", intoId: "ent:alice", decidedAt: "2026-07-06T00:00:00Z"
+        )
+        note.addDecision(
+            queueEntryId: "q1", action: "undo", fromId: "m1", intoId: "ent:alice", decidedAt: "2026-07-06T00:00:01Z"
+        )
+        note.addDecision(
+            queueEntryId: "q1", action: "merge", fromId: "m1", intoId: "ent:alice", decidedAt: "2026-07-06T00:00:02Z"
+        )
+
+        let actions = note.document.frontmatter["decisions"]?.arrayValue?.compactMap {
+            $0.mapValue?["action"]?.stringValue
+        }
+        XCTAssertEqual(actions, ["merge", "undo", "merge"])
+    }
+
     func testAttentionOverrideAppendPreservesCountsAndReasons() throws {
         let text = """
         ---

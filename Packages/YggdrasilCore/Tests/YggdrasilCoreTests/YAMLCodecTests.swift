@@ -25,6 +25,70 @@ final class YAMLCodecTests: XCTestCase {
         XCTAssertThrowsError(try YAMLCodec.parse(yaml))
     }
 
+    func testSequenceMappingRejectsUnconsumedNestedBlockScalarPayload() {
+        let yaml = """
+        pending:
+          - queue_entry_id: queue-1
+            note: |
+              source-of-record payload
+            resolution: ambiguous
+        decisions: []
+        """
+
+        XCTAssertThrowsError(try YAMLCodec.parse(yaml)) { error in
+            XCTAssertEqual(
+                error as? YAMLCodec.CodecError,
+                .malformedLine("source-of-record payload")
+            )
+        }
+    }
+
+    func testFlowSetEntriesRetainSemanticIdentity() throws {
+        let first = try YAMLCodec.parse("extension: {foo}\n")
+        let second = try YAMLCodec.parse("extension: {bar}\n")
+
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(first.mapValue?["extension"]?.mapValue?["foo"], .null)
+        XCTAssertEqual(second.mapValue?["extension"]?.mapValue?["bar"], .null)
+    }
+
+    func testInlineCommentSemanticMismatchFailsClosed() throws {
+        XCTAssertThrowsError(try YAMLCodec.parse("extension: foo # comment\n"))
+        XCTAssertEqual(
+            try YAMLCodec.parse("extension: \"foo # comment\"\n")
+                .mapValue?["extension"]?.stringValue,
+            "foo # comment"
+        )
+    }
+
+    func testNonFiniteFloatSpellingsRetainNumericSemantics() throws {
+        XCTAssertEqual(
+            try YAMLCodec.parse("confidence: 1e309\n")
+                .mapValue?["confidence"]?.doubleValue,
+            .infinity
+        )
+        XCTAssertTrue(
+            try XCTUnwrap(
+                YAMLCodec.parse("confidence: .nan\n")
+                    .mapValue?["confidence"]?.doubleValue
+            ).isNaN
+        )
+        XCTAssertEqual(
+            try YAMLCodec.parse("confidence: NaN\n")
+                .mapValue?["confidence"]?.stringValue,
+            "NaN"
+        )
+    }
+
+    func testDuplicateMappingKeysFailClosed() {
+        XCTAssertThrowsError(
+            try YAMLCodec.parse("extension: one\nextension: two\n")
+        )
+        XCTAssertThrowsError(
+            try YAMLCodec.parse("extension: {key: one, key: two}\n")
+        )
+    }
+
     func testStringWithEmbeddedNewlineRoundTrips() throws {
         var map = YAMLMap()
         map["note"] = .string("line one\nline two")
@@ -50,6 +114,44 @@ final class YAMLCodecTests: XCTestCase {
         let value = try YAMLCodec.parse(yaml)
         guard case .map(let map) = value else { return XCTFail("expected map") }
         XCTAssertEqual(map["watched"]?.stringArray, ["example.com", "another.com"])
+    }
+
+    func testBlockSequenceTreatsEntityIDsAsScalars() throws {
+        let yaml = """
+        candidate_entity_ids:
+          - ent:anna
+          - ent:missing
+        """
+
+        let value = try YAMLCodec.parse(yaml)
+        guard case .map(let map) = value else { return XCTFail("expected map") }
+        XCTAssertEqual(map["candidate_entity_ids"]?.stringArray, ["ent:anna", "ent:missing"])
+        XCTAssertEqual(
+            try YAMLCodec.parse(YAMLCodec.serialize(value)),
+            value
+        )
+    }
+
+    func testNestedEntityCandidateSequenceRoundTrips() throws {
+        let yaml = """
+        pending:
+          - queue_entry_id: queue-1
+            mention_id: mention-1
+            candidate_entity_ids:
+              - ent:anna
+              - ent:missing
+            resolution: ambiguous
+        decisions: []
+        """
+
+        let parsed = try YAMLCodec.parse(yaml)
+        let reparsed = try YAMLCodec.parse(YAMLCodec.serialize(parsed))
+        XCTAssertEqual(reparsed, parsed)
+        XCTAssertEqual(
+            reparsed.mapValue?["pending"]?.arrayValue?.first?
+                .mapValue?["candidate_entity_ids"]?.stringArray,
+            ["ent:anna", "ent:missing"]
+        )
     }
 
     func testSequenceOfMappings() throws {
