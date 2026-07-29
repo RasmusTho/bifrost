@@ -19,6 +19,7 @@
 		666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */; };
 		0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394547EDCD374141F3DFC604 /* NoteDetailView.swift */; };
 		11941E8256F7152EE531749C /* MimerShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435045F5470233E53111E5EC /* MimerShellView.swift */; };
+		E31000010000000000000033 /* MimerCanvasDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E31000100000000000000033 /* MimerCanvasDetailView.swift */; };
 		B10000020000000000000010 /* MimerNoteInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000200000000000000010 /* MimerNoteInspectorView.swift */; };
 		E11000010000000000000011 /* MimerEntityCompare.swift in Sources */ = {isa = PBXBuildFile; fileRef = E11000020000000000000011 /* MimerEntityCompare.swift */; };
 		E12000010000000000000012 /* MimerEntityCompareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E12000020000000000000012 /* MimerEntityCompareViews.swift */; };
@@ -119,6 +120,7 @@
 		90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRendererView.swift; sourceTree = "<group>"; };
 		394547EDCD374141F3DFC604 /* NoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDetailView.swift; sourceTree = "<group>"; };
 		435045F5470233E53111E5EC /* MimerShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerShellView.swift; sourceTree = "<group>"; };
+		E31000100000000000000033 /* MimerCanvasDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasDetailView.swift; sourceTree = "<group>"; };
 		B10000200000000000000010 /* MimerNoteInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerNoteInspectorView.swift; sourceTree = "<group>"; };
 		E11000020000000000000011 /* MimerEntityCompare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerEntityCompare.swift; sourceTree = "<group>"; };
 		E12000020000000000000012 /* MimerEntityCompareViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerEntityCompareViews.swift; sourceTree = "<group>"; };
@@ -292,6 +294,7 @@
 			isa = PBXGroup;
 			children = (
 				435045F5470233E53111E5EC /* MimerShellView.swift */,
+				E31000100000000000000033 /* MimerCanvasDetailView.swift */,
 				E31000100000000000000031 /* MimerCanvasKeyboardHost.swift */,
 				E31000100000000000000032 /* MimerCanvasAppend.swift */,
 				B10000200000000000000010 /* MimerNoteInspectorView.swift */,
@@ -579,6 +582,7 @@
 				666B67AE9D55C5A63A4EF13E /* MarkdownRendererView.swift in Sources */,
 				0BCBDD60D4169C3FE3A8BD3D /* NoteDetailView.swift in Sources */,
 				11941E8256F7152EE531749C /* MimerShellView.swift in Sources */,
+				E31000010000000000000033 /* MimerCanvasDetailView.swift in Sources */,
 				E31000010000000000000031 /* MimerCanvasKeyboardHost.swift in Sources */,
 				E31000010000000000000032 /* MimerCanvasAppend.swift in Sources */,
 				B10000020000000000000010 /* MimerNoteInspectorView.swift in Sources */,
