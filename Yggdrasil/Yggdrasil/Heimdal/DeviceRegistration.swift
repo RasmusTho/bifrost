@@ -101,6 +101,94 @@ final class DeviceRegistrationModel: ObservableObject {
         }
     }
 
+    /// Nameable capture gaps (ADR-0049 §2's durable half of the device-health
+    /// bend). Raw strings, not an enum, so the vault-side `kind` spelling is
+    /// exactly what this file writes and what a future consumer greps for.
+    enum GapKind {
+        static let interruptedNotResumed = "interrupted_not_resumed"
+        static let finalizedByAbandonment = "finalized_by_abandonment"
+        static let deliveryFailedAged = "delivery_failed_aged"
+    }
+
+    /// Appends one entry to this device note's `capture_gap_log` when the
+    /// client can name a gap. Idempotent on `(kind, detail)`: a caller that
+    /// observes and reports the same gap more than once (a retried scan, a
+    /// second scenePhase activation before the first write lands) still
+    /// produces exactly one entry, never a duplicate. Uses the same
+    /// coordinated `readModifyWrite` seam as `register()`, so an unrelated
+    /// concurrent writer's fields are preserved untouched.
+    func recordGapEvent(kind: String, detail: String, at: Date = Date()) async {
+        guard let fileStore else { return }
+        let path = HeimdalPaths.device(id: deviceID)
+        let timestamp = ISO8601DateFormatter().string(from: at)
+        do {
+            try await fileStore.readModifyWrite(path) { document in
+                var entries = document.frontmatter["capture_gap_log"]?.arrayValue ?? []
+                let alreadyRecorded = entries.contains { entry in
+                    guard let fields = entry.mapValue else { return false }
+                    return fields["kind"]?.stringValue == kind && fields["detail"]?.stringValue == detail
+                }
+                guard !alreadyRecorded else { return }
+                entries.append(.map(YAMLMap([
+                    ("at", .string(timestamp)),
+                    ("kind", .string(kind)),
+                    ("detail", .string(detail))
+                ])))
+                document.frontmatter["capture_gap_log"] = .array(entries)
+            }
+        } catch {
+            // Best-effort by design: a failed gap write is a device-health
+            // detail, not a reason to disrupt the capture flow reporting it.
+        }
+    }
+
+    /// A coarse, low-churn health readout for `last_known_snapshot`. `battery`
+    /// is `nil` when the level is not currently known.
+    struct LastKnownSnapshot: Equatable {
+        let battery: Double?
+        let queueDepth: Int
+        let recording: Bool
+    }
+
+    /// Updates `last_known_snapshot` in place: on entering background, and at
+    /// most every few minutes while active — never on a tight timer. Skips
+    /// the write entirely when the snapshot is unchanged from what the device
+    /// note already holds, and never touches any field but
+    /// `last_known_snapshot`.
+    func updateLastKnownSnapshot(_ snapshot: LastKnownSnapshot, at: Date = Date()) async {
+        guard let fileStore else { return }
+        let path = HeimdalPaths.device(id: deviceID)
+        guard let currentText = try? await fileStore.read(path),
+              let currentDocument = try? FrontmatterDocument.parse(currentText) else {
+            // No device note yet (not registered): nothing durable to update.
+            return
+        }
+        if let existing = currentDocument.frontmatter["last_known_snapshot"]?.mapValue,
+           existing["battery"]?.doubleValue == snapshot.battery,
+           existing["queue_depth"]?.intValue == snapshot.queueDepth,
+           existing["recording"]?.boolValue == snapshot.recording {
+            return
+        }
+
+        let timestamp = ISO8601DateFormatter().string(from: at)
+        do {
+            try await fileStore.readModifyWrite(path) { document in
+                var fields: [(String, YAMLValue)] = [("at", .string(timestamp))]
+                if let battery = snapshot.battery {
+                    fields.append(("battery", .double(battery)))
+                } else {
+                    fields.append(("battery", .null))
+                }
+                fields.append(("queue_depth", .int(snapshot.queueDepth)))
+                fields.append(("recording", .bool(snapshot.recording)))
+                document.frontmatter["last_known_snapshot"] = .map(YAMLMap(fields))
+            }
+        } catch {
+            // Best-effort: a missed coarse snapshot costs at most one stale
+            // reading, never a lost gap-log entry.
+        }
+    }
+
     private func snapshot(using fileStore: VaultFileStore) async throws -> DeviceRegistrationSnapshot {
         async let consentResult = fileStore.read(HeimdalPaths.consent)
         async let deviceResult = fileStore.read(HeimdalPaths.device(id: deviceID))

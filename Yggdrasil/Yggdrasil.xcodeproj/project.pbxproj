@@ -47,6 +47,8 @@
 		A14000030000000000000003 /* HeimdalShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000130000000000000003 /* HeimdalShellView.swift */; };
 		A17000010000000000000001 /* DeviceRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17000110000000000000001 /* DeviceRegistration.swift */; };
 		A17000020000000000000002 /* DeviceRegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17000120000000000000002 /* DeviceRegistrationTests.swift */; };
+		AA1000010000000000000001 /* DeviceHealthPanelModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000110000000000000001 /* DeviceHealthPanelModel.swift */; };
+		AA1000020000000000000002 /* DeviceHealthDurabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000120000000000000002 /* DeviceHealthDurabilityTests.swift */; };
 		A15000010000000000000001 /* CaptureRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000110000000000000001 /* CaptureRecorder.swift */; };
 		A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000120000000000000002 /* CaptureRecorderTests.swift */; };
 		A15000030000000000000003 /* CaptureFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000130000000000000003 /* CaptureFileWriter.swift */; };
@@ -147,6 +149,8 @@
 		A14000130000000000000003 /* HeimdalShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellView.swift; sourceTree = "<group>"; };
 		A17000110000000000000001 /* DeviceRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistration.swift; sourceTree = "<group>"; };
 		A17000120000000000000002 /* DeviceRegistrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistrationTests.swift; sourceTree = "<group>"; };
+		AA1000110000000000000001 /* DeviceHealthPanelModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHealthPanelModel.swift; sourceTree = "<group>"; };
+		AA1000120000000000000002 /* DeviceHealthDurabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHealthDurabilityTests.swift; sourceTree = "<group>"; };
 		A15000110000000000000001 /* CaptureRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRecorder.swift; sourceTree = "<group>"; };
 		A15000120000000000000002 /* CaptureRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRecorderTests.swift; sourceTree = "<group>"; };
 		A15000130000000000000003 /* CaptureFileWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFileWriter.swift; sourceTree = "<group>"; };
@@ -312,6 +316,7 @@
 				A14000120000000000000002 /* CaptureSessionModel.swift */,
 				A14000130000000000000003 /* HeimdalShellView.swift */,
 				A17000110000000000000001 /* DeviceRegistration.swift */,
+				AA1000110000000000000001 /* DeviceHealthPanelModel.swift */,
 				A15000130000000000000003 /* CaptureFileWriter.swift */,
 				C19001010000000000000001 /* CaptureMediaValidator.swift */,
 				A15000110000000000000001 /* CaptureRecorder.swift */,
@@ -374,6 +379,7 @@
 				A14000150000000000000005 /* CaptureFolderBindingTests.swift */,
 				A14000160000000000000006 /* CaptureSessionModelTests.swift */,
 				A17000120000000000000002 /* DeviceRegistrationTests.swift */,
+				AA1000120000000000000002 /* DeviceHealthDurabilityTests.swift */,
 				B10000100000000000000010 /* NoteInspectorModelTests.swift */,
 				E14000020000000000000014 /* EntityReviewAuthorityCASTests.swift */,
 				E14000040000000000000015 /* EntityReviewYAMLSemanticCASTests.swift */,
@@ -599,6 +605,7 @@
 				A14000020000000000000002 /* CaptureSessionModel.swift in Sources */,
 				A14000030000000000000003 /* HeimdalShellView.swift in Sources */,
 				A17000010000000000000001 /* DeviceRegistration.swift in Sources */,
+				AA1000010000000000000001 /* DeviceHealthPanelModel.swift in Sources */,
 				A15000030000000000000003 /* CaptureFileWriter.swift in Sources */,
 				C19001020000000000000002 /* CaptureMediaValidator.swift in Sources */,
 				A15000010000000000000001 /* CaptureRecorder.swift in Sources */,
@@ -627,6 +634,7 @@
 				A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */,
 				A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */,
 				A17000020000000000000002 /* DeviceRegistrationTests.swift in Sources */,
+				AA1000020000000000000002 /* DeviceHealthDurabilityTests.swift in Sources */,
 				B10000010000000000000010 /* NoteInspectorModelTests.swift in Sources */,
 				E14000010000000000000014 /* EntityReviewAuthorityCASTests.swift in Sources */,
 				E14000030000000000000015 /* EntityReviewYAMLSemanticCASTests.swift in Sources */,

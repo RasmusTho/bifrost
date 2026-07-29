@@ -252,14 +252,14 @@ final class DeviceRegistrationTests: XCTestCase {
         )
     ]
 
-    private func makeVault() throws -> URL {
+    func makeVault() throws -> URL {
         let vault = FileManager.default.temporaryDirectory
             .appendingPathComponent("DeviceRegistrationTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
         return vault
     }
 
-    private func write(_ text: String, to relativePath: String, in vault: URL) throws {
+    func write(_ text: String, to relativePath: String, in vault: URL) throws {
         let url = vault.appendingPathComponent(relativePath)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try text.write(to: url, atomically: true, encoding: .utf8)
