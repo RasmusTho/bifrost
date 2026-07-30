@@ -12,6 +12,11 @@ struct YggdrasilApp: App {
         // present: seeds one outbox item so the composed queue journey has real
         // durable evidence to watch advance.
         UITestLaunchConfiguration.current.seedTransferQueueFixtureIfNeeded()
+        #if DEBUG
+        if UITestLaunchConfiguration.current.shouldResetLiveMeetingNotes {
+            try? FileManager.default.removeItem(at: LiveMeetingNotePaths.defaultDirectory())
+        }
+        #endif
         _watchRelayStartup = StateObject(wrappedValue: WatchRelayStartup())
     }
 

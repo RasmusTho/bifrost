@@ -165,8 +165,13 @@ struct TransferOutboxEnvelope: Codable, Equatable {
     let capturedAt: Date
     let deviceID: String
     /// Session references when the capture belongs to one. Empty for a
-    /// standalone memo; meeting-session semantics are a different slice.
+    /// standalone memo.
     let sessionRefs: [String]
+    /// Meeting session this segment belongs to, when it is a meeting segment.
+    let sessionID: String?
+    /// Position within that session. Minted monotonically on device, so the hub
+    /// can tell a gap from an out-of-order arrival.
+    let sessionSeq: Int?
     /// File name of the original inside this item's outbox directory. The
     /// outbox owns these bytes outright.
     let mediaFileName: String
@@ -193,6 +198,8 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         case capturedAt = "captured_at"
         case deviceID = "device_id"
         case sessionRefs = "session_refs"
+        case sessionID = "session_id"
+        case sessionSeq = "session_seq"
         case mediaFileName = "media_file_name"
         case state
         case receipt
@@ -211,6 +218,8 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         capturedAt: Date,
         deviceID: String,
         sessionRefs: [String] = [],
+        sessionID: String? = nil,
+        sessionSeq: Int? = nil,
         mediaFileName: String,
         state: TransferOutboxState = .pendingLocally,
         receipt: DurableAcceptanceReceipt? = nil,
@@ -227,6 +236,8 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         self.capturedAt = capturedAt
         self.deviceID = deviceID
         self.sessionRefs = sessionRefs
+        self.sessionID = sessionID
+        self.sessionSeq = sessionSeq
         self.mediaFileName = mediaFileName
         self.state = state
         self.receipt = receipt
@@ -247,6 +258,8 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         capturedAt = try container.decode(Date.self, forKey: .capturedAt)
         deviceID = try container.decode(String.self, forKey: .deviceID)
         sessionRefs = try container.decodeIfPresent([String].self, forKey: .sessionRefs) ?? []
+        sessionID = try container.decodeIfPresent(String.self, forKey: .sessionID)
+        sessionSeq = try container.decodeIfPresent(Int.self, forKey: .sessionSeq)
         mediaFileName = try container.decode(String.self, forKey: .mediaFileName)
         state = try container.decode(TransferOutboxState.self, forKey: .state)
         receipt = try container.decodeIfPresent(DurableAcceptanceReceipt.self, forKey: .receipt)

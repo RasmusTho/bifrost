@@ -53,6 +53,11 @@
 		A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000120000000000000002 /* CaptureRecorderTests.swift */; };
 		A15000030000000000000003 /* CaptureFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000130000000000000003 /* CaptureFileWriter.swift */; };
 		C16000020000000000000002 /* CaptureDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16000120000000000000002 /* CaptureDelivery.swift */; };
+		C60000050000000000000005 /* LiveMeetingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000150000000000000005 /* LiveMeetingHost.swift */; };
+		C60000040000000000000004 /* LiveMeetingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000140000000000000004 /* LiveMeetingView.swift */; };
+		C60000030000000000000003 /* LiveMeetingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000130000000000000003 /* LiveMeetingViewModel.swift */; };
+		C60000020000000000000002 /* UserNoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000120000000000000002 /* UserNoteStore.swift */; };
+		C60000010000000000000001 /* LiveMeetingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000110000000000000001 /* LiveMeetingSession.swift */; };
 		C58000010000000000000001 /* MultiModalCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C58000110000000000000001 /* MultiModalCapture.swift */; };
 		C59000040000000000000004 /* TransferQueueHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000140000000000000004 /* TransferQueueHost.swift */; };
 		C59000030000000000000003 /* TransferQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000130000000000000003 /* TransferQueueView.swift */; };
@@ -87,9 +92,11 @@
 		A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000160000000000000006 /* CaptureSessionModelTests.swift */; };
 		A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000170000000000000007 /* HeimdalShellUITests.swift */; };
 		A19000010000000000000001 /* MimerCanvasUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19000110000000000000001 /* MimerCanvasUITests.swift */; };
+		C60000070000000000000007 /* LiveMeetingJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000170000000000000007 /* LiveMeetingJourneyTests.swift */; };
 		C59000060000000000000006 /* TransferQueueJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000160000000000000006 /* TransferQueueJourneyTests.swift */; };
 		A19000020000000000000002 /* MimerCanvasJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19000120000000000000002 /* MimerCanvasJourneyTests.swift */; };
 		C16000010000000000000001 /* CaptureDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16000110000000000000001 /* CaptureDeliveryTests.swift */; };
+		C60000060000000000000006 /* LiveMeetingSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000160000000000000006 /* LiveMeetingSessionTests.swift */; };
 		C58000020000000000000002 /* MultiModalCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C58000120000000000000002 /* MultiModalCaptureTests.swift */; };
 		C59000050000000000000005 /* TransferQueueSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000150000000000000005 /* TransferQueueSurfaceTests.swift */; };
 		C57000050000000000000005 /* TransferOutboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C57000150000000000000005 /* TransferOutboxTests.swift */; };
@@ -170,6 +177,11 @@
 		A15000120000000000000002 /* CaptureRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRecorderTests.swift; sourceTree = "<group>"; };
 		A15000130000000000000003 /* CaptureFileWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFileWriter.swift; sourceTree = "<group>"; };
 		C16000120000000000000002 /* CaptureDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDelivery.swift; sourceTree = "<group>"; };
+		C60000150000000000000005 /* LiveMeetingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMeetingHost.swift; sourceTree = "<group>"; };
+		C60000140000000000000004 /* LiveMeetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMeetingView.swift; sourceTree = "<group>"; };
+		C60000130000000000000003 /* LiveMeetingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMeetingViewModel.swift; sourceTree = "<group>"; };
+		C60000120000000000000002 /* UserNoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNoteStore.swift; sourceTree = "<group>"; };
+		C60000110000000000000001 /* LiveMeetingSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMeetingSession.swift; sourceTree = "<group>"; };
 		C58000110000000000000001 /* MultiModalCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiModalCapture.swift; sourceTree = "<group>"; };
 		C59000140000000000000004 /* TransferQueueHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueHost.swift; sourceTree = "<group>"; };
 		C59000130000000000000003 /* TransferQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueView.swift; sourceTree = "<group>"; };
@@ -200,9 +212,11 @@
 		A14000160000000000000006 /* CaptureSessionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModelTests.swift; sourceTree = "<group>"; };
 		A14000170000000000000007 /* HeimdalShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellUITests.swift; sourceTree = "<group>"; };
 		A19000110000000000000001 /* MimerCanvasUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasUITests.swift; sourceTree = "<group>"; };
+		C60000170000000000000007 /* LiveMeetingJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMeetingJourneyTests.swift; sourceTree = "<group>"; };
 		C59000160000000000000006 /* TransferQueueJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueJourneyTests.swift; sourceTree = "<group>"; };
 		A19000120000000000000002 /* MimerCanvasJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasJourneyTests.swift; sourceTree = "<group>"; };
 		C16000110000000000000001 /* CaptureDeliveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDeliveryTests.swift; sourceTree = "<group>"; };
+		C60000160000000000000006 /* LiveMeetingSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMeetingSessionTests.swift; sourceTree = "<group>"; };
 		C58000120000000000000002 /* MultiModalCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiModalCaptureTests.swift; sourceTree = "<group>"; };
 		C59000150000000000000005 /* TransferQueueSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueSurfaceTests.swift; sourceTree = "<group>"; };
 		C57000150000000000000005 /* TransferOutboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferOutboxTests.swift; sourceTree = "<group>"; };
@@ -351,6 +365,11 @@
 				C19001010000000000000001 /* CaptureMediaValidator.swift */,
 				A15000110000000000000001 /* CaptureRecorder.swift */,
 				C16000120000000000000002 /* CaptureDelivery.swift */,
+				C60000150000000000000005 /* LiveMeetingHost.swift */,
+				C60000140000000000000004 /* LiveMeetingView.swift */,
+				C60000130000000000000003 /* LiveMeetingViewModel.swift */,
+				C60000120000000000000002 /* UserNoteStore.swift */,
+				C60000110000000000000001 /* LiveMeetingSession.swift */,
 				C58000110000000000000001 /* MultiModalCapture.swift */,
 				C59000140000000000000004 /* TransferQueueHost.swift */,
 				C59000130000000000000003 /* TransferQueueView.swift */,
@@ -425,6 +444,7 @@
 				E14000040000000000000015 /* EntityReviewYAMLSemanticCASTests.swift */,
 				A15000120000000000000002 /* CaptureRecorderTests.swift */,
 				C16000110000000000000001 /* CaptureDeliveryTests.swift */,
+				C60000160000000000000006 /* LiveMeetingSessionTests.swift */,
 				C58000120000000000000002 /* MultiModalCaptureTests.swift */,
 				C59000150000000000000005 /* TransferQueueSurfaceTests.swift */,
 				C57000150000000000000005 /* TransferOutboxTests.swift */,
@@ -442,6 +462,7 @@
 				75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */,
 				A14000170000000000000007 /* HeimdalShellUITests.swift */,
 				A19000110000000000000001 /* MimerCanvasUITests.swift */,
+				C60000170000000000000007 /* LiveMeetingJourneyTests.swift */,
 				C59000160000000000000006 /* TransferQueueJourneyTests.swift */,
 				A19000120000000000000002 /* MimerCanvasJourneyTests.swift */,
 			);
@@ -655,6 +676,11 @@
 				C19001020000000000000002 /* CaptureMediaValidator.swift in Sources */,
 				A15000010000000000000001 /* CaptureRecorder.swift in Sources */,
 				C16000020000000000000002 /* CaptureDelivery.swift in Sources */,
+				C60000050000000000000005 /* LiveMeetingHost.swift in Sources */,
+				C60000040000000000000004 /* LiveMeetingView.swift in Sources */,
+				C60000030000000000000003 /* LiveMeetingViewModel.swift in Sources */,
+				C60000020000000000000002 /* UserNoteStore.swift in Sources */,
+				C60000010000000000000001 /* LiveMeetingSession.swift in Sources */,
 				C58000010000000000000001 /* MultiModalCapture.swift in Sources */,
 				C59000040000000000000004 /* TransferQueueHost.swift in Sources */,
 				C59000030000000000000003 /* TransferQueueView.swift in Sources */,
@@ -695,6 +721,7 @@
 				E14000030000000000000015 /* EntityReviewYAMLSemanticCASTests.swift in Sources */,
 				A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */,
 				C16000010000000000000001 /* CaptureDeliveryTests.swift in Sources */,
+				C60000060000000000000006 /* LiveMeetingSessionTests.swift in Sources */,
 				C58000020000000000000002 /* MultiModalCaptureTests.swift in Sources */,
 				C59000050000000000000005 /* TransferQueueSurfaceTests.swift in Sources */,
 				C57000050000000000000005 /* TransferOutboxTests.swift in Sources */,
@@ -712,6 +739,7 @@
 				45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */,
 				A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */,
 				A19000010000000000000001 /* MimerCanvasUITests.swift in Sources */,
+				C60000070000000000000007 /* LiveMeetingJourneyTests.swift in Sources */,
 				C59000060000000000000006 /* TransferQueueJourneyTests.swift in Sources */,
 				A19000020000000000000002 /* MimerCanvasJourneyTests.swift in Sources */,
 			);
