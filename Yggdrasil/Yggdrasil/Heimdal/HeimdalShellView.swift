@@ -368,6 +368,10 @@ private struct DeviceRegistrationStatusView: View {
                     .font(YggTheme.Typography.caption)
                     .foregroundStyle(YggTheme.Color.textSecondary)
                     .accessibilityIdentifier("heimdal.registration.grantRef")
+                    Text("Gap log entries: \(deviceNote.gapLogCount)")
+                        .font(YggTheme.Typography.caption)
+                        .foregroundStyle(YggTheme.Color.textSecondary)
+                        .accessibilityIdentifier("heimdal.registration.gapLogCount")
                 }
             } else {
                 Label(

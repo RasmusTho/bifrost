@@ -19,7 +19,11 @@ final class TransferQueueJourneyTests: XCTestCase {
             "-ui-testing-auth-unlocked",
             "-ui-testing-uat-fixture",
             UUID().uuidString,
-            "-ui-testing-transfer-queue"
+            "-ui-testing-transfer-queue",
+            // Isolate this journey's durable state. The outbox is shared across
+            // launches, so without this reset another journey's seeded item can
+            // be the row this one inspects.
+            "-ui-testing-reset-outbox"
         ]
         app.launch()
 

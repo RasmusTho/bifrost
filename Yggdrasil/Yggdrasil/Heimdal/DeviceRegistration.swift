@@ -17,11 +17,16 @@ struct DeviceNote: Equatable {
     let deviceID: String?
     let label: String?
     let consentGrantRef: String?
+    /// Observation-only readout of `capture_gap_log`'s length, so the
+    /// already-shipped gap-log write is visible from the UI without exposing or
+    /// altering the log's contents.
+    let gapLogCount: Int
 
     init(document: FrontmatterDocument) {
         deviceID = document.frontmatter["device_id"]?.stringValue
         label = document.frontmatter["label"]?.stringValue
         consentGrantRef = document.frontmatter["consent_grant_ref"]?.stringValue
+        gapLogCount = document.frontmatter["capture_gap_log"]?.arrayValue?.count ?? 0
     }
 }
 

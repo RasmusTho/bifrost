@@ -30,7 +30,7 @@ struct TransferQueueView: View {
             }
 
             Button("Refresh Queue") {
-                Task { await model.refresh() }
+                Task { await model.runPendingTransfersAndRefresh() }
             }
             .accessibilityIdentifier("transferQueue.refresh")
         }

@@ -40,6 +40,41 @@ struct UITestLaunchConfiguration {
         return arguments[flagIndex + 1]
     }
 
+    /// DEBUG-only reset of the durable transfer outbox, so each composed
+    /// journey starts from an empty queue instead of inheriting items a
+    /// previous run left behind. Journey isolation is a correctness property
+    /// here: shared durable state is what made an earlier attempt's journeys
+    /// pass alone and fail as a suite.
+    var shouldResetOutbox: Bool {
+        isEnabled && arguments.contains("-ui-testing-reset-outbox")
+    }
+
+    /// DEBUG-only seeding of one **un-receipted** outbox item, so the durable
+    /// custody arc (retained → receipted → releasable) is observable without
+    /// driving the microphone, which XCUITest cannot start reliably here.
+    @discardableResult
+    func seedPendingCaptureIfNeeded() -> String? {
+        guard isEnabled, arguments.contains("-ui-testing-seed-pending-capture") else { return nil }
+        let store = TransferOutboxStore()
+        if let existing = try? store.loadAll(), !existing.isEmpty { return existing.first?.captureID }
+        let source = FileManager.default.temporaryDirectory
+            .appendingPathComponent("seeded-capture-\(UUID().uuidString).m4a")
+        guard (try? Data("seeded-capture-bytes".utf8).write(to: source)) != nil else { return nil }
+        return (try? store.enqueue(
+            finalizedMediaURL: source,
+            capturedAt: Date(),
+            deviceID: "ui-test-device"
+        ))?.captureID
+    }
+
+    /// DEBUG-only accepting hub for the capture-custody journey: admits every
+    /// item so the receipt-gated advance is observable without a live hub.
+    /// `nil` in release.
+    var scriptedAcceptingTransport: HeimdalMediaTransporting? {
+        guard isEnabled, arguments.contains("-ui-testing-outbox-accepting") else { return nil }
+        return ScriptedAcceptingTransport()
+    }
+
     /// DEBUG-only reset of the live-meeting note store, so each run of the
     /// composed journey starts from an empty user region instead of inheriting
     /// notes a previous run left behind.
@@ -166,7 +201,8 @@ struct RootView: View {
             TransferQueueHost(
                 store: TransferOutboxStore(),
                 statusSource: testLaunchConfiguration.scriptedTransferQueueHub
-                    ?? UnreachableHubStatusSource()
+                    ?? UnreachableHubStatusSource(),
+                transport: testLaunchConfiguration.scriptedAcceptingTransport
             )
             .tabItem { Label("Queue", systemImage: "tray.full") }
             if let meetingHub = testLaunchConfiguration.scriptedLiveMeetingHub {
