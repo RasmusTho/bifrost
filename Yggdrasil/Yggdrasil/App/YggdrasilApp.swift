@@ -8,6 +8,10 @@ struct YggdrasilApp: App {
     @StateObject private var watchRelayStartup: WatchRelayStartup
 
     init() {
+        // DEBUG-only, and a no-op unless the journey's launch argument is
+        // present: seeds one outbox item so the composed queue journey has real
+        // durable evidence to watch advance.
+        UITestLaunchConfiguration.current.seedTransferQueueFixtureIfNeeded()
         _watchRelayStartup = StateObject(wrappedValue: WatchRelayStartup())
     }
 

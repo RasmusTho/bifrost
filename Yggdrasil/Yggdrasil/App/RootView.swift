@@ -40,6 +40,46 @@ struct UITestLaunchConfiguration {
         return arguments[flagIndex + 1]
     }
 
+    /// DEBUG-only scripted hub for the composed transfer-queue journey: down for
+    /// the first query, answering afterwards. `nil` in release, so the shipping
+    /// build always uses the real status source.
+    var scriptedTransferQueueHub: TransferQueueStatusSource? {
+        guard isEnabled, arguments.contains("-ui-testing-transfer-queue") else { return nil }
+        return ScriptedHubStatusSource()
+    }
+
+    /// DEBUG-only seeding of one outbox item so the journey has something to
+    /// watch advance. Returns the capture identity it seeded.
+    @discardableResult
+    func seedTransferQueueFixtureIfNeeded() -> String? {
+        guard isEnabled, arguments.contains("-ui-testing-transfer-queue") else { return nil }
+        let store = TransferOutboxStore()
+        if let existing = try? store.loadAll(), !existing.isEmpty {
+            return existing.first?.captureID
+        }
+        let source = FileManager.default.temporaryDirectory
+            .appendingPathComponent("transfer-queue-fixture-\(UUID().uuidString).m4a")
+        guard (try? Data("fixture-audio".utf8).write(to: source)) != nil else { return nil }
+        let seeded = try? store.enqueue(
+            finalizedMediaURL: source,
+            capturedAt: Date(),
+            deviceID: "ui-test-device"
+        )
+        guard let seeded else { return nil }
+        // Receipt persisted so the journey starts from a locally-evidenced
+        // state the hub can then report progress on.
+        try? store.persistReceipt(
+            DurableAcceptanceReceipt(
+                receiptID: "ui-test-receipt",
+                captureID: seeded.captureID,
+                contentSHA256: seeded.envelope.contentSHA256,
+                admittedAt: Date()
+            ),
+            for: seeded.captureID
+        )
+        return seeded.captureID
+    }
+
     private var isEnabled: Bool {
 #if DEBUG
         arguments.contains("-ui-testing")
@@ -108,6 +148,12 @@ struct RootView: View {
                 fileStore: VaultFileStore(rootURL: vaultURL)
             )
             .tabItem { Label("Heimdal", systemImage: "waveform") }
+            TransferQueueHost(
+                store: TransferOutboxStore(),
+                statusSource: testLaunchConfiguration.scriptedTransferQueueHub
+                    ?? UnreachableHubStatusSource()
+            )
+            .tabItem { Label("Queue", systemImage: "tray.full") }
         }
     }
 

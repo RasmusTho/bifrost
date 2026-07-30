@@ -244,6 +244,30 @@ struct TransferOutboxStore {
         }
     }
 
+    /// Deletes an original because **the user explicitly said so** (CDLM-05's
+    /// discard action, which requires confirmation at the view-model seam).
+    ///
+    /// This is the one deletion of outbox media that is not receipt-gated, and
+    /// the naming is deliberately awkward so it cannot be reached for casually.
+    /// It is never called by `TransferOutboxCoordinator`: the transfer
+    /// machinery still has exactly one deletion path, `releaseOriginal`, and
+    /// still cannot delete an un-receipted original. CDLM-03's guarantee is
+    /// about what the machinery does on the user's behalf, not about forbidding
+    /// the user to discard their own capture.
+    ///
+    /// The envelope is retained and marked, so the item remains a truthful
+    /// record that a capture existed and was deliberately thrown away.
+    func discardByExplicitUserAction(captureID: String) throws {
+        let item = try item(for: captureID)
+        if fileManager.fileExists(atPath: item.mediaURL.path) {
+            try fileManager.removeItem(at: item.mediaURL)
+        }
+        try mutate(captureID: captureID) { envelope in
+            envelope.originalReleased = true
+            envelope.lastErrorCode = "discarded_by_user"
+        }
+    }
+
     // MARK: - Envelope IO
 
     private func directory(for captureID: String) -> URL {
