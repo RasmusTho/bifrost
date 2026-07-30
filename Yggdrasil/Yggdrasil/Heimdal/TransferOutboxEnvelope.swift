@@ -1,10 +1,52 @@
 import Foundation
 
-/// The media kinds the outbox can carry. Only audio is in scope for CDLM-03;
-/// new modalities are CDLM-04's slice, so this deliberately does not enumerate
-/// kinds the client cannot yet produce.
-enum TransferMediaKind: String, Codable, Equatable {
+/// The media kinds the outbox can carry.
+///
+/// Modality is a field on the item, not a fork in the delivery path: every kind
+/// is the same outbox item with the same durability rules, so CDLM-03's proofs
+/// cover all of them without being re-litigated per kind.
+enum TransferMediaKind: String, Codable, Equatable, CaseIterable {
     case audio
+    case image
+    case document
+    case video
+}
+
+/// Distinguishes a receipt scan from a general document scan.
+///
+/// Chosen by the user's capture entry point and nothing else. The client never
+/// inspects content to decide this — that would be derived meaning, which the
+/// raw seam (INV-B3-2) keeps off the device for every modality.
+enum CaptureSubkind: String, Codable, Equatable {
+    case receipt
+    case document
+}
+
+/// Per-kind minimum metadata carried alongside the CDLM-01 sidecar fields.
+///
+/// These are capture-time facts — how many pages the scanner produced, how long
+/// the video ran — never anything derived from the content itself.
+struct TypedCaptureMetadata: Codable, Equatable {
+    /// Documents only: pages in the finalized PDF.
+    var pageCount: Int?
+    /// Video and audio: recorded duration.
+    var durationSeconds: Double?
+    /// Rough size of the finalized file, recorded at finalization.
+    var byteSize: Int?
+
+    init(pageCount: Int? = nil, durationSeconds: Double? = nil, byteSize: Int? = nil) {
+        self.pageCount = pageCount
+        self.durationSeconds = durationSeconds
+        self.byteSize = byteSize
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case pageCount = "page_count"
+        case durationSeconds = "duration_seconds"
+        case byteSize = "byte_size"
+    }
+
+    var isEmpty: Bool { pageCount == nil && durationSeconds == nil && byteSize == nil }
 }
 
 /// Lifecycle of one outbox item. These are the only three states that exist on
@@ -115,6 +157,11 @@ struct TransferOutboxEnvelope: Codable, Equatable {
     let captureID: String
     let contentSHA256: String
     let kind: TransferMediaKind
+    /// Receipt vs document, for `kind == .document`. Set from the user's entry
+    /// point only; `nil` for every other kind.
+    let subkind: CaptureSubkind?
+    /// Per-kind capture-time facts (page count, duration, byte size).
+    let typedMetadata: TypedCaptureMetadata
     let capturedAt: Date
     let deviceID: String
     /// Session references when the capture belongs to one. Empty for a
@@ -141,6 +188,8 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         case captureID = "capture_id"
         case contentSHA256 = "content_sha256"
         case kind
+        case subkind
+        case typedMetadata = "typed_metadata"
         case capturedAt = "captured_at"
         case deviceID = "device_id"
         case sessionRefs = "session_refs"
@@ -157,6 +206,8 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         captureID: String,
         contentSHA256: String,
         kind: TransferMediaKind,
+        subkind: CaptureSubkind? = nil,
+        typedMetadata: TypedCaptureMetadata = TypedCaptureMetadata(),
         capturedAt: Date,
         deviceID: String,
         sessionRefs: [String] = [],
@@ -171,6 +222,8 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         self.captureID = CaptureIdentity.canonical(captureID)
         self.contentSHA256 = contentSHA256
         self.kind = kind
+        self.subkind = subkind
+        self.typedMetadata = typedMetadata
         self.capturedAt = capturedAt
         self.deviceID = deviceID
         self.sessionRefs = sessionRefs
@@ -188,6 +241,9 @@ struct TransferOutboxEnvelope: Codable, Equatable {
         captureID = CaptureIdentity.canonical(try container.decode(String.self, forKey: .captureID))
         contentSHA256 = try container.decode(String.self, forKey: .contentSHA256)
         kind = try container.decode(TransferMediaKind.self, forKey: .kind)
+        subkind = try container.decodeIfPresent(CaptureSubkind.self, forKey: .subkind)
+        typedMetadata = try container.decodeIfPresent(TypedCaptureMetadata.self, forKey: .typedMetadata)
+            ?? TypedCaptureMetadata()
         capturedAt = try container.decode(Date.self, forKey: .capturedAt)
         deviceID = try container.decode(String.self, forKey: .deviceID)
         sessionRefs = try container.decodeIfPresent([String].self, forKey: .sessionRefs) ?? []

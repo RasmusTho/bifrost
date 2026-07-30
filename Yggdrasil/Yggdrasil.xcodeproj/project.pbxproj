@@ -53,6 +53,7 @@
 		A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000120000000000000002 /* CaptureRecorderTests.swift */; };
 		A15000030000000000000003 /* CaptureFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15000130000000000000003 /* CaptureFileWriter.swift */; };
 		C16000020000000000000002 /* CaptureDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16000120000000000000002 /* CaptureDelivery.swift */; };
+		C58000010000000000000001 /* MultiModalCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C58000110000000000000001 /* MultiModalCapture.swift */; };
 		C59000040000000000000004 /* TransferQueueHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000140000000000000004 /* TransferQueueHost.swift */; };
 		C59000030000000000000003 /* TransferQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000130000000000000003 /* TransferQueueView.swift */; };
 		C59000020000000000000002 /* TransferQueueViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000120000000000000002 /* TransferQueueViewModel.swift */; };
@@ -89,6 +90,7 @@
 		C59000060000000000000006 /* TransferQueueJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000160000000000000006 /* TransferQueueJourneyTests.swift */; };
 		A19000020000000000000002 /* MimerCanvasJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19000120000000000000002 /* MimerCanvasJourneyTests.swift */; };
 		C16000010000000000000001 /* CaptureDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16000110000000000000001 /* CaptureDeliveryTests.swift */; };
+		C58000020000000000000002 /* MultiModalCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C58000120000000000000002 /* MultiModalCaptureTests.swift */; };
 		C59000050000000000000005 /* TransferQueueSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000150000000000000005 /* TransferQueueSurfaceTests.swift */; };
 		C57000050000000000000005 /* TransferOutboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C57000150000000000000005 /* TransferOutboxTests.swift */; };
 		B10000010000000000000010 /* NoteInspectorModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000100000000000000010 /* NoteInspectorModelTests.swift */; };
@@ -168,6 +170,7 @@
 		A15000120000000000000002 /* CaptureRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRecorderTests.swift; sourceTree = "<group>"; };
 		A15000130000000000000003 /* CaptureFileWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFileWriter.swift; sourceTree = "<group>"; };
 		C16000120000000000000002 /* CaptureDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDelivery.swift; sourceTree = "<group>"; };
+		C58000110000000000000001 /* MultiModalCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiModalCapture.swift; sourceTree = "<group>"; };
 		C59000140000000000000004 /* TransferQueueHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueHost.swift; sourceTree = "<group>"; };
 		C59000130000000000000003 /* TransferQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueView.swift; sourceTree = "<group>"; };
 		C59000120000000000000002 /* TransferQueueViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueViewModel.swift; sourceTree = "<group>"; };
@@ -200,6 +203,7 @@
 		C59000160000000000000006 /* TransferQueueJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueJourneyTests.swift; sourceTree = "<group>"; };
 		A19000120000000000000002 /* MimerCanvasJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasJourneyTests.swift; sourceTree = "<group>"; };
 		C16000110000000000000001 /* CaptureDeliveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDeliveryTests.swift; sourceTree = "<group>"; };
+		C58000120000000000000002 /* MultiModalCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiModalCaptureTests.swift; sourceTree = "<group>"; };
 		C59000150000000000000005 /* TransferQueueSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueSurfaceTests.swift; sourceTree = "<group>"; };
 		C57000150000000000000005 /* TransferOutboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferOutboxTests.swift; sourceTree = "<group>"; };
 		B10000100000000000000010 /* NoteInspectorModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteInspectorModelTests.swift; sourceTree = "<group>"; };
@@ -347,6 +351,7 @@
 				C19001010000000000000001 /* CaptureMediaValidator.swift */,
 				A15000110000000000000001 /* CaptureRecorder.swift */,
 				C16000120000000000000002 /* CaptureDelivery.swift */,
+				C58000110000000000000001 /* MultiModalCapture.swift */,
 				C59000140000000000000004 /* TransferQueueHost.swift */,
 				C59000130000000000000003 /* TransferQueueView.swift */,
 				C59000120000000000000002 /* TransferQueueViewModel.swift */,
@@ -420,6 +425,7 @@
 				E14000040000000000000015 /* EntityReviewYAMLSemanticCASTests.swift */,
 				A15000120000000000000002 /* CaptureRecorderTests.swift */,
 				C16000110000000000000001 /* CaptureDeliveryTests.swift */,
+				C58000120000000000000002 /* MultiModalCaptureTests.swift */,
 				C59000150000000000000005 /* TransferQueueSurfaceTests.swift */,
 				C57000150000000000000005 /* TransferOutboxTests.swift */,
 				C20000120000000000000002 /* CaptureSidecarTests.swift */,
@@ -649,6 +655,7 @@
 				C19001020000000000000002 /* CaptureMediaValidator.swift in Sources */,
 				A15000010000000000000001 /* CaptureRecorder.swift in Sources */,
 				C16000020000000000000002 /* CaptureDelivery.swift in Sources */,
+				C58000010000000000000001 /* MultiModalCapture.swift in Sources */,
 				C59000040000000000000004 /* TransferQueueHost.swift in Sources */,
 				C59000030000000000000003 /* TransferQueueView.swift in Sources */,
 				C59000020000000000000002 /* TransferQueueViewModel.swift in Sources */,
@@ -688,6 +695,7 @@
 				E14000030000000000000015 /* EntityReviewYAMLSemanticCASTests.swift in Sources */,
 				A15000020000000000000002 /* CaptureRecorderTests.swift in Sources */,
 				C16000010000000000000001 /* CaptureDeliveryTests.swift in Sources */,
+				C58000020000000000000002 /* MultiModalCaptureTests.swift in Sources */,
 				C59000050000000000000005 /* TransferQueueSurfaceTests.swift in Sources */,
 				C57000050000000000000005 /* TransferOutboxTests.swift in Sources */,
 				C20000020000000000000002 /* CaptureSidecarTests.swift in Sources */,

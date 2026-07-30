@@ -81,6 +81,8 @@ struct TransferOutboxStore {
     func enqueue(
         finalizedMediaURL: URL,
         kind: TransferMediaKind = .audio,
+        subkind: CaptureSubkind? = nil,
+        typedMetadata: TypedCaptureMetadata = TypedCaptureMetadata(),
         capturedAt: Date,
         deviceID: String,
         sessionRefs: [String] = [],
@@ -114,6 +116,8 @@ struct TransferOutboxStore {
             captureID: identity,
             contentSHA256: try Self.sha256Hex(of: mediaURL),
             kind: kind,
+            subkind: subkind,
+            typedMetadata: typedMetadata,
             capturedAt: capturedAt,
             deviceID: deviceID,
             sessionRefs: sessionRefs,
