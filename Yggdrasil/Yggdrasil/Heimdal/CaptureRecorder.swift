@@ -45,6 +45,9 @@ final class CaptureRecorder: ObservableObject {
     private let now: () -> Date
     private let observeSessionNotifications: Bool
     private let mediaValidator: CaptureMediaValidating
+    /// Receipt-gated outbox intake. `nil` on builds that still use the legacy
+    /// watched-folder lane alone.
+    private let outboxIntake: CaptureOutboxIntake?
     private var activeCapture: ActiveCapture?
     private var nextCaptureGeneration: UInt64 = 0
     private var finalizationGeneration: UInt64?
@@ -62,8 +65,10 @@ final class CaptureRecorder: ObservableObject {
         now: @escaping () -> Date = Date.init,
         configuration: Configuration = .production,
         observeInterruptions: Bool = true,
-        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator()
+        mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator(),
+        outboxIntake: CaptureOutboxIntake? = nil
     ) {
+        self.outboxIntake = outboxIntake
         self.sessionModel = sessionModel ?? CaptureSessionModel()
         self.writer = writer ?? AVFoundationCaptureFileWriter()
         self.stagingDirectory = stagingDirectory ?? Self.defaultStagingDirectory()
@@ -349,8 +354,18 @@ private extension CaptureRecorder {
                     throw Error.incompleteFile
                 }
                 let media = try mediaValidator.validate(url: capture.url).get()
+                // Custody moves to the receipt-gated outbox at finalization, which
+                // is also where the capture identity is minted (INV-CDLM-3). The
+                // staged item then points at the outbox's copy, so the existing
+                // surface still resolves real bytes while only the outbox may
+                // delete them. With no outbox configured this is the unchanged
+                // legacy path.
+                let stagedURL = outboxIntake?.takeCustody(
+                    ofFinalized: capture.url,
+                    capturedAt: capture.recordedStartAt
+                ) ?? capture.url
                 guard sessionModel.stageCurrentItem(
-                    url: capture.url,
+                    url: stagedURL,
                     duration: media.duration,
                     capturedAt: capture.recordedStartAt,
                     captureMetadata: CaptureSessionModel.CaptureMetadata(

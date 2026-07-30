@@ -68,14 +68,20 @@ final class WatchRelayStagingReceiver {
     private let mediaValidator: CaptureMediaValidating
     private let deviceID: String
     private let metadataStore: WatchRelayMetadataStore
+    /// Receipt-gated outbox intake. HCAP-06 relayed audio enters the same outbox
+    /// as on-device audio through the same seam, so it inherits every durability
+    /// rule rather than getting a second implementation of them.
+    private let outboxIntake: CaptureOutboxIntake?
 
     init(
         sessionModel: CaptureSessionModel,
         stagingDirectory: URL = CaptureStagingPaths.defaultDirectory(),
         fileManager: FileManager = .default,
         mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator(),
-        deviceID: String? = nil
+        deviceID: String? = nil,
+        outboxIntake: CaptureOutboxIntake? = nil
     ) {
+        self.outboxIntake = outboxIntake
         self.sessionModel = sessionModel
         self.mediaValidator = mediaValidator
         self.deviceID = deviceID ?? HeimdalDeviceIdentity().deviceID()
@@ -111,8 +117,16 @@ final class WatchRelayStagingReceiver {
         let durableMetadata = metadata ?? metadataStore.read(for: stagedURL)
         switch mediaValidator.validate(url: stagedURL) {
         case let .success(media):
+            // Custody moves to the outbox before the item is registered, so a
+            // relayed recording is receipt-gated from the moment it is accounted
+            // for. Metadata is read first, because the store's path changes.
+            let custodyURL = outboxIntake?.takeCustody(
+                ofFinalized: stagedURL,
+                capturedAt: durableMetadata?.recordedStartAt ?? capturedAt,
+                cameFromWatchRelay: true
+            ) ?? stagedURL
             sessionModel.recoverStagedItem(
-                url: stagedURL,
+                url: custodyURL,
                 duration: media.duration,
                 capturedAt: durableMetadata?.recordedStartAt ?? capturedAt,
                 captureMetadata: durableMetadata.map {
