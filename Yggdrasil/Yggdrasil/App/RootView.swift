@@ -40,6 +40,21 @@ struct UITestLaunchConfiguration {
         return arguments[flagIndex + 1]
     }
 
+    /// DEBUG-only reset of the live-meeting note store, so each run of the
+    /// composed journey starts from an empty user region instead of inheriting
+    /// notes a previous run left behind.
+    var shouldResetLiveMeetingNotes: Bool {
+        isEnabled && arguments.contains("-ui-testing-live-meeting")
+    }
+
+    /// DEBUG-only scripted hub for the composed live-meeting journey: no answer
+    /// on the first projection read, a higher revision afterwards. `nil` in
+    /// release, so a shipping build never gets a scripted meeting hub.
+    var scriptedLiveMeetingHub: LiveMeetingTransport? {
+        guard isEnabled, arguments.contains("-ui-testing-live-meeting") else { return nil }
+        return ScriptedMeetingTransport()
+    }
+
     /// DEBUG-only scripted hub for the composed transfer-queue journey: down for
     /// the first query, answering afterwards. `nil` in release, so the shipping
     /// build always uses the real status source.
@@ -154,6 +169,10 @@ struct RootView: View {
                     ?? UnreachableHubStatusSource()
             )
             .tabItem { Label("Queue", systemImage: "tray.full") }
+            if let meetingHub = testLaunchConfiguration.scriptedLiveMeetingHub {
+                LiveMeetingHost(transport: meetingHub)
+                    .tabItem { Label("Meeting", systemImage: "person.2.wave.2") }
+            }
         }
     }
 

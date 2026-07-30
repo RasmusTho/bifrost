@@ -86,6 +86,8 @@ struct TransferOutboxStore {
         capturedAt: Date,
         deviceID: String,
         sessionRefs: [String] = [],
+        sessionID: String? = nil,
+        sessionSeq: Int? = nil,
         cameFromWatchRelay: Bool = false,
         captureID: String = CaptureIdentity.mint()
     ) throws -> TransferOutboxItem {
@@ -121,6 +123,8 @@ struct TransferOutboxStore {
             capturedAt: capturedAt,
             deviceID: deviceID,
             sessionRefs: sessionRefs,
+            sessionID: sessionID,
+            sessionSeq: sessionSeq,
             mediaFileName: mediaFileName,
             cameFromWatchRelay: cameFromWatchRelay
         )
