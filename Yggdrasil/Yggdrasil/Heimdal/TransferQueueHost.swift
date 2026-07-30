@@ -31,6 +31,26 @@ final class ScriptedHubStatusSource: TransferQueueStatusSource, @unchecked Senda
     }
 }
 
+/// DEBUG-only transport that admits everything, so the receipt-gated advance
+/// from `pending locally` to `backend durably received` is observable in a
+/// composed journey. Inert in release.
+struct ScriptedAcceptingTransport: HeimdalMediaTransporting {
+    func admit(item: TransferOutboxItem) async throws -> MediaAdmissionOutcome {
+        .accepted(receipt(for: item))
+    }
+
+    func receipt(forCaptureID captureID: String) async throws -> ReceiptQueryOutcome { .unknown }
+
+    private func receipt(for item: TransferOutboxItem) -> DurableAcceptanceReceipt {
+        DurableAcceptanceReceipt(
+            receiptID: "ui-test-receipt-\(item.captureID)",
+            captureID: item.captureID,
+            contentSHA256: item.envelope.contentSHA256,
+            admittedAt: Date()
+        )
+    }
+}
+
 /// Builds the queue surface over the real CDLM-03 outbox store.
 ///
 /// The host owns no state of its own: one store feeds this surface and the JD
@@ -40,10 +60,19 @@ struct TransferQueueHost: View {
 
     init(
         store: TransferOutboxStore = TransferOutboxStore(),
-        statusSource: TransferQueueStatusSource = UnreachableHubStatusSource()
+        statusSource: TransferQueueStatusSource = UnreachableHubStatusSource(),
+        transport: HeimdalMediaTransporting? = nil
     ) {
+        // A coordinator is attached only when a transport is configured. With no
+        // hub configured — the production case today — refresh behaves exactly
+        // as before and drives no transfers.
+        let coordinator = transport.map { TransferOutboxCoordinator(store: store, transport: $0) }
         _model = StateObject(
-            wrappedValue: TransferQueueViewModel(store: store, statusSource: statusSource)
+            wrappedValue: TransferQueueViewModel(
+                store: store,
+                statusSource: statusSource,
+                coordinator: coordinator
+            )
         )
     }
 

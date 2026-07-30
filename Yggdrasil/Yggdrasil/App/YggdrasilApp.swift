@@ -11,7 +11,13 @@ struct YggdrasilApp: App {
         // DEBUG-only, and a no-op unless the journey's launch argument is
         // present: seeds one outbox item so the composed queue journey has real
         // durable evidence to watch advance.
+        #if DEBUG
+        if UITestLaunchConfiguration.current.shouldResetOutbox {
+            try? FileManager.default.removeItem(at: TransferOutboxStore.defaultRootURL())
+        }
+        #endif
         UITestLaunchConfiguration.current.seedTransferQueueFixtureIfNeeded()
+        UITestLaunchConfiguration.current.seedPendingCaptureIfNeeded()
         #if DEBUG
         if UITestLaunchConfiguration.current.shouldResetLiveMeetingNotes {
             try? FileManager.default.removeItem(at: LiveMeetingNotePaths.defaultDirectory())

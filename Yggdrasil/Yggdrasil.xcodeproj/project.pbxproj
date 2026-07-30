@@ -92,6 +92,7 @@
 		A14000060000000000000006 /* CaptureSessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000160000000000000006 /* CaptureSessionModelTests.swift */; };
 		A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000170000000000000007 /* HeimdalShellUITests.swift */; };
 		A19000010000000000000001 /* MimerCanvasUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19000110000000000000001 /* MimerCanvasUITests.swift */; };
+		A21000010000000000000021 /* HeimdalCaptureJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21000110000000000000021 /* HeimdalCaptureJourneyTests.swift */; };
 		C60000070000000000000007 /* LiveMeetingJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60000170000000000000007 /* LiveMeetingJourneyTests.swift */; };
 		C59000060000000000000006 /* TransferQueueJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000160000000000000006 /* TransferQueueJourneyTests.swift */; };
 		A19000020000000000000002 /* MimerCanvasJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19000120000000000000002 /* MimerCanvasJourneyTests.swift */; };
@@ -212,6 +213,7 @@
 		A14000160000000000000006 /* CaptureSessionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModelTests.swift; sourceTree = "<group>"; };
 		A14000170000000000000007 /* HeimdalShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellUITests.swift; sourceTree = "<group>"; };
 		A19000110000000000000001 /* MimerCanvasUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasUITests.swift; sourceTree = "<group>"; };
+		A21000110000000000000021 /* HeimdalCaptureJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalCaptureJourneyTests.swift; sourceTree = "<group>"; };
 		C60000170000000000000007 /* LiveMeetingJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMeetingJourneyTests.swift; sourceTree = "<group>"; };
 		C59000160000000000000006 /* TransferQueueJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueJourneyTests.swift; sourceTree = "<group>"; };
 		A19000120000000000000002 /* MimerCanvasJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimerCanvasJourneyTests.swift; sourceTree = "<group>"; };
@@ -462,6 +464,7 @@
 				75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */,
 				A14000170000000000000007 /* HeimdalShellUITests.swift */,
 				A19000110000000000000001 /* MimerCanvasUITests.swift */,
+				A21000110000000000000021 /* HeimdalCaptureJourneyTests.swift */,
 				C60000170000000000000007 /* LiveMeetingJourneyTests.swift */,
 				C59000160000000000000006 /* TransferQueueJourneyTests.swift */,
 				A19000120000000000000002 /* MimerCanvasJourneyTests.swift */,
@@ -739,6 +742,7 @@
 				45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */,
 				A14000070000000000000007 /* HeimdalShellUITests.swift in Sources */,
 				A19000010000000000000001 /* MimerCanvasUITests.swift in Sources */,
+				A21000010000000000000021 /* HeimdalCaptureJourneyTests.swift in Sources */,
 				C60000070000000000000007 /* LiveMeetingJourneyTests.swift in Sources */,
 				C59000060000000000000006 /* TransferQueueJourneyTests.swift in Sources */,
 				A19000020000000000000002 /* MimerCanvasJourneyTests.swift in Sources */,

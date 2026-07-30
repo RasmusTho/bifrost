@@ -76,6 +76,16 @@ final class TransferQueueViewModel: ObservableObject {
         }
     }
 
+    /// Drives any pending transfers, then refreshes.
+    ///
+    /// The coordinator is the only thing that can advance an item's durable
+    /// state, and it still refuses to release an original without a persisted
+    /// receipt. With no transport configured this is exactly `refresh()`.
+    func runPendingTransfersAndRefresh() async {
+        await coordinator?.runPass()
+        await refresh()
+    }
+
     /// Refreshes hub-derived states. A failed query marks existing hub-derived
     /// state stale; it never clears it and never advances anything.
     func refresh() async {
