@@ -42,19 +42,19 @@ enum YggTheme {
         ) -> UIColor {
             let isDark = traitCollection.userInterfaceStyle == .dark
             switch role {
-            case .background: hex(isDark ? 0x070B12 : 0xF5F7FA)
-            case .surface: hex(isDark ? 0x0C1220 : 0xFFFFFF)
-            case .raised: hex(isDark ? 0x111A2E : 0xE9EEF5)
-            case .overlay: hex(isDark ? 0x162038 : 0xDCE5F0)
-            case .primaryText: hex(isDark ? 0xDCE8F0 : 0x102033)
-            case .secondaryText: hex(isDark ? 0x7A9AB8 : 0x48647D)
-            case .divider: hex(isDark ? 0x152030 : 0xBDCAD8)
-            case .focus: hex(0x00D4E8)
-            case .provenance: hex(0xD4A843)
-            case .active: hex(0x00D4E8)
-            case .healthy: hex(0x39E87D)
-            case .pending: hex(0xF09030)
-            case .destructive: hex(0xFF3D3D)
+            case .background: return hex(isDark ? 0x070B12 : 0xF5F7FA)
+            case .surface: return hex(isDark ? 0x0C1220 : 0xFFFFFF)
+            case .raised: return hex(isDark ? 0x111A2E : 0xE9EEF5)
+            case .overlay: return hex(isDark ? 0x162038 : 0xDCE5F0)
+            case .primaryText: return hex(isDark ? 0xDCE8F0 : 0x102033)
+            case .secondaryText: return hex(isDark ? 0x7A9AB8 : 0x48647D)
+            case .divider: return hex(isDark ? 0x152030 : 0xBDCAD8)
+            case .focus: return hex(0x00D4E8)
+            case .provenance: return hex(0xD4A843)
+            case .active: return hex(0x00D4E8)
+            case .healthy: return hex(0x39E87D)
+            case .pending: return hex(0xF09030)
+            case .destructive: return hex(0xFF3D3D)
             }
         }
 
