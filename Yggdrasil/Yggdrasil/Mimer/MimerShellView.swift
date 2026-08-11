@@ -186,6 +186,8 @@ struct MimerCanvasView: View {
                 .accessibilityValue(focusValue(for: .detail))
         }
         .navigationSplitViewStyle(.balanced)
+        .background(YggTheme.Color.background)
+        .accessibilityIdentifier("mimer.canvas.sharedHierarchy")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(inspectorIsPresented ? "Hide Inspector" : "Show Inspector") {

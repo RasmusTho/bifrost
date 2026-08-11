@@ -10,6 +10,16 @@ import UIKit
 /// existing fixture vault and accessibility identifiers exercised by
 /// `MimerCanvasUITests`.
 final class MimerCanvasJourneyTests: XCTestCase {
+    func testRegularWidthCanvasUsesSharedHierarchy() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        let app = launchMimerShell(withFixture: true)
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["mimer.canvas.sharedHierarchy"].waitForExistence(timeout: 10),
+            "The regular-width canvas must use the shared native Yggdrasil hierarchy."
+        )
+    }
+
     /// Journey: pick the vault lens → see the three-column canvas → drill
     /// into a folder → open a note → confirm the inspector reflects that
     /// note's metadata (including a note that has no uuid/provenance).

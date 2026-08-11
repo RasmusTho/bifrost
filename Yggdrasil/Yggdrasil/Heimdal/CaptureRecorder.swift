@@ -2,6 +2,45 @@ import AVFoundation
 import Combine
 import Foundation
 
+/// A pure presentation model for iOS's microphone boundary. Recording code
+/// still consults AVFoundation; the UI uses this model so a refusal is never
+/// misrepresented as a broken record button.
+enum CapturePermissionPresentation: Equatable {
+    case undetermined
+    case denied
+    case granted
+    case unavailable
+
+    init(recordPermission: AVAudioSession.RecordPermission) {
+        switch recordPermission {
+        case .undetermined: self = .undetermined
+        case .denied: self = .denied
+        case .granted: self = .granted
+        @unknown default: self = .unavailable
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .undetermined: "Microphone permission needed"
+        case .denied: "Microphone access is off"
+        case .granted: "Microphone ready"
+        case .unavailable: "Microphone unavailable"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .undetermined: "Allow microphone access when iOS asks, then start recording."
+        case .denied: "Enable Microphone for Yggdrasil in Settings before recording."
+        case .granted: "Heimdal can record locally. It does not transcribe on this device."
+        case .unavailable: "iOS did not provide microphone access. Check the device and try again."
+        }
+    }
+
+    var offersSettingsRecovery: Bool { self == .denied }
+}
+
 @MainActor
 final class CaptureRecorder: ObservableObject {
     enum Error: LocalizedError {

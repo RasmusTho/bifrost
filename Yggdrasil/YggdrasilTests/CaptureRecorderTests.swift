@@ -255,6 +255,30 @@ final class CaptureRecorderTests: XCTestCase {
     }
 }
 
+final class CapturePermissionPresentationTests: XCTestCase {
+    func testDeniedPermissionOffersSettingsRecovery() {
+        let presentation = CapturePermissionPresentation(recordPermission: .denied)
+
+        XCTAssertEqual(presentation.title, "Microphone access is off")
+        XCTAssertTrue(presentation.offersSettingsRecovery)
+        XCTAssertTrue(presentation.message.contains("Settings"))
+    }
+
+    func testSemanticRolesResolveForBothColorSchemes() {
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+
+        for role in YggTheme.Color.SemanticRole.allCases {
+            XCTAssertNotNil(YggTheme.Color.resolvedUIColor(for: role, traitCollection: lightTraits).cgColor)
+            XCTAssertNotNil(YggTheme.Color.resolvedUIColor(for: role, traitCollection: darkTraits).cgColor)
+        }
+        XCTAssertNotEqual(
+            YggTheme.Color.resolvedUIColor(for: .background, traitCollection: lightTraits),
+            YggTheme.Color.resolvedUIColor(for: .background, traitCollection: darkTraits)
+        )
+    }
+}
+
 extension CaptureRecorderTests {
     func testInterruptionDuringDelegateFinalizationForcesTerminalOnce() async throws {
         let writer = FakeCaptureWriter(autoComplete: false)

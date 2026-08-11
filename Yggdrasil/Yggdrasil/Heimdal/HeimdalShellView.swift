@@ -27,6 +27,9 @@ struct HeimdalShellView: View {
     @StateObject private var registration: DeviceRegistrationModel
     @StateObject private var healthPanel: DeviceHealthPanelModel
     @State private var isFolderPickerPresented = false
+    @State private var microphonePermission = CapturePermissionPresentation(
+        recordPermission: AVAudioSession.sharedInstance().recordPermission
+    )
 
     /// Delivery failures older than this are nameable gaps
     /// (`delivery_failed_aged`), not merely "still retrying".
@@ -82,10 +85,31 @@ struct HeimdalShellView: View {
                     Text(recorder.configuration.microphonePrePrompt)
                         .font(YggTheme.Typography.caption)
                         .foregroundStyle(YggTheme.Color.textSecondary)
+                    YggStatus(
+                        title: captureStatusTitle,
+                        systemImage: captureStatusImage,
+                        kind: captureStatusKind
+                    )
+                    .accessibilityIdentifier("heimdal.capture.status")
                     Button(recordButtonTitle) { recordButtonTapped() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(YggTheme.Color.accent)
                         .accessibilityIdentifier("heimdal.record")
                     if recorder.needsManualResume {
                         Button("Resume Recording") { recorder.resume() }
+                    }
+                    if microphonePermission != .granted {
+                        Text(microphonePermission.message)
+                            .font(YggTheme.Typography.caption)
+                            .foregroundStyle(
+                                microphonePermission == .denied
+                                    ? YggTheme.Color.destructive
+                                    : YggTheme.Color.textSecondary
+                            )
+                        if microphonePermission.offersSettingsRecovery {
+                            Button("Open Settings") { openAppSettings() }
+                                .accessibilityIdentifier("heimdal.microphone.openSettings")
+                        }
                     }
                     if let error = recorder.lastError {
                         Text(error).foregroundStyle(.red)
@@ -149,6 +173,7 @@ struct HeimdalShellView: View {
                 }
             }
             .task {
+                refreshMicrophonePermission()
                 await retryUndelivered()
                 await registration.load()
             }
@@ -163,6 +188,7 @@ struct HeimdalShellView: View {
                 if newPhase == .background {
                     Task { await recordLastKnownSnapshot() }
                 }
+                if newPhase == .active { refreshMicrophonePermission() }
             }
             .onChange(of: sessionModel.stagedItems.map(\.deliveryState)) { _, _ in
                 Task { await recordDeliveryFailedAgedGaps() }
@@ -180,12 +206,54 @@ struct HeimdalShellView: View {
         }
     }
 
+    private var captureStatusTitle: String {
+        switch sessionModel.phase {
+        case .recording: "Recording locally"
+        case .paused: "Recording paused"
+        case .failed: recorder.lastError ?? "Capture needs attention"
+        default: microphonePermission.title
+        }
+    }
+
+    private var captureStatusImage: String {
+        switch sessionModel.phase {
+        case .recording: "record.circle"
+        case .paused: "pause.circle"
+        case .failed: "exclamationmark.triangle"
+        default: microphonePermission == .granted ? "mic.circle" : "mic.slash.circle"
+        }
+    }
+
+    private var captureStatusKind: YggStatus.Kind {
+        switch sessionModel.phase {
+        case .recording: .active
+        case .paused: .pending
+        case .failed: .destructive
+        default: microphonePermission == .granted ? .healthy : .pending
+        }
+    }
+
     private func recordButtonTapped() {
         switch sessionModel.phase {
         case .recording, .paused:
             Task { await recorder.stop() }
-        default: recorder.requestMicrophonePermissionAndStart()
+        default:
+            recorder.requestMicrophonePermissionAndStart()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                refreshMicrophonePermission()
+            }
         }
+    }
+
+    private func refreshMicrophonePermission() {
+        microphonePermission = CapturePermissionPresentation(
+            recordPermission: AVAudioSession.sharedInstance().recordPermission
+        )
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     @ViewBuilder

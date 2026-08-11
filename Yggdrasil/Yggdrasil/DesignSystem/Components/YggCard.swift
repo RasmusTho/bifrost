@@ -11,7 +11,11 @@ struct YggCard<Content: View>: View {
         }
         .padding(YggTheme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(YggTheme.Color.secondaryBackground)
+        .background(YggTheme.Color.tertiaryBackground)
+        .overlay {
+            RoundedRectangle(cornerRadius: YggTheme.Radius.card, style: .continuous)
+                .stroke(YggTheme.Color.divider, lineWidth: 1)
+        }
         .clipShape(RoundedRectangle(cornerRadius: YggTheme.Radius.card, style: .continuous))
     }
 }
@@ -67,6 +71,43 @@ struct YggPrimaryButton: View {
                 .padding(.vertical, YggTheme.Spacing.sm)
         }
         .buttonStyle(.borderedProminent)
+        .tint(YggTheme.Color.accent)
         .clipShape(RoundedRectangle(cornerRadius: YggTheme.Radius.control, style: .continuous))
+    }
+}
+
+/// The shared native expression of a runtime-declared state. It carries no
+/// authority of its own: callers choose a semantic state from durable client
+/// evidence and this component renders it consistently.
+struct YggStatus: View {
+    enum Kind {
+        case active, pending, healthy, destructive
+
+        var color: SwiftUI.Color {
+            switch self {
+            case .active: YggTheme.Color.active
+            case .pending: YggTheme.Color.warning
+            case .healthy: YggTheme.Color.success
+            case .destructive: YggTheme.Color.destructive
+            }
+        }
+    }
+
+    let title: String
+    let systemImage: String
+    let kind: Kind
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .font(YggTheme.Typography.caption.weight(.medium))
+            .foregroundStyle(kind.color)
+            .padding(.horizontal, YggTheme.Spacing.sm)
+            .padding(.vertical, YggTheme.Spacing.xs)
+            .background(kind.color.opacity(0.14))
+            .clipShape(RoundedRectangle(cornerRadius: YggTheme.Radius.control, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: YggTheme.Radius.control, style: .continuous)
+                    .stroke(kind.color.opacity(0.45), lineWidth: 1)
+            }
     }
 }
