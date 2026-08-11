@@ -185,6 +185,8 @@ struct RootView: View {
                     HeimdalShellView(sessionModel: heimdalSessionModel)
                         .tabItem { Label("Heimdal", systemImage: "waveform") }
                 }
+                .tint(YggTheme.Color.accent)
+                .background(YggTheme.Color.background)
             }
         }
     }
@@ -210,6 +212,8 @@ struct RootView: View {
                     .tabItem { Label("Meeting", systemImage: "person.2.wave.2") }
             }
         }
+        .tint(YggTheme.Color.accent)
+        .background(YggTheme.Color.background)
     }
 
     private var testFixtureVaultURL: URL? {

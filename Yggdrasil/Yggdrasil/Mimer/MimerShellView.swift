@@ -130,6 +130,9 @@ struct MimerCanvasView: View {
                         .accessibilityIdentifier("mimer.canvas.lens.\(lens.rawValue)")
                 }
             }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(YggTheme.Color.secondaryBackground)
             .navigationTitle("Mimer")
             .focusable()
             .focused($focusedElement, equals: .sidebar)

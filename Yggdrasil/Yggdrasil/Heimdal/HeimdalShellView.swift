@@ -29,7 +29,7 @@ struct HeimdalShellView: View {
     @StateObject private var healthPanel: DeviceHealthPanelModel
     @State private var isFolderPickerPresented = false
     @State private var microphonePermission = CapturePermissionPresentation(
-        recordPermission: AVAudioSession.sharedInstance().recordPermission
+        recordPermission: AVAudioApplication.shared.recordPermission
     )
 
     /// Delivery failures older than this are nameable gaps
@@ -165,6 +165,8 @@ struct HeimdalShellView: View {
                     DeviceHealthPanelView(healthPanel: healthPanel)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(YggTheme.Color.background)
             .navigationTitle("Heimdal")
             .sheet(isPresented: $isFolderPickerPresented) {
                 CaptureFolderPicker { url in
@@ -248,7 +250,7 @@ struct HeimdalShellView: View {
 
     private func refreshMicrophonePermission() {
         microphonePermission = CapturePermissionPresentation(
-            recordPermission: AVAudioSession.sharedInstance().recordPermission
+            recordPermission: AVAudioApplication.shared.recordPermission
         )
     }
 

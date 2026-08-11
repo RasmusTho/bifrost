@@ -11,7 +11,7 @@ enum CapturePermissionPresentation: Equatable {
     case granted
     case unavailable
 
-    init(recordPermission: AVAudioSession.RecordPermission) {
+    init(recordPermission: AVAudioApplication.recordPermission) {
         switch recordPermission {
         case .undetermined: self = .undetermined
         case .denied: self = .denied
