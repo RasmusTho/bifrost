@@ -80,6 +80,26 @@ jobs:
         run: |
           set -euo pipefail
           swift test --package-path Packages/YggdrasilCore
+      - name: Build Heimdal macOS observer foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project Yggdrasil/Yggdrasil.xcodeproj \
+            -scheme HeimdalMacObserver \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/HeimdalMacObserverDerivedData" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Test Heimdal macOS observer foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project Yggdrasil/Yggdrasil.xcodeproj \
+            -scheme HeimdalMacObserver \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/HeimdalMacObserverDerivedData" \
+            CODE_SIGNING_ALLOWED=NO
       - name: Discover Xcode and available iPhone/iPad/Watch simulators
         id: simulator
         shell: bash
