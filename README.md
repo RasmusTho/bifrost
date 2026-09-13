@@ -5,6 +5,7 @@
 
 It hosts the client apps under **topology C** (one shell, two bounded clients):
 - **Heimdal client** — capture / consent / device-health · iPhone + Apple Watch.
+- **Heimdal macOS observer foundation** — macOS platform target and smoke-test seam; screen-observer behavior is not implemented yet.
 - **Mimer client** — knowledge: chat, review, entity confirmation, settings · iPhone + **iPad-first**.
 
 ## Governance — a governed constituent, not a detached project
@@ -29,7 +30,7 @@ iPad-first canvas and the Heimdal client; delivery status stays in the Epic B sl
 (see `Yggdrasil/README.md` for the app's structure).
 
 App slices: Epic B (#3020) → B1 (#3023) shell + Mimer-iPhone (landed) · B2 (#3024) Mimer-iPad · B3 (#3026)
-Heimdal-iPhone + Watch.
+Heimdal-iPhone + Watch. The bounded macOS foundation slice is tracked by Bifrost #67 and links to hub #3341.
 
 ## Repository layout
 - `AGENTS.md` — builder-agent instructions; ecosystem authority inherited from the hub.
@@ -37,7 +38,8 @@ Heimdal-iPhone + Watch.
 - `.github/` — Issue template, PR template, CI.
 - `docs/adr/` — pointer to the hub ADR record (ecosystem constitution is not forked here).
 - `Yggdrasil/` — the Xcode project: the Yggdrasil shell plus bounded Mimer client surfaces for
-  iPhone and iPad, and the Heimdal client for iPhone and Apple Watch.
+  iPhone and iPad, the Heimdal client for iPhone and Apple Watch, and the minimal
+  `HeimdalMacObserver` macOS foundation target.
 - `Packages/YggdrasilCore/` — the platform-agnostic Swift package (frontmatter/markdown parsing,
   `_heimdal/**` note models, vault path resolution) the app target depends on; `swift test` runs its
   unit tests without needing a simulator.
@@ -46,10 +48,12 @@ Heimdal-iPhone + Watch.
 
 CI runs on pull requests and pushes to `main`. It preserves the repository-governance checks, applies
 SwiftLint in strict mode to app, package, and test sources, runs the `YggdrasilCore` Swift package tests,
-then builds and tests the shared `Yggdrasil` scheme (unit and UI tests) on available iPhone and iPad
-simulators. The workflow discovers the runner's installed Xcode, iOS runtime, and simulators instead of
-pinning device identifiers. It uses only standard GitHub-hosted runners and uploads no caches or
-artifacts, so it is designed for GitHub's public-repository free tier.
+explicitly builds and tests the `HeimdalMacObserver` foundation scheme on macOS with
+`CODE_SIGNING_ALLOWED=NO`, then builds and tests the shared `Yggdrasil` scheme (unit and UI tests) on
+available iPhone and iPad simulators. The macOS foundation lane is a merge gate for the platform target;
+it does not claim screen-observer behavior. The workflow discovers the runner's installed Xcode, iOS
+runtime, and simulators instead of pinning device identifiers. It uses only standard GitHub-hosted runners
+and uploads no caches or artifacts, so it is designed for GitHub's public-repository free tier.
 
 To reproduce the code checks locally, install Xcode and SwiftLint, select installed iPhone and iPad
 destinations shown by `xcodebuild -showdestinations`, and run:
@@ -61,6 +65,10 @@ xcodebuild test -project Yggdrasil/Yggdrasil.xcodeproj -scheme Yggdrasil \
   -destination 'platform=iOS Simulator,name=<available iPhone>,OS=latest' CODE_SIGNING_ALLOWED=NO
 xcodebuild test -project Yggdrasil/Yggdrasil.xcodeproj -scheme Yggdrasil \
   -destination 'platform=iOS Simulator,name=<available iPad>,OS=latest' CODE_SIGNING_ALLOWED=NO
+xcodebuild build -project Yggdrasil/Yggdrasil.xcodeproj -scheme HeimdalMacObserver \
+  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -project Yggdrasil/Yggdrasil.xcodeproj -scheme HeimdalMacObserver \
+  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
 The PR-contract fixture can be reproduced with `node .github/scripts/test-pr-contract.mjs`.
