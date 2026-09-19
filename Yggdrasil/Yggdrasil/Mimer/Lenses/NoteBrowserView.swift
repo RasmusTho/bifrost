@@ -1,4 +1,5 @@
 import SwiftUI
+import YggdrasilCore
 
 struct VaultEntry: Identifiable {
     let id: String
@@ -17,29 +18,42 @@ struct NoteBrowserView: View {
 
     @State private var entries: [VaultEntry] = []
     @State private var loadError: String?
+    @State private var isLoading = true
+    @State private var lastRefreshedAt: Date?
 
     var body: some View {
-        List {
-            if let loadError {
-                Text(loadError).foregroundStyle(.red)
-            }
-            ForEach(entries) { entry in
-                if entry.isDirectory {
-                    NavigationLink(entry.name) {
-                        NoteBrowserView(fileStore: fileStore, relativeDirectory: entry.relativePath)
+        YggLensScaffold(
+            title: navigationTitle,
+            sourcePath: relativeDirectory.isEmpty ? HeimdalPaths.root : relativeDirectory,
+            isLoading: isLoading,
+            loadError: loadError,
+            lastRefreshedAt: lastRefreshedAt,
+            onRetry: load,
+            wrapsNavigationStack: false
+        ) {
+                Section {
+                    ForEach(entries) { entry in
+                        if entry.isDirectory {
+                            NavigationLink(entry.name) {
+                                NoteBrowserView(fileStore: fileStore, relativeDirectory: entry.relativePath)
+                            }
+                        } else {
+                            NavigationLink(entry.name) {
+                                NoteDetailView(relativePath: entry.relativePath, fileStore: fileStore)
+                            }
+                        }
                     }
-                } else {
-                    NavigationLink(entry.name) {
-                        NoteDetailView(relativePath: entry.relativePath, fileStore: fileStore)
+                    if entries.isEmpty {
+                        YggEmptyState(
+                            systemImage: "folder",
+                            title: "Nothing here yet",
+                            message: "Markdown files and folders will appear here."
+                        )
+                        .listRowBackground(Color.clear)
                     }
                 }
             }
-            if entries.isEmpty && loadError == nil {
-                Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
-            }
-        }
-        .navigationTitle(navigationTitle)
-        .onAppear(perform: load)
+            .onAppear(perform: load)
     }
 
     private var navigationTitle: String {
@@ -48,6 +62,11 @@ struct NoteBrowserView: View {
     }
 
     private func load() {
+        isLoading = true
+        defer {
+            isLoading = false
+            lastRefreshedAt = Date()
+        }
         do {
             entries = try fileStore.listEntries(in: relativeDirectory)
             loadError = nil

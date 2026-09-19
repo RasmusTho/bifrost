@@ -8,16 +8,21 @@ struct SettingsLensView: View {
 
     @State private var retentionDays: Int = 30
     @State private var loadError: String?
+    @State private var isLoading = true
+    @State private var lastRefreshedAt: Date?
     // Guards against onChange firing save() for the value load() itself just
     // set — without this, opening the tab immediately rewrites settings.md.
     @State private var hasLoaded = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                if let loadError {
-                    Text(loadError).foregroundStyle(.red)
-                }
+        YggLensScaffold(
+            title: "Settings",
+            sourcePath: HeimdalPaths.settings,
+            isLoading: isLoading,
+            loadError: loadError,
+            lastRefreshedAt: lastRefreshedAt,
+            onRetry: load
+        ) {
                 Section("Retention") {
                     Stepper("Retention window: \(retentionDays) days", value: $retentionDays, in: 1...365)
                         .onChange(of: retentionDays) { _, newValue in
@@ -31,12 +36,15 @@ struct SettingsLensView: View {
                     }
                 }
             }
-            .navigationTitle("Settings")
             .onAppear(perform: load)
-        }
     }
 
     private func load() {
+        isLoading = true
+        defer {
+            isLoading = false
+            lastRefreshedAt = Date()
+        }
         defer { hasLoaded = true }
         do {
             let text = try fileStore.read(HeimdalPaths.settings)

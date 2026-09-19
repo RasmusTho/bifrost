@@ -96,4 +96,23 @@ final class HeimdalNotesTests: XCTestCase {
         XCTAssertTrue(note.document.body.contains("prior entry"))
         XCTAssertTrue(note.document.body.contains("added via Mimer"))
     }
+
+    func testListNoteRemovesEntryAndAppendsAuditLine() throws {
+        let text = """
+        ---
+        never:
+          - old.com
+          - keep.com
+        ---
+        """
+        let doc = try FrontmatterDocument.parse(text)
+        var note = ListNote.never(document: doc)
+        note.removeEntry(
+            "old.com", source: "mimer-iphone", target: "old.com", note: "restored from Interests lens",
+            timestamp: "2026-07-06T09:00:00Z"
+        )
+
+        XCTAssertEqual(note.entries, ["keep.com"])
+        XCTAssertTrue(note.document.body.contains("restored from Interests lens"))
+    }
 }

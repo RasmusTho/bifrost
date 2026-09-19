@@ -53,6 +53,19 @@ public struct ListNote: HeimdalNote {
         current.append(.string(entry))
         document.frontmatter[listKey] = .array(current)
 
+        appendAuditLine(source: source, target: target, note: note, timestamp: timestamp)
+    }
+
+    public mutating func removeEntry(_ entry: String, source: String, target: String, note: String, timestamp: String) {
+        var current = document.frontmatter[listKey]?.arrayValue ?? []
+        guard current.contains(where: { $0.stringValue == entry }) else { return }
+        current.removeAll { $0.stringValue == entry }
+        document.frontmatter[listKey] = .array(current)
+
+        appendAuditLine(source: source, target: target, note: note, timestamp: timestamp)
+    }
+
+    private mutating func appendAuditLine(source: String, target: String, note: String, timestamp: String) {
         let line = "- [\(timestamp)] source=\(source) target='\(target)' | \(note)"
         if !document.body.isEmpty && !document.body.hasSuffix("\n") {
             document.body += "\n"

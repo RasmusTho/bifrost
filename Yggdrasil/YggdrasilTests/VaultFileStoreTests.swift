@@ -36,6 +36,15 @@ final class VaultFileStoreTests: XCTestCase {
         XCTAssertTrue(text.contains("reading: 0.5"))
     }
 
+    func testReadMarkdownNoteReturnsBody() throws {
+        let store = VaultFileStore(rootURL: tempDirectory)
+        try store.write("---\ntitle: Test note\n---\n\n# Readable body\n", to: "notes/test.md")
+
+        let text = try store.read("notes/test.md")
+
+        XCTAssertTrue(text.contains("# Readable body"))
+    }
+
     func testListEntriesReturnsFoldersAndMarkdownFilesOnly() throws {
         let store = VaultFileStore(rootURL: tempDirectory)
         try store.write("---\n{}\n---\n", to: "_heimdal/watchlist.md")

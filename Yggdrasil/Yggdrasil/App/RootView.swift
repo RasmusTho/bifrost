@@ -12,11 +12,15 @@ struct RootView: View {
             if authGate.state != .unlocked {
                 AuthGateView(gate: authGate)
             } else if let vaultURL = vaultManager.activeVaultURL {
-                MimerShellView(vaultURL: vaultURL)
-                    .toolbarBackground(.visible, for: .tabBar)
-                    .safeAreaInset(edge: .top) {
-                        VaultSwitcherBar(vaultManager: vaultManager)
-                    }
+                // Keep the vault switcher in normal layout flow. A safe-area
+                // inset can sit above a NavigationSplitView's own toolbar on
+                // iPadOS, which makes the first toolbar controls appear
+                // underneath the switcher.
+                VStack(spacing: 0) {
+                    VaultSwitcherBar(vaultManager: vaultManager)
+                    MimerShellView(vaultURL: vaultURL)
+                        .toolbarBackground(.visible, for: .tabBar)
+                }
             } else {
                 VaultPickerView(vaultManager: vaultManager)
             }
@@ -40,5 +44,10 @@ private struct VaultSwitcherBar: View {
         .padding(.horizontal, YggTheme.Spacing.md)
         .padding(.vertical, YggTheme.Spacing.xs)
         .background(YggTheme.Color.secondaryBackground)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(YggTheme.Color.divider)
+                .frame(height: 1)
+        }
     }
 }

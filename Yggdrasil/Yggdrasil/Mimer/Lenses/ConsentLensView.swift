@@ -9,12 +9,25 @@ struct ConsentLensView: View {
 
     @State private var note: ConsentNote?
     @State private var loadError: String?
+    @State private var isLoading = true
+    @State private var lastRefreshedAt: Date?
 
     var body: some View {
-        NavigationStack {
-            List {
-                if let loadError {
-                    Text(loadError).foregroundStyle(.red)
+        YggLensScaffold(
+            title: "Consent",
+            sourcePath: HeimdalPaths.consent,
+            isLoading: isLoading,
+            loadError: loadError,
+            lastRefreshedAt: lastRefreshedAt,
+            onRetry: load
+        ) {
+                Section {
+                    YggStatusPill(
+                        title: "Read-only",
+                        systemImage: "eye",
+                        kind: .neutral
+                    )
+                    .listRowBackground(Color.clear)
                 }
                 Section("Grants") {
                     if let grants = note?.grants, !grants.isEmpty {
@@ -34,8 +47,12 @@ struct ConsentLensView: View {
                             }
                         }
                     } else {
-                        Text("No consent grants recorded yet.")
-                            .foregroundStyle(YggTheme.Color.textSecondary)
+                        YggEmptyState(
+                            systemImage: "hand.raised",
+                            title: "No grants recorded",
+                            message: "This surface only reads the grant note."
+                        )
+                        .listRowBackground(Color.clear)
                     }
                 }
                 Section("Dormant in v1") {
@@ -52,12 +69,15 @@ struct ConsentLensView: View {
                     .foregroundStyle(YggTheme.Color.textSecondary)
                 }
             }
-            .navigationTitle("Consent")
             .onAppear(perform: load)
-        }
     }
 
     private func load() {
+        isLoading = true
+        defer {
+            isLoading = false
+            lastRefreshedAt = Date()
+        }
         do {
             let text = try fileStore.read(HeimdalPaths.consent)
             note = ConsentNote(document: try FrontmatterDocument.parse(text))

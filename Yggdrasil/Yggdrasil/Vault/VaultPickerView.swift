@@ -12,7 +12,7 @@ struct VaultPickerView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: YggTheme.Spacing.lg) {
                     if !vaultManager.recentVaults.isEmpty {
-                        YggSectionHeader(title: "Recent Vaults")
+                        YggSectionHeader(title: "Recent vaults")
                         let columns = [GridItem(.adaptive(minimum: 140), spacing: YggTheme.Spacing.md)]
                         LazyVGrid(columns: columns, spacing: YggTheme.Spacing.md) {
                             ForEach(vaultManager.recentVaults) { reference in
@@ -27,15 +27,17 @@ struct VaultPickerView: View {
                     } else {
                         YggEmptyState(
                             systemImage: "folder.badge.questionmark",
-                            title: "No Vault Yet",
+                            title: "No vault yet",
                             message: "Pick the Obsidian vault folder you want Yggdrasil to open."
                         )
                     }
 
                     if let error = vaultManager.lastError {
-                        Text(error)
-                            .font(YggTheme.Typography.caption)
-                            .foregroundStyle(.red)
+                        YggBanner(
+                            title: "Vault could not be opened",
+                            message: error,
+                            kind: .destructive
+                        )
                     }
 
                     YggPrimaryButton(title: "Choose a Vault Folder") {

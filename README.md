@@ -24,8 +24,9 @@ authority), Issue/PR contracts, delivery-skill routing + shared contracts (`.cod
 taxonomy, and Swift/iOS CI (`.github/workflows/ci.yml`).
 
 B1 (bifrost#1 / hub `RasmusTho/agentic-pkm-mvp#3023`) has landed the `Yggdrasil.xcodeproj` app shell +
-Mimer-iPhone client — the Swift build/test/lint gate is now a real hard gate (see `Yggdrasil/README.md`
-for the app's structure). B2 (Mimer-iPad) and B3 (Heimdal-iPhone + Watch) are not yet built.
+Mimer-iPhone client. Regular-width iPad now uses the first Mimer thinking-canvas slice (three-column
+sidebar/content/detail with note metadata inspector); the remaining B2 canvas slices and B3 (Heimdal-iPhone
++ Watch) are not yet built. The Swift build/test/lint gate is a real hard gate (see `Yggdrasil/README.md`).
 
 App slices: Epic B (#3020) → B1 (#3023) shell + Mimer-iPhone (landed) · B2 (#3024) Mimer-iPad · B3 (#3026)
 Heimdal-iPhone + Watch.
