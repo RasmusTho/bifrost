@@ -32,6 +32,8 @@ struct YggdrasilApp: App {
                 authGateInitialState: launchAuthState,
                 heimdalSessionModel: watchRelayStartup.sessionModel
             )
+            // Yggdrasil Dark is the only theme until the Shell trial graduates.
+            .preferredColorScheme(.dark)
         }
     }
 
