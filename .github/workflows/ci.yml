@@ -75,6 +75,22 @@ jobs:
           fi
           swiftlint version
           swiftlint lint --strict --config .swiftlint.yml
+      - name: Yggdrasil tokens pin (vendored file is byte-identical to the hub)
+        shell: bash
+        env:
+          # Hub RasmusTho/agentic-pkm-mvp, token VERSION 2.0.0, merge commit
+          # 0021e1374b84a0cd31dc00ea9f5647f1422a33fe,
+          # design-system/yggdrasil/dist/YggdrasilTokens.swift (YDS-05, #70).
+          # Re-vendor from a newer hub commit and update this pin together.
+          YGGDRASIL_TOKENS_SHA256: 5d3f6a60d10bc95174512cd247496c7e7404b2e4d1188078c0d0a12f79248c01
+        run: |
+          set -euo pipefail
+          actual=$(shasum -a 256 Yggdrasil/Yggdrasil/DesignSystem/YggdrasilTokens.generated.swift | cut -d' ' -f1)
+          if [ "$actual" != "$YGGDRASIL_TOKENS_SHA256" ]; then
+            echo "::error::YggdrasilTokens.generated.swift ($actual) does not match the pinned hub file ($YGGDRASIL_TOKENS_SHA256)"
+            exit 1
+          fi
+          echo "Vendored Yggdrasil tokens match the pinned hub file."
       - name: YggdrasilCore package tests
         shell: bash
         run: |

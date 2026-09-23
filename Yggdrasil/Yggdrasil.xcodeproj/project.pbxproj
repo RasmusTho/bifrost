@@ -10,6 +10,7 @@
 		82D4F2DA1439F498980F3486 /* YggdrasilApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64AE095B1263E7A117A6722F /* YggdrasilApp.swift */; };
 		416E42C9C40B0142A94E867F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F68F4E6D7A19F094B99DA484 /* RootView.swift */; };
 		2EB6B26E82A85030F90A8949 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6B57EFF56801286C50E4A93 /* Theme.swift */; };
+		5716F19A4A449C62580F774B /* YggdrasilTokens.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD9659E5A2EE60C86F77F37 /* YggdrasilTokens.generated.swift */; };
 		77497372FD9A9CD269A885AC /* YggCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2946C37FD4803769ACA4B41D /* YggCard.swift */; };
 		449BA0DC4316720D1DCB28E6 /* AuthGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8BB74E2825357AF986AB52F /* AuthGate.swift */; };
 		81EEEF9473FCACA6ADC3DCD7 /* VaultManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8EE776672A661BFB83EAD4 /* VaultManager.swift */; };
@@ -40,6 +41,7 @@
 		B1F100000000000000000001 /* VaultFileStoreBasicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F100000000000000000002 /* VaultFileStoreBasicTests.swift */; };
 		B1F100000000000000000003 /* CanvasAppendWriteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F100000000000000000004 /* CanvasAppendWriteTests.swift */; };
 		A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */; };
+		60A3CB6D617282AEFB090FAE /* YggThemeTokenBindingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76612169B4F613DFBFC5FEA /* YggThemeTokenBindingTests.swift */; };
 		D70000010000000000000001 /* TestSeamGatingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70000020000000000000002 /* TestSeamGatingTests.swift */; };
 		45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */; };
 		A14000010000000000000001 /* CaptureFolderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000110000000000000001 /* CaptureFolderManager.swift */; };
@@ -145,6 +147,7 @@
 		64AE095B1263E7A117A6722F /* YggdrasilApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggdrasilApp.swift; sourceTree = "<group>"; };
 		F68F4E6D7A19F094B99DA484 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A6B57EFF56801286C50E4A93 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		9FD9659E5A2EE60C86F77F37 /* YggdrasilTokens.generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggdrasilTokens.generated.swift; sourceTree = "<group>"; };
 		2946C37FD4803769ACA4B41D /* YggCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggCard.swift; sourceTree = "<group>"; };
 		A8BB74E2825357AF986AB52F /* AuthGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthGate.swift; sourceTree = "<group>"; };
 		AD8EE776672A661BFB83EAD4 /* VaultManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManager.swift; sourceTree = "<group>"; };
@@ -174,6 +177,7 @@
 		B1F100000000000000000002 /* VaultFileStoreBasicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStoreBasicTests.swift; sourceTree = "<group>"; };
 		B1F100000000000000000004 /* CanvasAppendWriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasAppendWriteTests.swift; sourceTree = "<group>"; };
 		A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentionLensAuditTests.swift; sourceTree = "<group>"; };
+		B76612169B4F613DFBFC5FEA /* YggThemeTokenBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggThemeTokenBindingTests.swift; sourceTree = "<group>"; };
 		D70000020000000000000002 /* TestSeamGatingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSeamGatingTests.swift; sourceTree = "<group>"; };
 		75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggdrasilUITests.swift; sourceTree = "<group>"; };
 		A14000110000000000000001 /* CaptureFolderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderManager.swift; sourceTree = "<group>"; };
@@ -311,6 +315,7 @@
 			isa = PBXGroup;
 			children = (
 				A6B57EFF56801286C50E4A93 /* Theme.swift */,
+				9FD9659E5A2EE60C86F77F37 /* YggdrasilTokens.generated.swift */,
 				1561189F8F48E6D5B7F12830 /* Components */,
 			);
 			path = DesignSystem;
@@ -479,6 +484,7 @@
 				B1F100000000000000000002 /* VaultFileStoreBasicTests.swift */,
 				B1F100000000000000000004 /* CanvasAppendWriteTests.swift */,
 				A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */,
+				B76612169B4F613DFBFC5FEA /* YggThemeTokenBindingTests.swift */,
 				D70000020000000000000002 /* TestSeamGatingTests.swift */,
 				A14000140000000000000004 /* HeimdalBoundaryTests.swift */,
 				A14000150000000000000005 /* CaptureFolderBindingTests.swift */,
@@ -745,6 +751,7 @@
 				82D4F2DA1439F498980F3486 /* YggdrasilApp.swift in Sources */,
 				416E42C9C40B0142A94E867F /* RootView.swift in Sources */,
 				2EB6B26E82A85030F90A8949 /* Theme.swift in Sources */,
+				5716F19A4A449C62580F774B /* YggdrasilTokens.generated.swift in Sources */,
 				77497372FD9A9CD269A885AC /* YggCard.swift in Sources */,
 				449BA0DC4316720D1DCB28E6 /* AuthGate.swift in Sources */,
 				81EEEF9473FCACA6ADC3DCD7 /* VaultManager.swift in Sources */,
@@ -810,6 +817,7 @@
 				B1F100000000000000000001 /* VaultFileStoreBasicTests.swift in Sources */,
 				B1F100000000000000000003 /* CanvasAppendWriteTests.swift in Sources */,
 				A6D1E0400000000000000003 /* AttentionLensAuditTests.swift in Sources */,
+				60A3CB6D617282AEFB090FAE /* YggThemeTokenBindingTests.swift in Sources */,
 				D70000010000000000000001 /* TestSeamGatingTests.swift in Sources */,
 				A14000040000000000000004 /* HeimdalBoundaryTests.swift in Sources */,
 				A14000050000000000000005 /* CaptureFolderBindingTests.swift in Sources */,
