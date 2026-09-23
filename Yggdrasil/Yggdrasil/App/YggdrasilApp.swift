@@ -32,8 +32,11 @@ struct YggdrasilApp: App {
                 authGateInitialState: launchAuthState,
                 heimdalSessionModel: watchRelayStartup.sessionModel
             )
-            // Yggdrasil Dark is the only theme until the Shell trial graduates.
+            // Yggdrasil Dark is the only theme until the Shell trial graduates,
+            // and standard controls take the Yggdrasil gold accent rather than
+            // the asset-catalog AccentColor.
             .preferredColorScheme(.dark)
+            .tint(YggTheme.Color.accent)
         }
     }
 
