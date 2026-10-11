@@ -158,6 +158,38 @@ final class MimerCanvasUITests: XCTestCase {
         )
     }
 
+    func testSettingsBrowseThenVaultSelectionStillOpensNotes() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        let app = launchMimerShell(withFixture: true)
+
+        let settingsLens = app.descendants(matching: .any)["mimer.canvas.lens.settings"]
+        XCTAssertTrue(settingsLens.waitForExistence(timeout: 10))
+        settingsLens.tap()
+
+        let browseSettings = app.buttons["Browse settings.md"]
+        XCTAssertTrue(browseSettings.waitForExistence(timeout: 5))
+        browseSettings.tap()
+        XCTAssertTrue(app.staticTexts["Settings fixture"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
+
+        let backToSettings = app.buttons["Back to Settings"]
+        XCTAssertTrue(backToSettings.waitForExistence(timeout: 5))
+        backToSettings.tap()
+
+        let vaultLens = app.descendants(matching: .any)["mimer.canvas.lens.vault"]
+        XCTAssertTrue(vaultLens.waitForExistence(timeout: 5))
+        vaultLens.tap()
+
+        let projects = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects"]
+        XCTAssertTrue(projects.waitForExistence(timeout: 10))
+        projects.tap()
+
+        let note = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        note.tap()
+        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 5))
+    }
+
     func testAnnotateAndDragPromoteJourney() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
         let app = launchMimerShell(withFixture: true)

@@ -240,9 +240,12 @@ private func mimerTestingVaultURL(
 private func canvasTestingVaultURL() -> URL {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("MimerCanvasUITestVault")
     let projects = root.appendingPathComponent("Projects")
+    let heimdal = root.appendingPathComponent("_heimdal")
     let note = projects.appendingPathComponent("fixture.md")
     let sourceNote = projects.appendingPathComponent("source.md")
+    let settings = heimdal.appendingPathComponent("settings.md")
     try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+    try? FileManager.default.createDirectory(at: heimdal, withIntermediateDirectories: true)
     let fixture = """
     ---
     uuid: fixture-uuid
@@ -255,6 +258,7 @@ private func canvasTestingVaultURL() -> URL {
     """ + "\n"
     try? Data(fixture.utf8).write(to: note, options: .atomic)
     try? Data("---\ntitle: Source\n---\n\n# Source note\n".utf8).write(to: sourceNote, options: .atomic)
+    try? Data("---\nretention_window_days: 30\n---\n\n# Settings fixture\n".utf8).write(to: settings, options: .atomic)
     writeCanvasEntityFixture(to: root)
     return root
 }
