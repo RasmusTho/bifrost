@@ -170,6 +170,7 @@ final class MimerCanvasUITests: XCTestCase {
         XCTAssertTrue(browseSettings.waitForExistence(timeout: 5))
         browseSettings.tap()
         XCTAssertTrue(app.staticTexts["Settings fixture"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
 
         let backToSettings = app.buttons["Back to Settings"]
         XCTAssertTrue(backToSettings.waitForExistence(timeout: 5))

@@ -13,8 +13,6 @@ struct SettingsLensView: View {
     @State private var canEditSettings = false
     @State private var isSaving = false
     @State private var isSettingsNotePresented = false
-    @State private var settingsText = ""
-    @State private var settingsNoteError: String?
     // Guards against onChange firing save() for the value load() itself just
     // set — without this, opening the tab immediately rewrites settings.md.
     @State private var hasLoaded = false
@@ -44,18 +42,7 @@ struct SettingsLensView: View {
                         .padding(.horizontal)
                         .padding(.vertical, 8)
 
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: YggTheme.Spacing.md) {
-                                if let settingsNoteError {
-                                    Text(settingsNoteError)
-                                        .font(YggTheme.Typography.caption)
-                                        .foregroundStyle(.red)
-                                }
-                                MarkdownRendererView(text: settingsText)
-                            }
-                            .padding(YggTheme.Spacing.md)
-                        }
-                        .task { await loadSettingsText() }
+                        NoteDetailView(relativePath: HeimdalPaths.settings, fileStore: fileStore)
                     }
                 } else {
                     settingsForm
@@ -106,7 +93,6 @@ struct SettingsLensView: View {
             do {
                 let text = try await fileStore.read(path)
                 let note = SettingsNote(document: try FrontmatterDocument.parse(text))
-                settingsText = text
                 retentionDays = note.retentionWindowDays ?? 30
                 savedRetentionDays = retentionDays
                 canEditSettings = true
@@ -115,23 +101,12 @@ struct SettingsLensView: View {
             } catch VaultFileStoreError.notFound(_) {
                 // A vault without settings.md uses defaults; its first edit
                 // creates the note through readModifyWrite.
-                settingsText = ""
                 canEditSettings = true
                 hasLoaded = true
                 loadError = nil
             } catch {
-                settingsText = ""
                 loadError = error.localizedDescription
             }
-        }
-    }
-
-    private func loadSettingsText() async {
-        do {
-            settingsText = try await fileStore.read(HeimdalPaths.settings)
-            settingsNoteError = nil
-        } catch {
-            settingsNoteError = error.localizedDescription
         }
     }
 
