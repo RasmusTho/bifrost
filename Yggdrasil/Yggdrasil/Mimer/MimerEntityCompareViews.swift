@@ -254,7 +254,7 @@ struct MimerLensContentView: View {
                 NoteBrowserView(fileStore: fileStore)
             }
         case .settings:
-            SettingsLensView(fileStore: fileStore)
+            SettingsLensView(fileStore: fileStore, usesCanvasNavigation: true)
         }
     }
 }
