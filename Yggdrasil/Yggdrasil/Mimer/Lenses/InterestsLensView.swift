@@ -46,6 +46,7 @@ struct InterestsLensView: View {
                     ForEach(never, id: \.self) { Text($0) }
                 }
             }
+            .yggPage()
             .navigationTitle("Interests")
             .onAppear(perform: load)
         }

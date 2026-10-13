@@ -7,7 +7,7 @@ enum LensScaffold {
     @ViewBuilder
     static func errorBanner(_ error: String?) -> some View {
         if let error {
-            Text(error).foregroundStyle(.red)
+            Text(error).foregroundStyle(YggTheme.Color.destructive)
         }
     }
 

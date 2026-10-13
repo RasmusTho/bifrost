@@ -49,6 +49,7 @@ struct MimerNoteInspectorView: View {
                 }
             }
         }
+        .yggPage()
         .navigationTitle("Inspector")
     }
 }

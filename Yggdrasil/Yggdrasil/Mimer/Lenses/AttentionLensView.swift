@@ -71,6 +71,7 @@ struct AttentionLensView: View {
                         .disabled(pendingItemId.isEmpty)
                 }
             }
+            .yggPage()
             .navigationTitle("Today")
             .onAppear(perform: load)
         }

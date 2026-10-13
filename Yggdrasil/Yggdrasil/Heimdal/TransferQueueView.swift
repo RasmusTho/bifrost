@@ -76,7 +76,7 @@ struct TransferQueueView: View {
             if let attention = item.attention {
                 Text(attention.reason.displayReason)
                     .font(YggTheme.Typography.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(YggTheme.Color.destructive)
                     .accessibilityIdentifier("transferQueue.reason.\(item.captureID)")
                 HStack {
                     ForEach(attention.actions, id: \.self) { action in

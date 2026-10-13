@@ -130,6 +130,7 @@ struct MimerCanvasView: View {
                         .accessibilityIdentifier("mimer.canvas.lens.\(lens.rawValue)")
                 }
             }
+            .yggPage()
             .navigationTitle("Mimer")
             .focusable()
             .focused($focusedElement, equals: .sidebar)
@@ -285,11 +286,11 @@ private struct MimerVaultColumnView: View {
                 .accessibilityIdentifier("mimer.canvas.vault.back")
             }
             if let loadError {
-                Text(loadError).foregroundStyle(.red)
+                Text(loadError).foregroundStyle(YggTheme.Color.destructive)
             }
             if let failureMessage = appendDraft.failureMessage {
                 Section("Append needs attention") {
-                    Text(failureMessage).foregroundStyle(.red)
+                    Text(failureMessage).foregroundStyle(YggTheme.Color.destructive)
                     if !appendDraft.failureText.isEmpty {
                         Text(appendDraft.failureText).textSelection(.enabled)
                     }
@@ -323,6 +324,7 @@ private struct MimerVaultColumnView: View {
                 Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
             }
         }
+        .yggPage()
         .navigationTitle(directory.isEmpty ? "Vault" : directory.split(separator: "/").last.map(String.init) ?? "Vault")
         .focusable()
         .focused(focusedElement, equals: .content)

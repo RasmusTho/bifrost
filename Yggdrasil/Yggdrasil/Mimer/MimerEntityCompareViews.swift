@@ -7,7 +7,7 @@ struct MimerEntityQueueView: View {
     var body: some View {
         List {
             if let loadError = model.loadError {
-                Text(loadError).foregroundStyle(.red)
+                Text(loadError).foregroundStyle(YggTheme.Color.destructive)
             }
             if model.isLoading, model.pending.isEmpty {
                 ProgressView("Loading entity review")
@@ -29,6 +29,7 @@ struct MimerEntityQueueView: View {
                 }
             }
         }
+        .yggPage()
         .navigationTitle("Entity Review")
         .task {
             if model.pending.isEmpty { await model.load() }
@@ -89,6 +90,7 @@ struct MimerEntityCompareDetailView: View {
                     actionBar
                         .padding(YggTheme.Spacing.md)
                 }
+                .yggPage()
                 .navigationTitle(entry.surfaceForm)
             } else {
                 YggEmptyState(

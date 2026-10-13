@@ -50,6 +50,7 @@ struct EntityConfirmLensView: View {
                     }
                 }
             }
+            .yggPage()
             .navigationTitle("Entities")
             .onAppear(perform: load)
         }

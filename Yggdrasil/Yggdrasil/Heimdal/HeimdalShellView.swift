@@ -70,7 +70,7 @@ struct HeimdalShellView: View {
                     .accessibilityIdentifier("heimdal.chooseCaptureFolder")
 
                     if let error = folderManager.lastError {
-                        Text(error).foregroundStyle(.red)
+                        Text(error).foregroundStyle(YggTheme.Color.destructive)
                     }
                 }
 
@@ -88,7 +88,7 @@ struct HeimdalShellView: View {
                         Button("Resume Recording") { recorder.resume() }
                     }
                     if let error = recorder.lastError {
-                        Text(error).foregroundStyle(.red)
+                        Text(error).foregroundStyle(YggTheme.Color.destructive)
                     }
                 }
 
@@ -140,6 +140,7 @@ struct HeimdalShellView: View {
                     DeviceHealthPanelView(healthPanel: healthPanel)
                 }
             }
+            .yggPage()
             .navigationTitle("Heimdal")
             .sheet(isPresented: $isFolderPickerPresented) {
                 CaptureFolderPicker { url in
@@ -210,7 +211,7 @@ struct HeimdalShellView: View {
                 .foregroundStyle(YggTheme.Color.textSecondary)
         case let .failed(message, failedAt):
             Label("Delivery failed — recording kept locally", systemImage: "exclamationmark.circle")
-                .foregroundStyle(.red)
+                .foregroundStyle(YggTheme.Color.destructive)
                 .accessibilityIdentifier("heimdal.delivery.failed")
             Text(failedAt, format: .dateTime.hour().minute().second())
                 .font(YggTheme.Typography.caption)
@@ -321,7 +322,7 @@ private struct DeviceRegistrationStatusView: View {
         switch registration.state {
         case .unavailable:
             Label("No vault selected — captures may be refused", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
+                .foregroundStyle(YggTheme.Color.warning)
                 .accessibilityIdentifier("heimdal.registration.unavailable")
         case .loading:
             ProgressView("Loading device registration")
@@ -330,7 +331,7 @@ private struct DeviceRegistrationStatusView: View {
                 "Registration status unavailable — captures may be refused",
                 systemImage: "exclamationmark.triangle"
             )
-            .foregroundStyle(.orange)
+            .foregroundStyle(YggTheme.Color.warning)
             Text(message).font(YggTheme.Typography.caption)
         case let .loaded(snapshot):
             if let grant = snapshot.standingGrant {
@@ -345,7 +346,7 @@ private struct DeviceRegistrationStatusView: View {
                 }
             } else {
                 Label("No standing grant found", systemImage: "exclamationmark.shield")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(YggTheme.Color.warning)
                     .accessibilityIdentifier("heimdal.consent.empty")
             }
 
@@ -378,7 +379,7 @@ private struct DeviceRegistrationStatusView: View {
                     "Not registered — captures may be refused",
                     systemImage: "exclamationmark.triangle.fill"
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(YggTheme.Color.warning)
                 .accessibilityIdentifier("heimdal.registration.unregistered")
                 Button("Register This Device") {
                     Task { await registration.register() }

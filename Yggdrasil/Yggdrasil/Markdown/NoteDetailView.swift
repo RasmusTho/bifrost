@@ -20,7 +20,7 @@ struct NoteDetailView: View {
                 if let loadError {
                     Text(loadError)
                         .font(YggTheme.Typography.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(YggTheme.Color.destructive)
                 }
                 if isEditing {
                     TextEditor(text: $rawText)
@@ -36,6 +36,7 @@ struct NoteDetailView: View {
             }
             .padding(YggTheme.Spacing.md)
         }
+        .yggPage()
         .navigationTitle(relativePath.split(separator: "/").last.map(String.init) ?? relativePath)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

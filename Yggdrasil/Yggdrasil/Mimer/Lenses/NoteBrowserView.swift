@@ -21,7 +21,7 @@ struct NoteBrowserView: View {
     var body: some View {
         List {
             if let loadError {
-                Text(loadError).foregroundStyle(.red)
+                Text(loadError).foregroundStyle(YggTheme.Color.destructive)
             }
             ForEach(entries) { entry in
                 if entry.isDirectory {
@@ -38,6 +38,7 @@ struct NoteBrowserView: View {
                 Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
             }
         }
+        .yggPage()
         .navigationTitle(navigationTitle)
         .onAppear(perform: load)
     }

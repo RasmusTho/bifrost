@@ -56,7 +56,7 @@ struct MimerCanvasDetailView: View {
                             .accessibilityIdentifier("mimer.canvas.annotation.commit")
                         }
                         if let failureMessage = appendDraft.failureMessage {
-                            Text(failureMessage).foregroundStyle(.red)
+                            Text(failureMessage).foregroundStyle(YggTheme.Color.destructive)
                             if !appendDraft.failureText.isEmpty {
                                 Text(appendDraft.failureText).textSelection(.enabled)
                             }
@@ -81,6 +81,7 @@ struct MimerCanvasDetailView: View {
                         .accessibilityIdentifier("mimer.canvas.detail.document")
                         .accessibilityValue(note.text)
                     }
+                    .yggPage()
                     .navigationTitle(note.relativePath.split(separator: "/").last.map(String.init) ?? note.relativePath)
                     .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
                         guard let promotion = promotions.first else { return false }

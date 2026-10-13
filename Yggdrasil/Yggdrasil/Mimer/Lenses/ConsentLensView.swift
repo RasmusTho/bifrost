@@ -50,6 +50,7 @@ struct ConsentLensView: View {
                     .foregroundStyle(YggTheme.Color.textSecondary)
                 }
             }
+            .yggPage()
             .navigationTitle("Consent")
             .accessibilityIdentifier("mimer.lens.consent")
             .onAppear(perform: load)
