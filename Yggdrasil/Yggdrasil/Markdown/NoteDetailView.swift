@@ -10,6 +10,7 @@ struct NoteDetailView: View {
     let fileStore: VaultFileStore
     /// Heading/block anchor from the link that opened this note.
     var anchor: String?
+    var allowsReadAloud = false
 
     @State private var rawText: String = ""
     @State private var isEditing = false
@@ -52,6 +53,9 @@ struct NoteDetailView: View {
                             }
                         }
                     )
+                    if allowsReadAloud {
+                        MimerReadAloudControls(text: rawText)
+                    }
                 }
             }
         }

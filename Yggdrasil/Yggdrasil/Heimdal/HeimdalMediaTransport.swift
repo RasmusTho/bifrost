@@ -1,4 +1,5 @@
 import Foundation
+import YggdrasilCore
 
 /// Outcome of `POST /api/heimdal/capture/media`.
 ///
@@ -75,27 +76,17 @@ struct HeimdalMediaAPITransport: HeimdalMediaTransporting {
 
     init(baseURL: URL, session: URLSession = .shared) throws {
         guard let host = baseURL.host else { throw TransportError.hubNotConfigured }
-        guard Self.isPrivateHost(host) else { throw TransportError.nonPrivateHost(host) }
+        guard Self.isPrivateHost(host, scheme: baseURL.scheme ?? "") else {
+            throw TransportError.nonPrivateHost(host)
+        }
         self.baseURL = baseURL
         self.session = session
     }
 
-    /// Loopback, RFC1918 LAN, link-local, CGNAT (tailnet `100.64/10`), and
-    /// `.local`/`.internal` names only. The capture lane is explicitly not a
-    /// public-internet upload path.
-    static func isPrivateHost(_ host: String) -> Bool {
-        let lowered = host.lowercased()
-        if lowered == "localhost" || lowered.hasSuffix(".local") || lowered.hasSuffix(".internal") { return true }
-        let octets = lowered.split(separator: ".").compactMap { UInt8($0) }
-        guard octets.count == 4 else { return false }
-        switch (octets[0], octets[1]) {
-        case (127, _), (10, _), (192, 168):
-            return true
-        case (172, 16...31), (169, 254), (100, 64...127):
-            return true
-        default:
-            return false
-        }
+    /// Uses the same loopback/LAN/tailnet allowlist as Companion TTS. The
+    /// capture lane remains explicitly unavailable to public-internet hosts.
+    static func isPrivateHost(_ host: String, scheme: String = "http") -> Bool {
+        LocalServiceHostPolicy.isTrusted(host: host, scheme: scheme)
     }
 
     func admit(item: TransferOutboxItem) async throws -> MediaAdmissionOutcome {

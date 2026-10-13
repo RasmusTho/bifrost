@@ -26,6 +26,14 @@ struct UITestLaunchConfiguration {
         isEnabled && arguments.contains("-ui-testing-auth-locked")
     }
 
+    var usesReadAloudTestSeam: Bool {
+        #if DEBUG
+        return isEnabled && arguments.contains("-ui-testing-read-aloud")
+        #else
+        return false
+        #endif
+    }
+
     var fixtureKind: FixtureKind? {
         guard isEnabled else { return nil }
         if arguments.contains("-ui-testing-uat-fixture") { return .uat }

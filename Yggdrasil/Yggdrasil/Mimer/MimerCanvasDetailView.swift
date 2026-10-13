@@ -38,6 +38,7 @@ struct MimerCanvasDetailView: View {
                             }
                                 .accessibilityIdentifier("mimer.canvas.annotate")
                             Spacer()
+                            MimerReadAloudControls(text: note.text)
                         }
                         .padding(.horizontal, YggTheme.Spacing.md)
                         if isAnnotationComposerPresented {
