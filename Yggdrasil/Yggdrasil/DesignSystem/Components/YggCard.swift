@@ -147,12 +147,11 @@ private struct YggPageModifier: ViewModifier {
         let isShell = colorScheme == .light
         content
             .scrollContentBackground(.hidden)
-            // Shell: dark glass top bar on the city. The tab bar is left to the
-            // system: on iPadOS it floats at the top and a forced background
-            // there covers the page top.
-            .toolbarBackground(YggTheme.Material.glass, for: .navigationBar)
-            .toolbarBackground(isShell ? .visible : .automatic, for: .navigationBar)
-            .toolbarColorScheme(isShell ? .dark : nil, for: .navigationBar)
+            // Shell: no bar band per column. The porcelain sheet runs up under
+            // the title, as on the web, where the title sits on the sheet and
+            // only the top app bar is dark glass (VaultSwitcherBar here). The
+            // tab bar is left to the system: on iPadOS it floats at the top.
+            .toolbarBackground(isShell ? .hidden : .automatic, for: .navigationBar)
             .background {
                 ZStack {
                     YggBackdrop()
@@ -182,18 +181,15 @@ private struct YggPanelSeam: View {
     }
 }
 
-/// List/Form row surface. Dark: `bg-surface`. Shell: a lighter, more
-/// translucent porcelain layer so the city still glows through the sheet.
+/// List/Form row surface. Dark: `bg-surface`. Shell: none. Rows sit directly
+/// on the porcelain sheet with hairline separators, like the web lists,
+/// instead of white system cards.
 struct YggRowBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         if colorScheme == .light {
-            Rectangle()
-                .fill(Color.white.opacity(0.42))
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(YggTheme.Color.textPrimary.opacity(0.08)).frame(height: 1)
-                }
+            Color.clear
         } else {
             YggTheme.Color.secondaryBackground
         }

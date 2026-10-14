@@ -174,6 +174,30 @@ enum YggAppearance: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Shell display headings: light, widely tracked, with the cyan half of
+    /// the chromatic split. SwiftUI has no navigation-title font API, so this
+    /// goes through the UIKit appearance proxy, scoped to the light (Shell)
+    /// trait so Yggdrasil Dark keeps the system titles. Call once at launch.
+    static func configureShellNavigationTitles() {
+        let split = NSShadow()
+        split.shadowColor = UIColor(YggTheme.Material.splitCyan)
+        split.shadowOffset = CGSize(width: -1.5, height: 0)
+        split.shadowBlurRadius = 0
+        let ink = UIColor(YggdrasilTokens.Shell.fg1)
+        let bar = UINavigationBar.appearance(for: UITraitCollection(userInterfaceStyle: .light))
+        bar.largeTitleTextAttributes = [
+            .font: UIFont.systemFont(ofSize: 30, weight: .light),
+            .kern: 6,
+            .foregroundColor: ink,
+            .shadow: split
+        ]
+        bar.titleTextAttributes = [
+            .font: UIFont.systemFont(ofSize: 15, weight: .regular),
+            .kern: 3,
+            .foregroundColor: ink
+        ]
+    }
+
     /// Unknown stored values fall back to Dark, like the web `data-theme` grammar.
     init(storedValue: String?) {
         self = storedValue.flatMap(YggAppearance.init(rawValue:)) ?? YggAppearance.defaultValue

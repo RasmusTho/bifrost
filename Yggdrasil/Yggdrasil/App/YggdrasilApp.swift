@@ -24,6 +24,7 @@ struct YggdrasilApp: App {
             try? FileManager.default.removeItem(at: LiveMeetingNotePaths.defaultDirectory())
         }
         #endif
+        YggAppearance.configureShellNavigationTitles()
         _watchRelayStartup = StateObject(wrappedValue: WatchRelayStartup())
     }
 
