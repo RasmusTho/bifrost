@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreText
 import UIKit
 
 /// Yggdrasil's shared design tokens. The shell and every hosted client
@@ -129,17 +130,51 @@ enum YggTheme {
         static let control = YggdrasilTokens.Radius.radiusLg
     }
 
-    /// iOS Dynamic Type mapped onto Yggdrasil roles; `display` uses New York
-    /// serif as the closest native analogue to EB Garamond.
+    /// The Yggdrasil type core, the same faces as the web (`--font-ui`
+    /// Space Grotesk, `--font-display` EB Garamond, `--font-mono` JetBrains
+    /// Mono), bundled under Resources/Fonts (SIL OFL 1.1, FONTS-OFL.txt) and
+    /// scaled with Dynamic Type through `relativeTo:`.
     enum Typography {
-        static let title = Font.title2.weight(.semibold)
-        static let display = Font.system(.largeTitle, design: .serif).italic()
-        static let sectionHeader = Font.headline
-        static let body = Font.body
-        static let caption = Font.caption
-        static let monospaceBody = Font.system(.body, design: .monospaced)
-        /// Shell status labels: uppercase tracked mono.
-        static let statusLabel = Font.system(.caption2, design: .monospaced).weight(.medium)
+        static let title = Font.custom(YggFonts.uiMedium, size: 22, relativeTo: .title2)
+        /// Secondary display lines (EB Garamond italic on the web).
+        static let display = Font.custom(YggFonts.displayItalic, size: 28, relativeTo: .title)
+        static let sectionHeader = Font.custom(YggFonts.uiMedium, size: 17, relativeTo: .headline)
+        static let body = Font.custom(YggFonts.uiRegular, size: 17, relativeTo: .body)
+        static let bodyEmphasis = Font.custom(YggFonts.uiMedium, size: 17, relativeTo: .body)
+        static let caption = Font.custom(YggFonts.uiRegular, size: 12, relativeTo: .caption)
+        static let monospaceBody = Font.custom(YggFonts.monoRegular, size: 15, relativeTo: .body)
+        /// Status labels: uppercase tracked mono.
+        static let statusLabel = Font.custom(YggFonts.monoMedium, size: 11, relativeTo: .caption2)
+
+        /// Markdown headings: H1 in light tracked display weight, then medium.
+        static func heading(level: Int) -> Font {
+            switch level {
+            case 1: Font.custom(YggFonts.uiLight, size: 28, relativeTo: .title)
+            case 2: Font.custom(YggFonts.uiMedium, size: 22, relativeTo: .title2)
+            case 3: Font.custom(YggFonts.uiMedium, size: 20, relativeTo: .title3)
+            default: sectionHeader
+            }
+        }
+    }
+}
+
+/// PostScript names of the bundled faces, and their one-time registration.
+enum YggFonts {
+    static let uiLight = "SpaceGrotesk-Light"
+    static let uiRegular = "SpaceGrotesk-Regular"
+    static let uiMedium = "SpaceGrotesk-Medium"
+    static let uiSemiBold = "SpaceGrotesk-SemiBold"
+    static let displayRegular = "EBGaramond-Regular"
+    static let displayItalic = "EBGaramond-Italic"
+    static let monoRegular = "JetBrainsMono-Regular"
+    static let monoMedium = "JetBrainsMono-Medium"
+
+    /// Registers every bundled `.ttf` for this process (no Info.plist
+    /// `UIAppFonts` entry needed). Safe to call more than once.
+    static func register(bundle: Bundle = .main) {
+        let urls = bundle.urls(forResourcesWithExtension: "ttf", subdirectory: nil) ?? []
+        guard !urls.isEmpty else { return }
+        CTFontManagerRegisterFontURLs(urls as CFArray, .process, true, nil)
     }
 }
 
@@ -174,28 +209,35 @@ enum YggAppearance: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Shell display headings: light, widely tracked, with the cyan half of
-    /// the chromatic split. SwiftUI has no navigation-title font API, so this
-    /// goes through the UIKit appearance proxy, scoped to the light (Shell)
-    /// trait so Yggdrasil Dark keeps the system titles. Call once at launch.
-    static func configureShellNavigationTitles() {
+    /// Navigation titles in the Yggdrasil type: Space Grotesk, light and
+    /// widely tracked for large titles, like the web display headings. Shell
+    /// adds the cyan half of the chromatic split. SwiftUI has no
+    /// navigation-title font API, so this uses the UIKit appearance proxy.
+    /// Call once at launch, after `YggFonts.register()`.
+    static func configureNavigationTitles() {
         let split = NSShadow()
-        split.shadowColor = UIColor(YggTheme.Material.splitCyan)
+        split.shadowColor = UIColor { traits in
+            traits.userInterfaceStyle == .light ? UIColor(YggTheme.Material.splitCyan) : .clear
+        }
         split.shadowOffset = CGSize(width: -1.5, height: 0)
         split.shadowBlurRadius = 0
-        let ink = UIColor(YggdrasilTokens.Shell.fg1)
-        let bar = UINavigationBar.appearance(for: UITraitCollection(userInterfaceStyle: .light))
-        bar.largeTitleTextAttributes = [
-            .font: UIFont.systemFont(ofSize: 30, weight: .light),
-            .kern: 6,
-            .foregroundColor: ink,
-            .shadow: split
-        ]
-        bar.titleTextAttributes = [
-            .font: UIFont.systemFont(ofSize: 15, weight: .regular),
-            .kern: 3,
-            .foregroundColor: ink
-        ]
+        let ink = UIColor(YggTheme.Color.textPrimary)
+        let bar = UINavigationBar.appearance()
+        if let large = UIFont(name: YggFonts.uiLight, size: 30) {
+            bar.largeTitleTextAttributes = [
+                .font: UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: large),
+                .kern: 3.6,
+                .foregroundColor: ink,
+                .shadow: split
+            ]
+        }
+        if let inline = UIFont(name: YggFonts.uiMedium, size: 15) {
+            bar.titleTextAttributes = [
+                .font: UIFontMetrics(forTextStyle: .headline).scaledFont(for: inline),
+                .kern: 1.5,
+                .foregroundColor: ink
+            ]
+        }
     }
 
     /// Unknown stored values fall back to Dark, like the web `data-theme` grammar.

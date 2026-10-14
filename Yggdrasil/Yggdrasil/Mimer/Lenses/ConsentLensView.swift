@@ -19,7 +19,7 @@ struct ConsentLensView: View {
                         if let grants = note?.grants, !grants.isEmpty {
                             ForEach(Array(grants.enumerated()), id: \.offset) { _, grant in
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(grant.scope ?? "unspecified scope").font(.body.weight(.medium))
+                                    Text(grant.scope ?? "unspecified scope").font(YggTheme.Typography.bodyEmphasis)
                                     if let basis = grant.basis {
                                         Text("basis: \(basis)")
                                             .font(YggTheme.Typography.caption)

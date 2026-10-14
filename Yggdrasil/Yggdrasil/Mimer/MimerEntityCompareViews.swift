@@ -110,7 +110,7 @@ struct MimerEntityCompareDetailView: View {
             Label("Mention context", systemImage: "text.quote")
                 .font(YggTheme.Typography.sectionHeader)
             Text(entry.surfaceForm)
-                .font(.title2.weight(.semibold))
+                .font(YggTheme.Typography.title)
                 .accessibilityIdentifier("mimer.entity.mention.surface")
             LabeledContent("mention_id", value: entry.mentionId)
             LabeledContent("resolution", value: entry.resolution)

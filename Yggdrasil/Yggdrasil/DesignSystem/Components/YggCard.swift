@@ -197,6 +197,17 @@ struct YggRowBackground: View {
 }
 
 extension View {
+    /// Tab bar chrome: dark glass with light labels, matching the vault bar,
+    /// so the iPadOS floating tab bar sits in one dark app bar rather than a
+    /// white system band. Apply to each tab's root view.
+    func yggTabChrome() -> some View {
+        toolbarBackground(YggTheme.Material.glass, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .toolbarColorScheme(.dark, for: .tabBar)
+    }
+}
+
+extension View {
     /// Applies the Yggdrasil row surface to every row inside a `List`/`Form`.
     func yggRows() -> some View {
         listRowBackground(YggRowBackground())

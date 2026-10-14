@@ -24,7 +24,8 @@ struct YggdrasilApp: App {
             try? FileManager.default.removeItem(at: LiveMeetingNotePaths.defaultDirectory())
         }
         #endif
-        YggAppearance.configureShellNavigationTitles()
+        YggFonts.register()
+        YggAppearance.configureNavigationTitles()
         _watchRelayStartup = StateObject(wrappedValue: WatchRelayStartup())
     }
 
@@ -41,6 +42,7 @@ struct YggdrasilApp: App {
             // asset-catalog AccentColor.
             .preferredColorScheme(YggAppearance(storedValue: appearanceRawValue).colorScheme)
             .tint(YggTheme.Color.accent)
+            .font(YggTheme.Typography.body)
         }
     }
 

@@ -24,7 +24,7 @@ struct EntityConfirmLensView: View {
                     } else {
                         ForEach(pending) { entry in
                             VStack(alignment: .leading, spacing: YggTheme.Spacing.sm) {
-                                Text(entry.surfaceForm).font(.body.weight(.semibold))
+                                Text(entry.surfaceForm).font(YggTheme.Typography.bodyEmphasis)
                                 if let confidence = entry.confidence {
                                     Text("confidence \(Int(confidence * 100))%")
                                         .font(YggTheme.Typography.caption)

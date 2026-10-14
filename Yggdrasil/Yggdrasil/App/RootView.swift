@@ -179,14 +179,15 @@ struct RootView: View {
                 VStack(spacing: 0) {
                     VaultSwitcherBar(vaultManager: vaultManager)
                     shell(vaultURL: vaultURL)
-                        .toolbarBackground(.visible, for: .tabBar)
                 }
             } else {
                 TabView {
                     VaultPickerView(vaultManager: vaultManager)
                         .tabItem { Label("Mimer", systemImage: "book.closed") }
+                        .yggTabChrome()
                     HeimdalShellView(sessionModel: heimdalSessionModel)
                         .tabItem { Label("Heimdal", systemImage: "waveform") }
+                        .yggTabChrome()
                 }
             }
         }
@@ -196,11 +197,13 @@ struct RootView: View {
         TabView {
             MimerShellView(vaultURL: vaultURL)
                 .tabItem { Label("Mimer", systemImage: "book.closed") }
+                .yggTabChrome()
             HeimdalShellView(
                 sessionModel: heimdalSessionModel,
                 fileStore: VaultFileStore(rootURL: vaultURL)
             )
             .tabItem { Label("Heimdal", systemImage: "waveform") }
+            .yggTabChrome()
             TransferQueueHost(
                 store: TransferOutboxStore(),
                 statusSource: testLaunchConfiguration.scriptedTransferQueueHub
@@ -208,9 +211,11 @@ struct RootView: View {
                 transport: testLaunchConfiguration.scriptedAcceptingTransport
             )
             .tabItem { Label("Queue", systemImage: "tray.full") }
+            .yggTabChrome()
             if let meetingHub = testLaunchConfiguration.scriptedLiveMeetingHub {
                 LiveMeetingHost(transport: meetingHub)
                     .tabItem { Label("Meeting", systemImage: "person.2.wave.2") }
+                    .yggTabChrome()
             }
         }
     }

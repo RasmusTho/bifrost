@@ -37,6 +37,7 @@ struct MimerCanvasDetailView: View {
                                 .accessibilityIdentifier("mimer.canvas.annotate")
                             Spacer()
                         }
+                        .padding(.horizontal, YggTheme.Spacing.md)
                         if isAnnotationComposerPresented {
                             TextField("Annotation", text: $appendDraft.annotationText, axis: .vertical)
                                 .accessibilityIdentifier("mimer.canvas.annotation.field")
@@ -83,6 +84,10 @@ struct MimerCanvasDetailView: View {
                     }
                     .yggPage()
                     .navigationTitle(note.relativePath.split(separator: "/").last.map(String.init) ?? note.relativePath)
+                    // Inline: a long note name would otherwise run as a large
+                    // title across the inspector column. The note's own H1
+                    // is the reading heading.
+                    .navigationBarTitleDisplayMode(.inline)
                     .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
                         guard let promotion = promotions.first else { return false }
                         let targetPath = note.relativePath

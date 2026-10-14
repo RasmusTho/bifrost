@@ -23,7 +23,7 @@ struct AttentionLensView: View {
                         if let overrides = note?.overrides, !overrides.isEmpty {
                             ForEach(overrides, id: \.overriddenAt) { override in
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(override.itemId).font(.body.weight(.medium))
+                                    Text(override.itemId).font(YggTheme.Typography.bodyEmphasis)
                                     Text("\(override.originalDecision) → \(override.overriddenDecision)")
                                         .font(YggTheme.Typography.caption)
                                         .foregroundStyle(YggTheme.Color.textSecondary)

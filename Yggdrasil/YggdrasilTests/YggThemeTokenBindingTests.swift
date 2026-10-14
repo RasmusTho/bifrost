@@ -61,6 +61,16 @@ final class YggThemeTokenBindingTests: XCTestCase {
         XCTAssertNil(YggAppearance.system.colorScheme)
     }
 
+    func testBundledYggdrasilFacesRegister() {
+        YggFonts.register()
+        for name in [
+            YggFonts.uiLight, YggFonts.uiRegular, YggFonts.uiMedium, YggFonts.uiSemiBold,
+            YggFonts.displayRegular, YggFonts.displayItalic, YggFonts.monoRegular, YggFonts.monoMedium
+        ] {
+            XCTAssertNotNil(UIFont(name: name, size: 17), "missing bundled face \(name)")
+        }
+    }
+
     func testVendoredTokensCarryThePinnedVersion() {
         XCTAssertEqual(YggdrasilTokens.version, "2.2.1")
     }
