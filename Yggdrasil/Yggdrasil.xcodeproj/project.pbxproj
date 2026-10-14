@@ -273,7 +273,7 @@
 		2638A8EC0D9F8E87FED4CB30 /* SpaceGrotesk-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-SemiBold.ttf"; sourceTree = "<group>"; };
 		90439D2DF58C112880C30CCC /* NoteWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteWebView.swift; sourceTree = "<group>"; };
 		A53A5F55504DCC53C64BB7D6 /* YggSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggSchemeHandler.swift; sourceTree = "<group>"; };
-		B5918490D62CD7A6CED12E0A /* VaultFileStore+Links.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultFileStore+Links.swift; sourceTree = "<group>"; };
+		B5918490D62CD7A6CED12E0A /* VaultFileStore+Links.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VaultFileStore+Links.swift"; sourceTree = "<group>"; };
 		7C79D9CE7992BE04B30E594D /* VaultLinkResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLinkResolutionTests.swift; sourceTree = "<group>"; };
 		F7D27F006BA3265D73C6F2D7 /* MarkdownWeb */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MarkdownWeb; sourceTree = "<group>"; };
 /* End PBXFileReference section */
