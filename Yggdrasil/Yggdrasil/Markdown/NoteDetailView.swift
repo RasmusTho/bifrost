@@ -14,27 +14,39 @@ struct NoteDetailView: View {
     @State private var loadError: String?
     @State private var isSaving = false
 
+    @State private var linkedNotePath: String?
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: YggTheme.Spacing.md) {
-                if let loadError {
-                    Text(loadError)
-                        .font(YggTheme.Typography.caption)
-                        .foregroundStyle(YggTheme.Color.destructive)
+        Group {
+            if isEditing {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: YggTheme.Spacing.md) {
+                        errorText
+                        TextEditor(text: $rawText)
+                            .accessibilityIdentifier("yggdrasil.noteEditor")
+                            .font(YggTheme.Typography.monospaceBody)
+                            .frame(minHeight: 320)
+                            .padding(YggTheme.Spacing.xs)
+                            .background(YggTheme.Color.tertiaryBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: YggTheme.Radius.control, style: .continuous))
+                    }
+                    .padding(YggTheme.Spacing.md)
                 }
-                if isEditing {
-                    TextEditor(text: $rawText)
-                        .accessibilityIdentifier("yggdrasil.noteEditor")
-                        .font(YggTheme.Typography.monospaceBody)
-                        .frame(minHeight: 320)
-                        .padding(YggTheme.Spacing.xs)
-                        .background(YggTheme.Color.tertiaryBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: YggTheme.Radius.control, style: .continuous))
-                } else {
-                    MarkdownRendererView(text: rawText)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    errorText
+                        .padding(.horizontal, YggTheme.Spacing.md)
+                    NoteWebView(
+                        markdown: rawText,
+                        notePath: relativePath,
+                        fileStore: fileStore,
+                        onOpenNote: { path, _ in linkedNotePath = path }
+                    )
                 }
             }
-            .padding(YggTheme.Spacing.md)
+        }
+        .navigationDestination(item: $linkedNotePath) { path in
+            NoteDetailView(relativePath: path, fileStore: fileStore)
         }
         .yggPage()
         .navigationTitle(relativePath.split(separator: "/").last.map(String.init) ?? relativePath)
@@ -53,6 +65,14 @@ struct NoteDetailView: View {
             }
         }
         .onAppear(perform: load)
+    }
+
+    @ViewBuilder private var errorText: some View {
+        if let loadError {
+            Text(loadError)
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.destructive)
+        }
     }
 
     private func load() {

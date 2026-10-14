@@ -28,7 +28,7 @@ final class YggdrasilUITests: XCTestCase {
         try requireIPhone()
         let app = launchFixtureVault()
         openFixtureRoundTripNote(in: app)
-        XCTAssertTrue(app.staticTexts["UAT fixture note"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["UAT fixture note"].waitForExistence(timeout: 15))
 
         app.buttons["Edit"].tap()
         let editor = app.textViews["yggdrasil.noteEditor"]

@@ -73,11 +73,12 @@ struct MimerCanvasDetailView: View {
                                 Button("Copy Pending Text") { appendDraft.copyFailureText() }
                             }
                         }
-                        ScrollView {
-                            MarkdownRendererView(text: note.text)
-                                .padding(YggTheme.Spacing.md)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                        NoteWebView(
+                            markdown: note.text,
+                            notePath: note.relativePath,
+                            fileStore: fileStore,
+                            onOpenNote: { path, _ in openLinkedNote(path) }
+                        )
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("mimer.canvas.detail.document")
                         .accessibilityValue(note.text)
@@ -121,6 +122,21 @@ struct MimerCanvasDetailView: View {
         }
         .onChange(of: note?.relativePath) { _, _ in
             detailCoordinator.selectionChanged()
+        }
+    }
+
+    /// Follows a `[[wikilink]]` from the rendered note: the linked note
+    /// becomes the canvas selection, exactly as if picked in the Vault column.
+    private func openLinkedNote(_ path: String) {
+        Task { @MainActor in
+            async let text = fileStore.read(path)
+            async let modified = fileStore.modificationDate(of: path)
+            guard let linked = try? await MimerCanvasNote(
+                relativePath: path,
+                text: text,
+                modificationDate: modified
+            ) else { return }
+            note = linked
         }
     }
 

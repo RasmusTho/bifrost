@@ -91,6 +91,30 @@ jobs:
             exit 1
           fi
           echo "Vendored Yggdrasil tokens match the pinned hub file."
+      - name: Note renderer (tokens pin, vendored bundle freshness, renderer tests)
+        shell: bash
+        env:
+          # Hub RasmusTho/agentic-pkm-mvp, token VERSION 2.2.1, commit
+          # be8bebde4f26d70150bbfa1c27e0ca7015cef4f5,
+          # companion-ui/companion-app/yggdrasil-tokens.css (tokens-only sheet).
+          YGGDRASIL_TOKENS_CSS_SHA256: ed184e7721b4e06b79490dc79bbe64c757103928f6f3d7050d27af2e519a9be2
+        run: |
+          set -euo pipefail
+          web=Yggdrasil/Yggdrasil/MarkdownWeb
+          actual=$(shasum -a 256 "$web/yggdrasil-tokens.css" | cut -d' ' -f1)
+          if [ "$actual" != "$YGGDRASIL_TOKENS_CSS_SHA256" ]; then
+            echo "::error::$web/yggdrasil-tokens.css ($actual) does not match the pinned hub sheet"
+            exit 1
+          fi
+          (cd "$web" && shasum -a 256 -c VENDOR.sha256)
+          cd tools/markdown-web
+          npm ci --no-audit --no-fund
+          npm run build
+          git diff --exit-code -- "../../$web" || {
+            echo "::error::Vendored renderer bundle is stale; run 'npm run build' in tools/markdown-web and commit."
+            exit 1
+          }
+          npm test
       - name: YggdrasilCore package tests
         shell: bash
         run: |
