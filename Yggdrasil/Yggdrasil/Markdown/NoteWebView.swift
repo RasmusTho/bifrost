@@ -1,5 +1,6 @@
 import QuickLook
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 
 /// Reads a vault note with the full Obsidian-flavoured renderer: callouts,
@@ -16,6 +17,10 @@ struct NoteWebView: View {
     let notePath: String
     let fileStore: VaultFileStore?
     var onOpenNote: (String, String?) -> Void = { _, _ in }
+    /// Accepts drops onto the reading surface (Mimer's drag-promote). WebKit
+    /// would otherwise claim plain-text drops itself, so the page sits under a
+    /// drop-only overlay when this is set.
+    var onDrop: (([NSItemProvider]) -> Bool)?
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
@@ -36,7 +41,8 @@ struct NoteWebView: View {
                 fileStore: fileStore,
                 onOpenNote: onOpenNote,
                 onOpenExternal: { openURL($0) },
-                onOpenAsset: openAsset
+                onOpenAsset: openAsset,
+                onDrop: onDrop
             )
             .quickLookPreview($previewURL)
         }
@@ -67,12 +73,13 @@ private struct NoteWebRepresentable: UIViewRepresentable {
     let onOpenNote: (String, String?) -> Void
     let onOpenExternal: (URL) -> Void
     let onOpenAsset: (String) -> Void
+    let onDrop: (([NSItemProvider]) -> Bool)?
 
     func makeCoordinator() -> NoteWebCoordinator {
         NoteWebCoordinator(fileStore: fileStore)
     }
 
-    func makeUIView(context: Context) -> WKWebView {
+    func makeUIView(context: Context) -> NoteWebContainerView {
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(context.coordinator.schemeHandler, forURLScheme: YggSchemeHandler.scheme)
         configuration.userContentController.add(WeakMessageHandler(context.coordinator), name: "bifrost")
@@ -89,28 +96,79 @@ private struct NoteWebRepresentable: UIViewRepresentable {
         #if DEBUG
         if #available(iOS 16.4, *) { webView.isInspectable = true }
         #endif
-        NoteWebCoordinator.removeDropInteractions(from: webView)
         context.coordinator.webView = webView
         context.coordinator.update(from: self)
         if let url = URL(string: "ygg://app/MarkdownWeb/index.html") {
             webView.load(URLRequest(url: url))
         }
-        return webView
+        let container = NoteWebContainerView(webView: webView)
+        container.dropOverlay.addInteraction(UIDropInteraction(delegate: context.coordinator))
+        container.dropOverlay.isHidden = onDrop == nil
+        return container
     }
 
-    func updateUIView(_ webView: WKWebView, context: Context) {
+    func updateUIView(_ container: NoteWebContainerView, context: Context) {
+        container.dropOverlay.isHidden = onDrop == nil
         context.coordinator.update(from: self)
     }
 
-    static func dismantleUIView(_ webView: WKWebView, coordinator: NoteWebCoordinator) {
-        webView.configuration.userContentController.removeScriptMessageHandler(forName: "bifrost")
+    static func dismantleUIView(_ container: NoteWebContainerView, coordinator: NoteWebCoordinator) {
+        container.webView.configuration.userContentController.removeScriptMessageHandler(forName: "bifrost")
+    }
+}
+
+/// Hosts the page plus a drop-only overlay above it.
+final class NoteWebContainerView: UIView {
+    let webView: WKWebView
+    let dropOverlay = DropOnlyOverlayView()
+
+    init(webView: WKWebView) {
+        self.webView = webView
+        super.init(frame: .zero)
+        backgroundColor = .clear
+        for view in [webView, dropOverlay] as [UIView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+            NSLayoutConstraint.activate([
+                view.leadingAnchor.constraint(equalTo: leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: trailingAnchor),
+                view.topAnchor.constraint(equalTo: topAnchor),
+                view.bottomAnchor.constraint(equalTo: bottomAnchor)
+            ])
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+}
+
+/// Transparent to touches, scrolling and accessibility; visible only to drag
+/// sessions, so drops land on the note instead of inside WebKit.
+final class DropOnlyOverlayView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard let event, NSStringFromClass(type(of: event)).contains("Drag") else { return nil }
+        return super.hitTest(point, with: event)
     }
 }
 
 /// Owns the page lifecycle: waits for the bundle to load, resolves the note's
 /// link/embed targets against the vault on demand, renders, and routes taps.
 @MainActor
-final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, UIDropInteractionDelegate {
     let schemeHandler: YggSchemeHandler
     private let fileStore: VaultFileStore?
     weak var webView: WKWebView?
@@ -123,6 +181,7 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
     private var onOpenNote: (String, String?) -> Void = { _, _ in }
     private var onOpenExternal: (URL) -> Void = { _ in }
     private var onOpenAsset: (String) -> Void = { _ in }
+    private var onDrop: (([NSItemProvider]) -> Bool)?
 
     private struct RenderRequest {
         let markdown: String
@@ -139,6 +198,7 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         onOpenNote = view.onOpenNote
         onOpenExternal = view.onOpenExternal
         onOpenAsset = view.onOpenAsset
+        onDrop = view.onDrop
         current = RenderRequest(markdown: view.markdown, notePath: view.notePath, theme: view.theme)
         renderIfNeeded()
     }
@@ -278,20 +338,18 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         return isShell && navigationAction.targetFrame?.isMainFrame != false ? .allow : .cancel
     }
 
-    // The delegate requirement is declared with an IUO; matching it exactly is required.
-    // swiftlint:disable:next implicitly_unwrapped_optional
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        Self.removeDropInteractions(from: webView)
+    // MARK: UIDropInteractionDelegate
+
+    func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool {
+        onDrop != nil && session.hasItemsConforming(toTypeIdentifiers: [UTType.plainText.identifier])
     }
 
-    /// The reading surface is not a drop target itself: drops (Mimer's drag
-    /// promote) belong to the SwiftUI note container around it, so WebKit's
-    /// own drop handling must not swallow them.
-    static func removeDropInteractions(from view: UIView) {
-        for interaction in view.interactions where interaction is UIDropInteraction {
-            view.removeInteraction(interaction)
-        }
-        view.subviews.forEach(removeDropInteractions)
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {
+        UIDropProposal(operation: .copy)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, performDrop session: UIDropSession) {
+        _ = onDrop?(session.items.map(\.itemProvider))
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
