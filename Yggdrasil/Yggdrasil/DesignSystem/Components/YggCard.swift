@@ -147,10 +147,12 @@ private struct YggPageModifier: ViewModifier {
         let isShell = colorScheme == .light
         content
             .scrollContentBackground(.hidden)
-            // Shell: dark glass chrome (top bar, tab bar) sitting on the city.
-            .toolbarBackground(YggTheme.Material.glass, for: .navigationBar, .tabBar)
-            .toolbarBackground(isShell ? .visible : .automatic, for: .navigationBar, .tabBar)
-            .toolbarColorScheme(isShell ? .dark : nil, for: .navigationBar, .tabBar)
+            // Shell: dark glass top bar on the city. The tab bar is left to the
+            // system: on iPadOS it floats at the top and a forced background
+            // there covers the page top.
+            .toolbarBackground(YggTheme.Material.glass, for: .navigationBar)
+            .toolbarBackground(isShell ? .visible : .automatic, for: .navigationBar)
+            .toolbarColorScheme(isShell ? .dark : nil, for: .navigationBar)
             .background {
                 ZStack {
                     YggBackdrop()
