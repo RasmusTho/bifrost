@@ -149,12 +149,7 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         if key == renderedKey {
             if current.theme != renderedTheme {
                 renderedTheme = current.theme
-                webView.callAsyncJavaScript(
-                    "await window.BifrostMarkdown.setTheme(theme)",
-                    arguments: ["theme": current.theme],
-                    in: nil,
-                    in: .page
-                )
+                Task { await Self.run("window.BifrostMarkdown.setTheme(\(Self.literal(current.theme)))", in: webView) }
             }
             return
         }
@@ -169,9 +164,29 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
 
     private func render(markdown: String, notePath: String, theme: String) async {
         guard let webView else { return }
+        let (resolved, embedded) = await resolveTargets(of: markdown, notePath: notePath, in: webView)
+        if Task.isCancelled { return }
+        let payload: [String: Any] = [
+            "markdown": markdown,
+            "notePath": notePath,
+            "theme": theme,
+            "resolved": resolved,
+            "embedded": embedded
+        ]
+        guard let json = try? JSONSerialization.data(withJSONObject: payload),
+              let literal = String(data: json, encoding: .utf8) else { return }
+        _ = await Self.run("window.BifrostMarkdown.render(\(literal)), true", in: webView)
+    }
+
+    /// Resolves link/embed targets on demand and reads embedded notes, in two
+    /// rounds: the note's own targets, then targets inside embedded notes.
+    private func resolveTargets(
+        of markdown: String,
+        notePath: String,
+        in webView: WKWebView
+    ) async -> (resolved: [String: [String: String]], embedded: [String: String]) {
         var resolved: [String: [String: String]] = [:]
         var embedded: [String: String] = [:]
-        // Two rounds: the note's own targets, then targets inside embedded notes.
         var pending = [markdown]
         for _ in 0..<2 where !pending.isEmpty {
             var targets: [String] = []
@@ -194,30 +209,38 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
                     }
                 }
             }
-            if Task.isCancelled { return }
+            if Task.isCancelled { break }
         }
-        if Task.isCancelled { return }
-        let payload: [String: Any] = [
-            "markdown": markdown,
-            "notePath": notePath,
-            "theme": theme,
-            "resolved": resolved,
-            "embedded": embedded
-        ]
-        _ = try? await webView.callAsyncJavaScript(
-            "await window.BifrostMarkdown.render(payload); return true",
-            arguments: ["payload": payload],
-            contentWorld: .page
-        )
+        return (resolved, embedded)
     }
 
     private func scan(_ markdown: String, in webView: WKWebView) async -> [String] {
-        let result = try? await webView.callAsyncJavaScript(
-            "const s = window.BifrostMarkdown.scan(md); return s.links.concat(s.embeds)",
-            arguments: ["md": markdown],
-            contentWorld: .page
-        )
-        return result as? [String] ?? []
+        let script = "JSON.stringify((s => s.links.concat(s.embeds))"
+            + "(window.BifrostMarkdown.scan(\(Self.literal(markdown)))))"
+        guard let result = await Self.run(script, in: webView) as? String,
+              let data = result.data(using: .utf8),
+              let targets = try? JSONSerialization.jsonObject(with: data) as? [String] else { return [] }
+        return targets
+    }
+
+    /// JSON-encodes a string as a JavaScript literal.
+    private static func literal(_ value: String) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: [value]),
+              let array = String(data: data, encoding: .utf8) else { return "\"\"" }
+        return String(array.dropFirst().dropLast())
+    }
+
+    /// Runs page script through the plain Objective-C `evaluateJavaScript`
+    /// entry point. The Swift-overlay conveniences (`callAsyncJavaScript`,
+    /// Result-based variants) link `libswiftWebKit`, which newer simulator and
+    /// OS runtimes no longer ship, so the app would fail to launch there.
+    private static func run(_ script: String, in webView: WKWebView) async -> Any? {
+        await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript(script) { result, error in
+                if let error { NSLog("NoteWebView script error: %@", error.localizedDescription) }
+                continuation.resume(returning: result)
+            }
+        }
     }
 
     // MARK: WKScriptMessageHandler
