@@ -20,23 +20,26 @@ struct NoteBrowserView: View {
 
     var body: some View {
         List {
-            if let loadError {
-                Text(loadError).foregroundStyle(YggTheme.Color.destructive)
-            }
-            ForEach(entries) { entry in
-                if entry.isDirectory {
-                    NavigationLink(entry.name) {
-                        NoteBrowserView(fileStore: fileStore, relativeDirectory: entry.relativePath)
-                    }
-                } else {
-                    NavigationLink(entry.name) {
-                        NoteDetailView(relativePath: entry.relativePath, fileStore: fileStore)
+            Group {
+                if let loadError {
+                    Text(loadError).foregroundStyle(YggTheme.Color.destructive)
+                }
+                ForEach(entries) { entry in
+                    if entry.isDirectory {
+                        NavigationLink(entry.name) {
+                            NoteBrowserView(fileStore: fileStore, relativeDirectory: entry.relativePath)
+                        }
+                    } else {
+                        NavigationLink(entry.name) {
+                            NoteDetailView(relativePath: entry.relativePath, fileStore: fileStore)
+                        }
                     }
                 }
+                if entries.isEmpty && loadError == nil {
+                    Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
+                }
             }
-            if entries.isEmpty && loadError == nil {
-                Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
-            }
+            .yggRows()
         }
         .yggPage()
         .navigationTitle(navigationTitle)

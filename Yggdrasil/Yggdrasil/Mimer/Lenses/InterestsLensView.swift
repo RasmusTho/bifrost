@@ -15,36 +15,39 @@ struct InterestsLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                LensScaffold.errorBanner(loadError)
-                Section("Interest Weights") {
-                    if weights.isEmpty {
-                        Text("No interest signal yet.").foregroundStyle(YggTheme.Color.textSecondary)
-                    }
-                    ForEach(weights, id: \.name) { entry in
-                        HStack {
-                            Text(entry.name)
-                            Spacer()
-                            Slider(
-                                value: Binding(
-                                    get: { entry.weight },
-                                    set: { setWeight($0, for: entry.name) }
-                                ),
-                                in: 0...1
-                            )
-                            .frame(width: 140)
+                Group {
+                    LensScaffold.errorBanner(loadError)
+                    Section("Interest Weights") {
+                        if weights.isEmpty {
+                            Text("No interest signal yet.").foregroundStyle(YggTheme.Color.textSecondary)
+                        }
+                        ForEach(weights, id: \.name) { entry in
+                            HStack {
+                                Text(entry.name)
+                                Spacer()
+                                Slider(
+                                    value: Binding(
+                                        get: { entry.weight },
+                                        set: { setWeight($0, for: entry.name) }
+                                    ),
+                                    in: 0...1
+                                )
+                                .frame(width: 140)
+                            }
                         }
                     }
-                }
-                Section("Watching") {
-                    ForEach(watched, id: \.self) { Text($0) }
-                    HStack {
-                        TextField("Add source to watch", text: $newSource)
-                        Button("Watch") { addToWatchlist() }.disabled(newSource.isEmpty)
+                    Section("Watching") {
+                        ForEach(watched, id: \.self) { Text($0) }
+                        HStack {
+                            TextField("Add source to watch", text: $newSource)
+                            Button("Watch") { addToWatchlist() }.disabled(newSource.isEmpty)
+                        }
+                    }
+                    Section("Never") {
+                        ForEach(never, id: \.self) { Text($0) }
                     }
                 }
-                Section("Never") {
-                    ForEach(never, id: \.self) { Text($0) }
-                }
+                .yggRows()
             }
             .yggPage()
             .navigationTitle("Interests")

@@ -59,39 +59,42 @@ struct SettingsLensView: View {
 
     private var settingsForm: some View {
         Form {
-            LensScaffold.errorBanner(loadError)
-            Section {
-                Picker("Theme", selection: appearanceSelection) {
-                    ForEach(YggAppearance.allCases) { appearance in
-                        Text(appearance.title).tag(appearance)
+            Group {
+                LensScaffold.errorBanner(loadError)
+                Section {
+                    Picker("Theme", selection: appearanceSelection) {
+                        ForEach(YggAppearance.allCases) { appearance in
+                            Text(appearance.title).tag(appearance)
+                        }
+                    }
+                    .accessibilityIdentifier("mimer.settings.theme")
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Yggdrasil Dark is the default. Shell puts porcelain surfaces on a neon night city. "
+                        + "System follows the device: Shell in light mode, Dark otherwise.")
+                }
+                Section("Retention") {
+                    Stepper("Retention window: \(retentionDays) days", value: $retentionDays, in: 1...365)
+                        .onChange(of: retentionDays) { _, newValue in
+                            guard hasLoaded, canEditSettings, !isSaving else { return }
+                            save(retentionDays: newValue)
+                        }
+                        .disabled(!canEditSettings || isSaving)
+                }
+                Section("Vault") {
+                    if usesCanvasNavigation {
+                        Button("Browse settings.md") {
+                            isSettingsNotePresented = true
+                        }
+                    } else {
+                        NavigationLink("Browse settings.md") {
+                            NoteDetailView(relativePath: HeimdalPaths.settings, fileStore: fileStore)
+                        }
                     }
                 }
-                .accessibilityIdentifier("mimer.settings.theme")
-            } header: {
-                Text("Appearance")
-            } footer: {
-                Text("Yggdrasil Dark is the default. Shell puts porcelain surfaces on a neon night city. "
-                    + "System follows the device: Shell in light mode, Dark otherwise.")
             }
-            Section("Retention") {
-                Stepper("Retention window: \(retentionDays) days", value: $retentionDays, in: 1...365)
-                    .onChange(of: retentionDays) { _, newValue in
-                        guard hasLoaded, canEditSettings, !isSaving else { return }
-                        save(retentionDays: newValue)
-                    }
-                    .disabled(!canEditSettings || isSaving)
-            }
-            Section("Vault") {
-                if usesCanvasNavigation {
-                    Button("Browse settings.md") {
-                        isSettingsNotePresented = true
-                    }
-                } else {
-                    NavigationLink("Browse settings.md") {
-                        NoteDetailView(relativePath: HeimdalPaths.settings, fileStore: fileStore)
-                    }
-                }
-            }
+            .yggRows()
         }
         .yggPage()
         .navigationTitle("Settings")

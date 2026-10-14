@@ -50,20 +50,20 @@ private struct YggCityBackdrop: View {
                 LinearGradient(colors: YggTheme.Material.cityBase, startPoint: .top, endPoint: .bottom)
                 // Corner fields.
                 RadialGradient(
-                    colors: [signs[0].opacity(0.35), .clear], center: .topTrailing,
-                    startRadius: 0, endRadius: size.width * 0.9
+                    colors: [signs[0].opacity(0.55), .clear], center: .topTrailing,
+                    startRadius: 0, endRadius: max(size.width, size.height) * 0.7
                 )
                 RadialGradient(
-                    colors: [signs[1].opacity(0.28), .clear], center: .bottomLeading,
-                    startRadius: 0, endRadius: size.width * 0.9
+                    colors: [signs[1].opacity(0.45), .clear], center: .bottomLeading,
+                    startRadius: 0, endRadius: max(size.width, size.height) * 0.7
                 )
                 // Small neon "sign" glows.
                 ForEach(Array(Self.signPositions.enumerated()), id: \.offset) { index, point in
                     Circle()
                         .fill(signs[index % signs.count])
-                        .frame(width: 56, height: 56)
-                        .blur(radius: 28)
-                        .opacity(0.55)
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 60)
+                        .opacity(0.8)
                         .position(x: point.x * size.width, y: point.y * size.height)
                 }
                 // Vertical glitch streaks.
@@ -116,12 +116,12 @@ struct YggSheetBackground: View {
         if colorScheme == .light {
             let shape = RoundedRectangle(cornerRadius: YggTheme.Material.shellPanelRadius, style: .continuous)
             shape
-                .fill(.ultraThinMaterial)
-                .overlay(shape.fill(LinearGradient(
+                .fill(LinearGradient(
                     stops: YggTheme.Material.sheetStops,
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
-                )))
+                ))
+                .overlay(alignment: .topTrailing) { YggPanelSeam() }
                 .shadow(color: YggTheme.Material.rimCyan.opacity(0.45), radius: 14, x: -6)
                 .shadow(color: YggTheme.Material.rimRed.opacity(0.45), radius: 14, x: 6)
         } else {
@@ -144,8 +144,13 @@ private struct YggPageModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
+        let isShell = colorScheme == .light
         content
             .scrollContentBackground(.hidden)
+            // Shell: dark glass chrome (top bar, tab bar) sitting on the city.
+            .toolbarBackground(YggTheme.Material.glass, for: .navigationBar, .tabBar)
+            .toolbarBackground(isShell ? .visible : .automatic, for: .navigationBar, .tabBar)
+            .toolbarColorScheme(isShell ? .dark : nil, for: .navigationBar, .tabBar)
             .background {
                 ZStack {
                     YggBackdrop()
@@ -156,6 +161,47 @@ private struct YggPageModifier: ViewModifier {
                 }
                 .ignoresSafeArea()
             }
+    }
+}
+
+/// Faint suit panel-seam line drawn in one corner of a porcelain sheet.
+private struct YggPanelSeam: View {
+    var body: some View {
+        Path { path in
+            path.move(to: CGPoint(x: 0, y: 0))
+            path.addLine(to: CGPoint(x: 28, y: 0))
+            path.addLine(to: CGPoint(x: 40, y: 12))
+            path.addLine(to: CGPoint(x: 40, y: 44))
+        }
+        .stroke(YggTheme.Color.textPrimary.opacity(0.18), lineWidth: 1)
+        .frame(width: 40, height: 44)
+        .padding(10)
+        .accessibilityHidden(true)
+    }
+}
+
+/// List/Form row surface. Dark: `bg-surface`. Shell: a lighter, more
+/// translucent porcelain layer so the city still glows through the sheet.
+struct YggRowBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if colorScheme == .light {
+            Rectangle()
+                .fill(Color.white.opacity(0.42))
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(YggTheme.Color.textPrimary.opacity(0.08)).frame(height: 1)
+                }
+        } else {
+            YggTheme.Color.secondaryBackground
+        }
+    }
+}
+
+extension View {
+    /// Applies the Yggdrasil row surface to every row inside a `List`/`Form`.
+    func yggRows() -> some View {
+        listRowBackground(YggRowBackground())
     }
 }
 

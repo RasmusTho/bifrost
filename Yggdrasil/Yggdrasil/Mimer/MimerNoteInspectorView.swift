@@ -32,22 +32,25 @@ struct MimerNoteInspectorView: View {
 
     var body: some View {
         List {
-            Section("Note metadata") {
-                LabeledContent("uuid") {
-                    Text(model.uuidDescription)
-                        .accessibilityIdentifier("mimer.canvas.inspector.uuid")
+            Group {
+                Section("Note metadata") {
+                    LabeledContent("uuid") {
+                        Text(model.uuidDescription)
+                            .accessibilityIdentifier("mimer.canvas.inspector.uuid")
+                    }
+                    if let zone = model.zone { LabeledContent("zone", value: zone) }
+                    if let origin = model.origin { LabeledContent("origin", value: origin) }
+                    if let modified = model.modifiedDescription { LabeledContent("modified", value: modified) }
                 }
-                if let zone = model.zone { LabeledContent("zone", value: zone) }
-                if let origin = model.origin { LabeledContent("origin", value: origin) }
-                if let modified = model.modifiedDescription { LabeledContent("modified", value: modified) }
-            }
-            if !model.agentProvenance.isEmpty {
-                Section("agent_provenance") {
-                    ForEach(model.agentProvenance.keys.sorted(), id: \.self) { key in
-                        LabeledContent(key, value: model.agentProvenance[key] ?? "")
+                if !model.agentProvenance.isEmpty {
+                    Section("agent_provenance") {
+                        ForEach(model.agentProvenance.keys.sorted(), id: \.self) { key in
+                            LabeledContent(key, value: model.agentProvenance[key] ?? "")
+                        }
                     }
                 }
             }
+            .yggRows()
         }
         .yggPage()
         .navigationTitle("Inspector")

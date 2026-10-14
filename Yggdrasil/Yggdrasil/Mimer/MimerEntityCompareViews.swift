@@ -6,28 +6,31 @@ struct MimerEntityQueueView: View {
 
     var body: some View {
         List {
-            if let loadError = model.loadError {
-                Text(loadError).foregroundStyle(YggTheme.Color.destructive)
-            }
-            if model.isLoading, model.pending.isEmpty {
-                ProgressView("Loading entity review")
-            } else if model.pending.isEmpty {
-                YggEmptyState(
-                    systemImage: "checkmark.circle",
-                    title: "Queue Clear",
-                    message: "No entity mentions waiting for confirmation."
-                )
-            } else {
-                ForEach(model.pending) { entry in
-                    Button {
-                        model.selectEntry(entry.id)
-                    } label: {
-                        queueRow(entry)
+            Group {
+                if let loadError = model.loadError {
+                    Text(loadError).foregroundStyle(YggTheme.Color.destructive)
+                }
+                if model.isLoading, model.pending.isEmpty {
+                    ProgressView("Loading entity review")
+                } else if model.pending.isEmpty {
+                    YggEmptyState(
+                        systemImage: "checkmark.circle",
+                        title: "Queue Clear",
+                        message: "No entity mentions waiting for confirmation."
+                    )
+                } else {
+                    ForEach(model.pending) { entry in
+                        Button {
+                            model.selectEntry(entry.id)
+                        } label: {
+                            queueRow(entry)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("mimer.entity.queue.\(entry.id)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("mimer.entity.queue.\(entry.id)")
                 }
             }
+            .yggRows()
         }
         .yggPage()
         .navigationTitle("Entity Review")

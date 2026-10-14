@@ -90,11 +90,14 @@ enum YggTheme {
         /// Chromatic split on titles and the primary button edge.
         static let splitCyan = SwiftUI.Color(yggHex: 0x00E5FF, opacity: 0.55)
         static let splitRed = SwiftUI.Color(yggHex: 0xFF1F4B, opacity: 0.55)
-        /// Porcelain sheet gradient stops (90 % → 85 % coverage).
+        /// Porcelain sheet gradient stops. The web sheet is 90 % → 85 % plus a
+        /// backdrop blur; SwiftUI has no tunable backdrop blur, so the iOS sheet
+        /// stays at the 75 % contrast floor the hub tests guard, letting the
+        /// city glow through.
         static let sheetStops: [Gradient.Stop] = [
-            .init(color: SwiftUI.Color(yggHex: 0xFFFFFF, opacity: 0.90), location: 0),
-            .init(color: SwiftUI.Color(yggHex: 0xF1F2F5, opacity: 0.85), location: 0.45),
-            .init(color: SwiftUI.Color(yggHex: 0xE4E6EB, opacity: 0.85), location: 1)
+            .init(color: SwiftUI.Color(yggHex: 0xFFFFFF, opacity: 0.80), location: 0),
+            .init(color: SwiftUI.Color(yggHex: 0xF1F2F5, opacity: 0.76), location: 0.45),
+            .init(color: SwiftUI.Color(yggHex: 0xE4E6EB, opacity: 0.75), location: 1)
         ]
         /// Night-city base (`#150a2a` → `#06040c` → `#020104`).
         static let cityBase: [SwiftUI.Color] = [

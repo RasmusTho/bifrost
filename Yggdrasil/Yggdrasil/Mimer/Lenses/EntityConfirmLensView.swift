@@ -13,42 +13,45 @@ struct EntityConfirmLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                LensScaffold.errorBanner(loadError)
-                if pending.isEmpty {
-                    YggEmptyState(
-                        systemImage: "checkmark.circle",
-                        title: "Queue Clear",
-                        message: "No entity mentions waiting for confirmation."
-                    )
-                } else {
-                    ForEach(pending) { entry in
-                        VStack(alignment: .leading, spacing: YggTheme.Spacing.sm) {
-                            Text(entry.surfaceForm).font(.body.weight(.semibold))
-                            if let confidence = entry.confidence {
-                                Text("confidence \(Int(confidence * 100))%")
-                                    .font(YggTheme.Typography.caption)
-                                    .foregroundStyle(YggTheme.Color.textSecondary)
-                            }
-                            if !entry.candidateEntityIDs.isEmpty {
-                                Text("Candidates: \(entry.candidateEntityIDs.joined(separator: ", "))")
-                                    .font(YggTheme.Typography.caption)
-                            }
-                            HStack {
-                                Button("Merge") { decide(entry, action: "merge") }
-                                    .buttonStyle(.borderedProminent)
-                                Button("Reject") { decide(entry, action: "reject") }
-                                    .buttonStyle(.bordered)
-                            }
-                        }
-                        .padding(.vertical, YggTheme.Spacing.xs)
-                        .draggable(
-                            MimerCanvasPromotion(
-                                relativePath: HeimdalPaths.entityReview,
-                                snippet: entry.surfaceForm
-                            )
+                Group {
+                    LensScaffold.errorBanner(loadError)
+                    if pending.isEmpty {
+                        YggEmptyState(
+                            systemImage: "checkmark.circle",
+                            title: "Queue Clear",
+                            message: "No entity mentions waiting for confirmation."
                         )
+                    } else {
+                        ForEach(pending) { entry in
+                            VStack(alignment: .leading, spacing: YggTheme.Spacing.sm) {
+                                Text(entry.surfaceForm).font(.body.weight(.semibold))
+                                if let confidence = entry.confidence {
+                                    Text("confidence \(Int(confidence * 100))%")
+                                        .font(YggTheme.Typography.caption)
+                                        .foregroundStyle(YggTheme.Color.textSecondary)
+                                }
+                                if !entry.candidateEntityIDs.isEmpty {
+                                    Text("Candidates: \(entry.candidateEntityIDs.joined(separator: ", "))")
+                                        .font(YggTheme.Typography.caption)
+                                }
+                                HStack {
+                                    Button("Merge") { decide(entry, action: "merge") }
+                                        .buttonStyle(.borderedProminent)
+                                    Button("Reject") { decide(entry, action: "reject") }
+                                        .buttonStyle(.bordered)
+                                }
+                            }
+                            .padding(.vertical, YggTheme.Spacing.xs)
+                            .draggable(
+                                MimerCanvasPromotion(
+                                    relativePath: HeimdalPaths.entityReview,
+                                    snippet: entry.surfaceForm
+                                )
+                            )
+                        }
                     }
                 }
+                .yggRows()
             }
             .yggPage()
             .navigationTitle("Entities")
