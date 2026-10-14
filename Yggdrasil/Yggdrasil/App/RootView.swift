@@ -173,10 +173,13 @@ struct RootView: View {
                 // production vault data flows.
                 shell(vaultURL: fixtureVaultURL)
             } else if let vaultURL = vaultManager.activeVaultURL {
-                shell(vaultURL: vaultURL)
-                .toolbarBackground(.visible, for: .tabBar)
-                .safeAreaInset(edge: .top) {
+                // The switcher sits above the TabView rather than in its top
+                // safe-area inset: on iPadOS the tab bar floats at the top of
+                // the TabView, and an inset bar was drawn over it.
+                VStack(spacing: 0) {
                     VaultSwitcherBar(vaultManager: vaultManager)
+                    shell(vaultURL: vaultURL)
+                        .toolbarBackground(.visible, for: .tabBar)
                 }
             } else {
                 TabView {
@@ -426,6 +429,7 @@ private func noActiveGrantConsentFixture() -> String {
 
 private struct VaultSwitcherBar: View {
     @ObservedObject var vaultManager: VaultManager
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack {
@@ -439,6 +443,14 @@ private struct VaultSwitcherBar: View {
         }
         .padding(.horizontal, YggTheme.Spacing.md)
         .padding(.vertical, YggTheme.Spacing.xs)
-        .background(YggTheme.Color.secondaryBackground)
+        // Shell: dark glass chrome on the city, with Dark-role text on it.
+        .background {
+            if colorScheme == .light {
+                YggTheme.Material.glass.ignoresSafeArea(edges: .top)
+            } else {
+                YggTheme.Color.secondaryBackground.ignoresSafeArea(edges: .top)
+            }
+        }
+        .environment(\.colorScheme, colorScheme == .light ? .dark : colorScheme)
     }
 }

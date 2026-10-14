@@ -102,6 +102,7 @@ struct MimerCanvasDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .yggPage()
             if inspectorIsPresented {
                 MimerNoteInspectorView(
                     model: NoteInspectorModel(
@@ -110,7 +111,6 @@ struct MimerCanvasDetailView: View {
                     )
                 )
                     .frame(width: 260)
-                    .background(YggTheme.Color.secondaryBackground)
                     .accessibilityIdentifier("mimer.canvas.inspector")
             }
         }
