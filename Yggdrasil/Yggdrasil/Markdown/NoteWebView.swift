@@ -118,13 +118,17 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
     private var isReady = false
     private var renderedKey: String?
     private var renderedTheme: String?
-    private var current: (markdown: String, notePath: String, theme: String) = ("", "", "dark")
+    private var current = RenderRequest(markdown: "", notePath: "", theme: "dark")
     private var renderTask: Task<Void, Never>?
-    private var callbacks: (
-        note: (String, String?) -> Void,
-        external: (URL) -> Void,
-        asset: (String) -> Void
-    ) = ({ _, _ in }, { _ in }, { _ in })
+    private var onOpenNote: (String, String?) -> Void = { _, _ in }
+    private var onOpenExternal: (URL) -> Void = { _ in }
+    private var onOpenAsset: (String) -> Void = { _ in }
+
+    private struct RenderRequest {
+        let markdown: String
+        let notePath: String
+        let theme: String
+    }
 
     init(fileStore: VaultFileStore?) {
         self.fileStore = fileStore
@@ -132,8 +136,10 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
     }
 
     fileprivate func update(from view: NoteWebRepresentable) {
-        callbacks = (view.onOpenNote, view.onOpenExternal, view.onOpenAsset)
-        current = (view.markdown, view.notePath, view.theme)
+        onOpenNote = view.onOpenNote
+        onOpenExternal = view.onOpenExternal
+        onOpenAsset = view.onOpenAsset
+        current = RenderRequest(markdown: view.markdown, notePath: view.notePath, theme: view.theme)
         renderIfNeeded()
     }
 
@@ -224,11 +230,11 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
             renderedKey = nil
             renderIfNeeded()
         case "openNote":
-            if let path = body["path"] as? String { callbacks.note(path, body["anchor"] as? String) }
+            if let path = body["path"] as? String { onOpenNote(path, body["anchor"] as? String) }
         case "openExternal":
-            if let raw = body["url"] as? String, let url = URL(string: raw) { callbacks.external(url) }
+            if let raw = body["url"] as? String, let url = URL(string: raw) { onOpenExternal(url) }
         case "openAsset":
-            if let path = body["path"] as? String { callbacks.asset(path) }
+            if let path = body["path"] as? String { onOpenAsset(path) }
         case "error":
             NSLog("NoteWebView: %@", (body["message"] as? String) ?? "unknown renderer error")
         default:
@@ -249,6 +255,8 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         return isShell && navigationAction.targetFrame?.isMainFrame != false ? .allow : .cancel
     }
 
+    // The delegate requirement is declared with an IUO; matching it exactly is required.
+    // swiftlint:disable:next implicitly_unwrapped_optional
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Self.removeDropInteractions(from: webView)
     }

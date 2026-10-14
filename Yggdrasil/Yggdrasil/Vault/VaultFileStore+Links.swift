@@ -139,12 +139,15 @@ extension VaultFileStore {
             ? options.filter { option in suffixes.contains { option.lowercased().hasSuffix($0) } }
             : options
         let pool = suffixMatches.isEmpty ? options : suffixMatches
+        // Nearest to the linking note first, then the shallowest, then by name.
         return pool.min { lhs, rhs in
-            let left = (sharedPrefix(lhs, noteDirectory), -lhs.split(separator: "/").count, lhs)
-            let right = (sharedPrefix(rhs, noteDirectory), -rhs.split(separator: "/").count, rhs)
-            if left.0 != right.0 { return left.0 > right.0 }
-            if left.1 != right.1 { return left.1 > right.1 }
-            return left.2 < right.2
+            let leftShared = sharedPrefix(lhs, noteDirectory)
+            let rightShared = sharedPrefix(rhs, noteDirectory)
+            if leftShared != rightShared { return leftShared > rightShared }
+            let leftDepth = lhs.split(separator: "/").count
+            let rightDepth = rhs.split(separator: "/").count
+            if leftDepth != rightDepth { return leftDepth < rightDepth }
+            return lhs < rhs
         }
     }
 
