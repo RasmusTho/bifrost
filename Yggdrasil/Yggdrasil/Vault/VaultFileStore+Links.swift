@@ -124,11 +124,17 @@ extension VaultFileStore {
         guard isContained(target) else { return nil }
         let hasExtension = !(target as NSString).pathExtension.isEmpty
         let candidates = hasExtension ? [target] : [target + ".md", target]
-        for candidate in candidates {
-            if let exact = lowered[candidate.lowercased()] { return exact }
-            if !noteDirectory.isEmpty {
-                let relative = (noteDirectory as NSString).appendingPathComponent(candidate)
-                if let hit = lowered[(relative as NSString).standardizingPath.lowercased()] { return hit }
+        // Exact spelling first (vault path, then relative to the linking
+        // note), then the same two lookups ignoring case.
+        for caseSensitive in [true, false] {
+            for candidate in candidates {
+                let paths = [candidate] + (noteDirectory.isEmpty ? [] : [
+                    ((noteDirectory as NSString).appendingPathComponent(candidate) as NSString).standardizingPath
+                ])
+                for path in paths {
+                    guard let hit = lowered[path.lowercased()] else { continue }
+                    if !caseSensitive || hit == path { return hit }
+                }
             }
         }
         let name = (target as NSString).lastPathComponent.lowercased()
