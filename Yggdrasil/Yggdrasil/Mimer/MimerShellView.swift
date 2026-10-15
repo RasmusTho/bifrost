@@ -64,15 +64,19 @@ private struct MimerTabView: View {
         TabView {
             AttentionLensView(fileStore: fileStore)
                 .tabItem { Label("Today", systemImage: "sun.max") }
+                .yggTabChrome()
 
             InterestsLensView(fileStore: fileStore)
                 .tabItem { Label("Interests", systemImage: "slider.horizontal.3") }
+                .yggTabChrome()
 
             EntityConfirmLensView(fileStore: fileStore)
                 .tabItem { Label("Entities", systemImage: "person.crop.circle.badge.questionmark") }
+                .yggTabChrome()
 
             ConsentLensView(fileStore: fileStore)
                 .tabItem { Label("Consent", systemImage: "hand.raised") }
+                .yggTabChrome()
 
             // NoteBrowserView pushes further instances of itself via
             // NavigationLink as the user drills into folders, so the
@@ -83,9 +87,11 @@ private struct MimerTabView: View {
                 NoteBrowserView(fileStore: fileStore)
             }
             .tabItem { Label("Vault", systemImage: "folder") }
+            .yggTabChrome()
 
             SettingsLensView(fileStore: fileStore)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .yggTabChrome()
         }
         .accessibilityIdentifier("mimer.compact.tabView")
     }
