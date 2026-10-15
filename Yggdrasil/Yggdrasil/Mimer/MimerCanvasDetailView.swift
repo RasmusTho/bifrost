@@ -10,6 +10,8 @@ struct MimerCanvasDetailView: View {
     @ObservedObject var appendDraft: MimerCanvasAppendDraft
     @StateObject private var detailCoordinator: MimerCanvasDetailCoordinator
     @State private var isAnnotationComposerPresented = false
+    /// The heading/block a followed link points into, for the note it opened.
+    @State private var linkedAnchor: VaultNoteLink?
 
     init(
         note: Binding<MimerCanvasNote?>,
@@ -73,11 +75,16 @@ struct MimerCanvasDetailView: View {
                                 Button("Copy Pending Text") { appendDraft.copyFailureText() }
                             }
                         }
-                        ScrollView {
-                            MarkdownRendererView(text: note.text)
-                                .padding(YggTheme.Spacing.md)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                        NoteWebView(
+                            markdown: note.text,
+                            notePath: note.relativePath,
+                            fileStore: fileStore,
+                            anchor: linkedAnchor?.path == note.relativePath ? linkedAnchor?.anchor : nil,
+                            onOpenNote: { path, anchor in openLinkedNote(path, anchor: anchor) },
+                            onDrop: { providers in
+                                acceptDroppedPromotion(providers, onto: note.relativePath)
+                            }
+                        )
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("mimer.canvas.detail.document")
                         .accessibilityValue(note.text)
@@ -121,6 +128,38 @@ struct MimerCanvasDetailView: View {
         }
         .onChange(of: note?.relativePath) { _, _ in
             detailCoordinator.selectionChanged()
+        }
+    }
+
+    /// Drag-promote onto the rendered note (the web reading surface hands its
+    /// drops here; `dropDestination` covers the rest of the note container).
+    private func acceptDroppedPromotion(_ providers: [NSItemProvider], onto targetPath: String) -> Bool {
+        guard let provider = providers.first else { return false }
+        _ = provider.loadTransferable(type: MimerCanvasPromotion.self) { result in
+            guard case .success(let promotion) = result else { return }
+            Task { @MainActor in
+                if await appendDraft.submitPromotion(promotion, to: targetPath) {
+                    await refreshAfterAppend(path: targetPath)
+                }
+            }
+        }
+        return true
+    }
+
+    /// Follows a `[[wikilink]]` from the rendered note: the linked note
+    /// becomes the canvas selection, exactly as if picked in the Vault column.
+    private func openLinkedNote(_ path: String, anchor: String?) {
+        linkedAnchor = VaultNoteLink(path: path, anchor: anchor)
+        guard path != note?.relativePath else { return }
+        Task { @MainActor in
+            async let text = fileStore.read(path)
+            async let modified = fileStore.modificationDate(of: path)
+            guard let linked = try? await MimerCanvasNote(
+                relativePath: path,
+                text: text,
+                modificationDate: modified
+            ) else { return }
+            note = linked
         }
     }
 

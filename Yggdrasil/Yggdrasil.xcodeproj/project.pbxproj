@@ -120,6 +120,11 @@
 		F476A4F0245E1B08783D5684 /* SpaceGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 94A915E30D86105ED24ADD4F /* SpaceGrotesk-Medium.ttf */; };
 		7EC02AE81E09A16913D6C6F8 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 41B20768FA584277963FA625 /* SpaceGrotesk-Regular.ttf */; };
 		C383C488849602A49D1D6D7B /* SpaceGrotesk-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2638A8EC0D9F8E87FED4CB30 /* SpaceGrotesk-SemiBold.ttf */; };
+		C1AAB257E524C8CBD2E1EB39 /* NoteWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90439D2DF58C112880C30CCC /* NoteWebView.swift */; };
+		167070441A87A1782CFB748D /* YggSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A53A5F55504DCC53C64BB7D6 /* YggSchemeHandler.swift */; };
+		4A72FB58D8F0C1F630DA621B /* VaultFileStore+Links.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5918490D62CD7A6CED12E0A /* VaultFileStore+Links.swift */; };
+		63EB8172BB044838E8F7B72D /* VaultLinkResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C79D9CE7992BE04B30E594D /* VaultLinkResolutionTests.swift */; };
+		4F55701782B91EB3C8AD6FDF /* MarkdownWeb in Resources */ = {isa = PBXBuildFile; fileRef = F7D27F006BA3265D73C6F2D7 /* MarkdownWeb */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -266,6 +271,11 @@
 		94A915E30D86105ED24ADD4F /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
 		41B20768FA584277963FA625 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		2638A8EC0D9F8E87FED4CB30 /* SpaceGrotesk-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-SemiBold.ttf"; sourceTree = "<group>"; };
+		90439D2DF58C112880C30CCC /* NoteWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteWebView.swift; sourceTree = "<group>"; };
+		A53A5F55504DCC53C64BB7D6 /* YggSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggSchemeHandler.swift; sourceTree = "<group>"; };
+		B5918490D62CD7A6CED12E0A /* VaultFileStore+Links.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VaultFileStore+Links.swift"; sourceTree = "<group>"; };
+		7C79D9CE7992BE04B30E594D /* VaultLinkResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLinkResolutionTests.swift; sourceTree = "<group>"; };
+		F7D27F006BA3265D73C6F2D7 /* MarkdownWeb */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MarkdownWeb; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -364,6 +374,7 @@
 				AD8EE776672A661BFB83EAD4 /* VaultManager.swift */,
 				A0F1BCA55966245F10D18664 /* VaultPickerView.swift */,
 				3383F4474E420445AA4358ED /* VaultFileStore.swift */,
+				B5918490D62CD7A6CED12E0A /* VaultFileStore+Links.swift */,
 				C50000110000000000000001 /* VaultWriteProvenance.swift */,
 			);
 			path = Vault;
@@ -373,6 +384,8 @@
 			isa = PBXGroup;
 			children = (
 				90AC60F6FB01AE186DDFE727 /* MarkdownRendererView.swift */,
+				A53A5F55504DCC53C64BB7D6 /* YggSchemeHandler.swift */,
+				90439D2DF58C112880C30CCC /* NoteWebView.swift */,
 				394547EDCD374141F3DFC604 /* NoteDetailView.swift */,
 			);
 			path = Markdown;
@@ -490,6 +503,7 @@
 				AC627CAEB0F061C3CB6B7D5F /* Mimer */,
 				A14000210000000000000001 /* Heimdal */,
 				5F44D0FB9286968825156D66 /* Resources */,
+				F7D27F006BA3265D73C6F2D7 /* MarkdownWeb */,
 				F67000500000000000000050 /* HeimdalMacObserver */,
 			);
 			path = Yggdrasil;
@@ -506,6 +520,7 @@
 				B1F100000000000000000004 /* CanvasAppendWriteTests.swift */,
 				A6D1E0400000000000000004 /* AttentionLensAuditTests.swift */,
 				B76612169B4F613DFBFC5FEA /* YggThemeTokenBindingTests.swift */,
+				7C79D9CE7992BE04B30E594D /* VaultLinkResolutionTests.swift */,
 				D70000020000000000000002 /* TestSeamGatingTests.swift */,
 				A14000140000000000000004 /* HeimdalBoundaryTests.swift */,
 				A14000150000000000000005 /* CaptureFolderBindingTests.swift */,
@@ -769,6 +784,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AFBD06499F7E0D5AEDD902DD /* Assets.xcassets in Resources */,
+				4F55701782B91EB3C8AD6FDF /* MarkdownWeb in Resources */,
 				D0A149FBDB5E2A2AE69B78EE /* EBGaramond-Italic.ttf in Resources */,
 				E4935229CBB6D1E8C0F3BBBE /* EBGaramond-Medium.ttf in Resources */,
 				4F4552048AF639A4E34113DA /* EBGaramond-Regular.ttf in Resources */,
@@ -796,6 +812,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A72FB58D8F0C1F630DA621B /* VaultFileStore+Links.swift in Sources */,
+				167070441A87A1782CFB748D /* YggSchemeHandler.swift in Sources */,
+				C1AAB257E524C8CBD2E1EB39 /* NoteWebView.swift in Sources */,
 				82D4F2DA1439F498980F3486 /* YggdrasilApp.swift in Sources */,
 				416E42C9C40B0142A94E867F /* RootView.swift in Sources */,
 				2EB6B26E82A85030F90A8949 /* Theme.swift in Sources */,
@@ -858,6 +877,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				63EB8172BB044838E8F7B72D /* VaultLinkResolutionTests.swift in Sources */,
 				049AECA1714DE41BF261946D /* VaultFileStoreTests.swift in Sources */,
 				C50000020000000000000002 /* VaultFileStoreProvenanceTests.swift in Sources */,
 				C50000050000000000000005 /* VaultFileStoreProvenanceEdgeTests.swift in Sources */,

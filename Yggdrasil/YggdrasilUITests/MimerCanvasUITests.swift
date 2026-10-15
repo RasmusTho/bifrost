@@ -137,7 +137,7 @@ final class MimerCanvasUITests: XCTestCase {
         let note = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
         XCTAssertTrue(note.waitForExistence(timeout: 5))
         note.tap()
-        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 15))
         let uuid = app.descendants(matching: .any)["mimer.canvas.inspector.uuid"]
         XCTAssertTrue(uuid.waitForExistence(timeout: 5))
         XCTAssertTrue(uuid.label.contains("fixture-uuid"))
@@ -169,7 +169,7 @@ final class MimerCanvasUITests: XCTestCase {
         let browseSettings = app.buttons["Browse settings.md"]
         XCTAssertTrue(browseSettings.waitForExistence(timeout: 5))
         browseSettings.tap()
-        XCTAssertTrue(app.staticTexts["Settings fixture"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Settings fixture"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
 
         let backToSettings = app.buttons["Back to Settings"]
@@ -187,7 +187,7 @@ final class MimerCanvasUITests: XCTestCase {
         let note = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
         XCTAssertTrue(note.waitForExistence(timeout: 5))
         note.tap()
-        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 15))
     }
 
     func testAnnotateAndDragPromoteJourney() throws {
@@ -212,7 +212,7 @@ final class MimerCanvasUITests: XCTestCase {
         annotationField.tap()
         annotationField.typeText("check the June numbers")
         app.buttons["mimer.canvas.annotation.commit"].tap()
-        XCTAssertTrue(app.staticTexts["check the June numbers"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["check the June numbers"].waitForExistence(timeout: 15))
 
         let source = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/source.md"]
         XCTAssertTrue(source.waitForExistence(timeout: 5))

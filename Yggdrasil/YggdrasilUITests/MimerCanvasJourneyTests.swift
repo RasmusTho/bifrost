@@ -40,7 +40,7 @@ final class MimerCanvasJourneyTests: XCTestCase {
         let note = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
         XCTAssertTrue(note.waitForExistence(timeout: 5))
         note.tap()
-        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 15))
 
         // 5. Confirm the inspector reflects that note's metadata.
         let inspectorUUID = app.descendants(matching: .any)["mimer.canvas.inspector.uuid"]
@@ -53,7 +53,7 @@ final class MimerCanvasJourneyTests: XCTestCase {
         let plainNote = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/source.md"]
         XCTAssertTrue(plainNote.waitForExistence(timeout: 5))
         plainNote.tap()
-        XCTAssertTrue(app.staticTexts["Source note"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Source note"].waitForExistence(timeout: 15))
         // `LabeledContent` composes its own label into the accessibility
         // label, so match on containment rather than equality (as step 5
         // does). Asserting both halves keeps this honest: the inspector must

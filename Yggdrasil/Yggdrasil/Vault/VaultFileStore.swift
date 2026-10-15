@@ -94,7 +94,7 @@ struct VaultFileStore: Sendable {
     private static let ioQueue = DispatchQueue(label: "com.rasmustho.bifrost.vault-file-store")
 
     let rootURL: URL
-    private let coordinator: VaultFileCoordinating
+    let coordinator: VaultFileCoordinating
     private let provenanceTimestampProvider: @Sendable () throws -> String
     private let provenanceFailureLogger: @Sendable (String) -> Void
 
@@ -303,7 +303,7 @@ struct VaultFileStore: Sendable {
         }
     }
 
-    private func withReadAccess<T: Sendable>(
+    func withReadAccess<T: Sendable>(
         _ relativePath: String,
         body: @Sendable () throws -> T
     ) throws -> T {
@@ -332,7 +332,7 @@ struct VaultFileStore: Sendable {
         )
     }
 
-    private func performIO<T: Sendable>(
+    func performIO<T: Sendable>(
         _ operation: @escaping @Sendable () throws -> T
     ) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
@@ -346,7 +346,7 @@ struct VaultFileStore: Sendable {
         }
     }
 
-    private func performIO<T: Sendable>(_ operation: @escaping @Sendable () -> T) async -> T {
+    func performIO<T: Sendable>(_ operation: @escaping @Sendable () -> T) async -> T {
         await withCheckedContinuation { continuation in
             Self.ioQueue.async {
                 continuation.resume(returning: operation())
