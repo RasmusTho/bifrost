@@ -8,13 +8,16 @@ import SwiftUI
 struct NoteDetailView: View {
     let relativePath: String
     let fileStore: VaultFileStore
+    /// Heading/block anchor from the link that opened this note.
+    var anchor: String?
 
     @State private var rawText: String = ""
     @State private var isEditing = false
     @State private var loadError: String?
     @State private var isSaving = false
 
-    @State private var linkedNotePath: String?
+    @State private var linkedNote: VaultNoteLink?
+    @State private var localAnchor: String?
 
     var body: some View {
         Group {
@@ -40,13 +43,20 @@ struct NoteDetailView: View {
                         markdown: rawText,
                         notePath: relativePath,
                         fileStore: fileStore,
-                        onOpenNote: { path, _ in linkedNotePath = path }
+                        anchor: localAnchor ?? anchor,
+                        onOpenNote: { path, anchor in
+                            if path == relativePath {
+                                localAnchor = anchor
+                            } else {
+                                linkedNote = VaultNoteLink(path: path, anchor: anchor)
+                            }
+                        }
                     )
                 }
             }
         }
-        .navigationDestination(item: $linkedNotePath) { path in
-            NoteDetailView(relativePath: path, fileStore: fileStore)
+        .navigationDestination(item: $linkedNote) { link in
+            NoteDetailView(relativePath: link.path, fileStore: fileStore, anchor: link.anchor)
         }
         .yggPage()
         .navigationTitle(relativePath.split(separator: "/").last.map(String.init) ?? relativePath)
@@ -102,4 +112,10 @@ struct NoteDetailView: View {
             }
         }
     }
+}
+
+/// A followed link: the target note and the heading/block it points into.
+struct VaultNoteLink: Hashable {
+    let path: String
+    let anchor: String?
 }

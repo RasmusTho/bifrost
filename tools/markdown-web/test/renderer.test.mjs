@@ -110,3 +110,23 @@ test('UAT test note: every feature renders', () => {
   assert.equal((html.match(/data-testid="vault-mermaid-block"/g) || []).length, 8);
   assert.match(html, /<h1 id="markdown-och-mermaid-testnot">/);
 });
+
+test('scan reports relative Markdown links, not external or local anchors', () => {
+  const { links } = scan('[a](Sub/Other%20Note.md#Part) [b](https://x.io) [c](#here) ![i](pic.png) [d](mailto:a@b.c)');
+  assert.deepEqual(links, ['Sub/Other Note.md']);
+});
+
+test('embedded notes resolve their own links relative to themselves', () => {
+  const html = renderHTML({
+    markdown: '![[Inner]]',
+    notePath: 'A/Host.md',
+    resolved: { Inner: { path: 'B/Inner.md', kind: 'note' }, Peer: { path: 'A/Peer.md', kind: 'note' } },
+    resolvedBySource: {
+      'A/Host.md': { Inner: { path: 'B/Inner.md', kind: 'note' } },
+      'B/Inner.md': { Peer: { path: 'B/Peer.md', kind: 'note' } },
+    },
+    embedded: { 'B/Inner.md': 'see [[Peer]]' },
+  });
+  assert.match(html, /data-ygg-path="B\/Peer\.md"/);
+  assert.doesNotMatch(html, /data-ygg-path="A\/Peer\.md"/);
+});

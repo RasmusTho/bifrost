@@ -16,6 +16,8 @@ struct NoteWebView: View {
     let markdown: String
     let notePath: String
     let fileStore: VaultFileStore?
+    /// Heading or block anchor to scroll to once rendered (`#Heading`, `#^id`).
+    var anchor: String?
     var onOpenNote: (String, String?) -> Void = { _, _ in }
     /// Accepts drops onto the reading surface (Mimer's drag-promote). WebKit
     /// would otherwise claim plain-text drops itself, so the page sits under a
@@ -37,6 +39,7 @@ struct NoteWebView: View {
             NoteWebRepresentable(
                 markdown: markdown,
                 notePath: notePath,
+                anchor: anchor,
                 theme: colorScheme == .light ? "light" : "dark",
                 fileStore: fileStore,
                 onOpenNote: onOpenNote,
@@ -68,6 +71,7 @@ struct NoteWebView: View {
 private struct NoteWebRepresentable: UIViewRepresentable {
     let markdown: String
     let notePath: String
+    let anchor: String?
     let theme: String
     let fileStore: VaultFileStore?
     let onOpenNote: (String, String?) -> Void
@@ -176,7 +180,10 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
     private var isReady = false
     private var renderedKey: String?
     private var renderedTheme: String?
-    private var current = RenderRequest(markdown: "", notePath: "", theme: "dark")
+    private var current = RenderRequest(markdown: "", notePath: "", anchor: nil, theme: "dark")
+    /// The last payload sent to the page, re-sent with a new theme so Mermaid
+    /// (which bakes colours into its SVG) redraws without re-resolving links.
+    private var lastPayload: [String: Any]?
     private var renderTask: Task<Void, Never>?
     private var onOpenNote: (String, String?) -> Void = { _, _ in }
     private var onOpenExternal: (URL) -> Void = { _ in }
@@ -186,7 +193,14 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
     private struct RenderRequest {
         let markdown: String
         let notePath: String
+        let anchor: String?
         let theme: String
+    }
+
+    /// A note's targets, kept apart: only embeds need their note text read.
+    private struct ScanResult: Decodable {
+        let links: [String]
+        let embeds: [String]
     }
 
     init(fileStore: VaultFileStore?) {
@@ -199,17 +213,22 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         onOpenExternal = view.onOpenExternal
         onOpenAsset = view.onOpenAsset
         onDrop = view.onDrop
-        current = RenderRequest(markdown: view.markdown, notePath: view.notePath, theme: view.theme)
+        current = RenderRequest(
+            markdown: view.markdown,
+            notePath: view.notePath,
+            anchor: view.anchor,
+            theme: view.theme
+        )
         renderIfNeeded()
     }
 
     private func renderIfNeeded() {
         guard isReady, let webView else { return }
-        let key = current.notePath + "\u{0}" + current.markdown
+        let key = [current.notePath, current.anchor ?? "", current.markdown].joined(separator: "\u{0}")
         if key == renderedKey {
             if current.theme != renderedTheme {
                 renderedTheme = current.theme
-                Task { await Self.run("window.BifrostMarkdown.setTheme(\(Self.literal(current.theme)))", in: webView) }
+                rerender(theme: current.theme, in: webView)
             }
             return
         }
@@ -218,69 +237,85 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         let snapshot = current
         renderTask?.cancel()
         renderTask = Task { [weak self] in
-            await self?.render(markdown: snapshot.markdown, notePath: snapshot.notePath, theme: snapshot.theme)
+            await self?.render(snapshot)
         }
     }
 
-    private func render(markdown: String, notePath: String, theme: String) async {
+    private func render(_ request: RenderRequest) async {
         guard let webView else { return }
-        let (resolved, embedded) = await resolveTargets(of: markdown, notePath: notePath, in: webView)
+        let targets = await resolveTargets(of: request.markdown, notePath: request.notePath, in: webView)
         if Task.isCancelled { return }
-        let payload: [String: Any] = [
-            "markdown": markdown,
-            "notePath": notePath,
-            "theme": theme,
-            "resolved": resolved,
-            "embedded": embedded
+        var payload: [String: Any] = [
+            "markdown": request.markdown,
+            "notePath": request.notePath,
+            "theme": request.theme,
+            "resolved": targets.bySource[request.notePath] ?? [:],
+            "resolvedBySource": targets.bySource,
+            "embedded": targets.embedded
         ]
+        if let anchor = request.anchor { payload["anchor"] = anchor }
+        lastPayload = payload
+        await send(payload, theme: request.theme, in: webView)
+    }
+
+    /// Theme flips re-render the cached payload: CSS follows `data-theme`, but
+    /// Mermaid diagrams must be redrawn with the new palette.
+    private func rerender(theme: String, in webView: WKWebView) {
+        guard var payload = lastPayload else { return }
+        payload.removeValue(forKey: "anchor") // keep the reader's scroll position
+        renderTask?.cancel()
+        renderTask = Task { [weak self] in
+            await self?.send(payload, theme: theme, in: webView)
+        }
+    }
+
+    private func send(_ payload: [String: Any], theme: String, in webView: WKWebView) async {
+        var payload = payload
+        payload["theme"] = theme
         guard let json = try? JSONSerialization.data(withJSONObject: payload),
               let literal = String(data: json, encoding: .utf8) else { return }
         _ = await Self.run("window.BifrostMarkdown.render(\(literal)), true", in: webView)
     }
 
-    /// Resolves link/embed targets on demand and reads embedded notes, in two
-    /// rounds: the note's own targets, then targets inside embedded notes.
+    /// Resolves link/embed targets on demand, each against the note it is
+    /// written in, and reads embedded notes, in two rounds: the note's own
+    /// targets, then targets inside the notes it embeds.
     private func resolveTargets(
         of markdown: String,
         notePath: String,
         in webView: WKWebView
-    ) async -> (resolved: [String: [String: String]], embedded: [String: String]) {
-        var resolved: [String: [String: String]] = [:]
+    ) async -> (bySource: [String: [String: [String: String]]], embedded: [String: String]) {
+        var bySource: [String: [String: [String: String]]] = [:]
         var embedded: [String: String] = [:]
-        var pending = [markdown]
+        var pending = [(path: notePath, text: markdown)]
         for _ in 0..<2 where !pending.isEmpty {
-            var targets: [String] = []
-            for source in pending {
-                targets += await scan(source, in: webView)
-            }
-            pending = []
-            let unresolved = targets.filter { resolved[$0] == nil }
-            guard !unresolved.isEmpty, let fileStore else { break }
-            let answers = await fileStore.resolveLinks(unresolved, from: notePath)
-            let notesToRead = answers.values.filter { $0.kind == .note && embedded[$0.path] == nil }.map(\.path)
-            for (target, answer) in answers {
-                resolved[target] = ["path": answer.path, "kind": answer.kind.rawValue]
-            }
-            if !notesToRead.isEmpty {
-                for (path, result) in await fileStore.readMany(Array(Set(notesToRead))) {
+            guard let fileStore else { break }
+            var next: [(path: String, text: String)] = []
+            for source in pending where bySource[source.path] == nil {
+                guard let scanned = await scan(source.text, in: webView) else { continue }
+                let answers = await fileStore.resolveLinks(scanned.links + scanned.embeds, from: source.path)
+                bySource[source.path] = answers.mapValues { ["path": $0.path, "kind": $0.kind.rawValue] }
+                let notesToRead = Set(scanned.embeds.compactMap { answers[$0] }
+                    .filter { $0.kind == .note && embedded[$0.path] == nil }
+                    .map(\.path))
+                for (path, result) in await fileStore.readMany(Array(notesToRead)) {
                     if case .success(let text) = result {
                         embedded[path] = text
-                        pending.append(text)
+                        next.append((path, text))
                     }
                 }
+                if Task.isCancelled { return (bySource, embedded) }
             }
-            if Task.isCancelled { break }
+            pending = next
         }
-        return (resolved, embedded)
+        return (bySource, embedded)
     }
 
-    private func scan(_ markdown: String, in webView: WKWebView) async -> [String] {
-        let script = "JSON.stringify((s => s.links.concat(s.embeds))"
-            + "(window.BifrostMarkdown.scan(\(Self.literal(markdown)))))"
+    private func scan(_ markdown: String, in webView: WKWebView) async -> ScanResult? {
+        let script = "JSON.stringify(window.BifrostMarkdown.scan(\(Self.literal(markdown))))"
         guard let result = await Self.run(script, in: webView) as? String,
-              let data = result.data(using: .utf8),
-              let targets = try? JSONSerialization.jsonObject(with: data) as? [String] else { return [] }
-        return targets
+              let data = result.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(ScanResult.self, from: data)
     }
 
     /// JSON-encodes a string as a JavaScript literal.

@@ -151,6 +151,16 @@ export function stripComments(source) {
 
 const LINK_RE = /(!?)\[\[([^\]\n]+?)\]\]/g;
 const MD_IMAGE_RE = /!\[[^\]\n]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
+const MD_LINK_RE = /(^|[^!])\[[^\]\n]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
+
+function isExternal(target) {
+  return /^[a-z][a-z0-9+.-]*:/i.test(target);
+}
+
+/** The resolution for `target` as written in the note at `env.notePath`. */
+function lookup(env, target) {
+  return env.resolvedBySource?.[env.notePath]?.[target] ?? env.resolved?.[target];
+}
 
 /** Link and embed targets the host must resolve. */
 export function scan(source) {
@@ -167,7 +177,14 @@ export function scan(source) {
     }
     for (const m of text.matchAll(MD_IMAGE_RE)) {
       const target = decodeURI(m[1]);
-      if (!/^[a-z][a-z0-9+.-]*:/i.test(target)) embeds.add(target);
+      if (!isExternal(target)) embeds.add(target);
+    }
+    for (const m of text.matchAll(MD_LINK_RE)) {
+      const href = m[2];
+      if (isExternal(href) || href.startsWith('#')) continue;
+      let target = href.split('#')[0];
+      try { target = decodeURI(target); } catch { /* keep as written */ }
+      if (target) links.add(target);
     }
   }
   return { links: [...links], embeds: [...embeds] };
@@ -210,7 +227,7 @@ function wikilinkPlugin(md) {
     if (!target) {
       return `<a class="vault-wikilink" href="#${escapeHTML(anchorFor(sub))}">${label}</a>`;
     }
-    const resolved = env.resolved?.[target];
+    const resolved = lookup(env, target);
     if (!resolved) {
       return `<span class="vault-wikilink vault-wikilink-diagnostic" data-testid="missing-link" title="Note not found: ${escapeHTML(target)}">${label}</span>`;
     }
@@ -243,7 +260,7 @@ function renderEmbed(md, meta, env) {
   const { target, sub, alias } = meta;
   if (!target) return '';
   const ext = extensionOf(target);
-  const resolved = env.resolved?.[target];
+  const resolved = lookup(env, target);
   if (!resolved) {
     if (IMAGE_EXT.has(ext)) {
       return '<figure class="vault-asset-diagnostic missing-image" data-testid="missing-image">'
@@ -273,7 +290,7 @@ function renderEmbed(md, meta, env) {
     let body = splitFrontmatter(content).body;
     if (sub) body = extractSection(body, sub);
     if (body == null) return failedEmbed('note', `Section not found: ${sub}`, target);
-    const inner = renderBody(md, body, childEnv(env, { embedDepth: depth + 1 }));
+    const inner = renderBody(md, body, childEnv(env, { embedDepth: depth + 1, notePath: resolved.path }));
     const title = escapeHTML(target + (sub ? ` › ${sub.replace(/^\^/, '')}` : ''));
     return `<section class="vault-embed" data-testid="vault-embed" data-ygg-path="${escapeHTML(resolved.path)}">`
       + `<a class="vault-embed-title" href="${escapeHTML(noteURL(resolved.path, sub ? anchorFor(sub) : null))}" data-ygg-path="${escapeHTML(resolved.path)}">${title}</a>`
@@ -410,7 +427,7 @@ function linkTargets(md) {
     else if (!/^[a-z][a-z0-9+.-]*:/i.test(href) && !href.startsWith('#')) {
       // Relative markdown link to a vault note or file.
       const target = decodeURI(href.split('#')[0]);
-      const resolved = env.resolved?.[target];
+      const resolved = lookup(env, target);
       if (resolved) {
         const anchor = href.includes('#') ? href.split('#')[1] : null;
         token.attrSet('href', resolved.kind === 'asset' ? vaultAssetURL(resolved.path) : noteURL(resolved.path, anchor));
@@ -431,7 +448,7 @@ function linkTargets(md) {
         + `<span class="missing-image-caption">Remote image not loaded · <a class="vault-external-link" href="${escapeHTML(src)}">open</a></span></div></figure>`;
     }
     if (!/^[a-z][a-z0-9+.-]*:/i.test(src)) {
-      const resolved = env.resolved?.[decodeURI(src)];
+      const resolved = lookup(env, decodeURI(src));
       if (!resolved) return renderEmbed(md, { target: decodeURI(src), sub: null, alias: null }, env);
       token.attrSet('src', vaultAssetURL(resolved.path));
       token.attrJoin('class', 'vault-image');
@@ -540,6 +557,7 @@ export function renderHTML(payload) {
   const { body, properties, invalid } = splitFrontmatter(source);
   const env = {
     resolved: payload?.resolved || {},
+    resolvedBySource: payload?.resolvedBySource || {},
     embedded: payload?.embedded || {},
     notePath: payload?.notePath || '',
     embedDepth: 0,

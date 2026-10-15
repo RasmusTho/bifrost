@@ -10,6 +10,8 @@ struct MimerCanvasDetailView: View {
     @ObservedObject var appendDraft: MimerCanvasAppendDraft
     @StateObject private var detailCoordinator: MimerCanvasDetailCoordinator
     @State private var isAnnotationComposerPresented = false
+    /// The heading/block a followed link points into, for the note it opened.
+    @State private var linkedAnchor: VaultNoteLink?
 
     init(
         note: Binding<MimerCanvasNote?>,
@@ -77,7 +79,8 @@ struct MimerCanvasDetailView: View {
                             markdown: note.text,
                             notePath: note.relativePath,
                             fileStore: fileStore,
-                            onOpenNote: { path, _ in openLinkedNote(path) },
+                            anchor: linkedAnchor?.path == note.relativePath ? linkedAnchor?.anchor : nil,
+                            onOpenNote: { path, anchor in openLinkedNote(path, anchor: anchor) },
                             onDrop: { providers in
                                 acceptDroppedPromotion(providers, onto: note.relativePath)
                             }
@@ -145,7 +148,9 @@ struct MimerCanvasDetailView: View {
 
     /// Follows a `[[wikilink]]` from the rendered note: the linked note
     /// becomes the canvas selection, exactly as if picked in the Vault column.
-    private func openLinkedNote(_ path: String) {
+    private func openLinkedNote(_ path: String, anchor: String?) {
+        linkedAnchor = VaultNoteLink(path: path, anchor: anchor)
+        guard path != note?.relativePath else { return }
         Task { @MainActor in
             async let text = fileStore.read(path)
             async let modified = fileStore.modificationDate(of: path)
