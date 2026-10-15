@@ -27,6 +27,7 @@ struct LiveMeetingView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("meeting.region.user")
         }
+        .yggPage()
         .navigationTitle("Meeting")
     }
 
@@ -55,7 +56,7 @@ struct LiveMeetingView: View {
                 // built on an incomplete ledger must say so.
                 Text("Missing segments: \(model.projection.missingSequences.map(String.init).joined(separator: ", "))")
                     .font(YggTheme.Typography.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(YggTheme.Color.warning)
                     .accessibilityIdentifier("meeting.ai.gaps")
             }
 
@@ -143,7 +144,7 @@ struct LiveMeetingView: View {
                 if final.needsAttention {
                     Text("Needs attention — missing segments: "
                         + final.needsAttentionSequences.map(String.init).joined(separator: ", "))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(YggTheme.Color.destructive)
                         .accessibilityIdentifier("meeting.final.needsAttention")
                 }
             }

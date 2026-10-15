@@ -80,7 +80,7 @@ struct AuthGateView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(YggTheme.Color.background)
+        .yggPage()
         .accessibilityIdentifier("yggdrasil.authGate")
         .onAppear {
             if gate.state == .locked, gate.shouldAutomaticallyAuthenticate {

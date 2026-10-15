@@ -55,91 +55,95 @@ struct HeimdalShellView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Capture Folder") {
-                    if let folderURL = folderManager.boundFolderURL {
-                        Label(folderURL.lastPathComponent, systemImage: "checkmark.circle.fill")
-                            .accessibilityIdentifier("heimdal.captureFolder.bound")
-                    } else {
-                        Label("No capture folder selected", systemImage: "folder.badge.questionmark")
-                            .accessibilityIdentifier("heimdal.captureFolder.unbound")
+                Group {
+                    Section("Capture Folder") {
+                        if let folderURL = folderManager.boundFolderURL {
+                            Label(folderURL.lastPathComponent, systemImage: "checkmark.circle.fill")
+                                .accessibilityIdentifier("heimdal.captureFolder.bound")
+                        } else {
+                            Label("No capture folder selected", systemImage: "folder.badge.questionmark")
+                                .accessibilityIdentifier("heimdal.captureFolder.unbound")
+                        }
+
+                        Button("Choose Capture Folder") {
+                            isFolderPickerPresented = true
+                        }
+                        .accessibilityIdentifier("heimdal.chooseCaptureFolder")
+
+                        if let error = folderManager.lastError {
+                            Text(error).foregroundStyle(YggTheme.Color.destructive)
+                        }
                     }
 
-                    Button("Choose Capture Folder") {
-                        isFolderPickerPresented = true
+                    Section("Consent and Device") {
+                        DeviceRegistrationStatusView(registration: registration)
                     }
-                    .accessibilityIdentifier("heimdal.chooseCaptureFolder")
 
-                    if let error = folderManager.lastError {
-                        Text(error).foregroundStyle(.red)
-                    }
-                }
-
-                Section("Consent and Device") {
-                    DeviceRegistrationStatusView(registration: registration)
-                }
-
-                Section("Capture") {
-                    Text(recorder.configuration.microphonePrePrompt)
-                        .font(YggTheme.Typography.caption)
-                        .foregroundStyle(YggTheme.Color.textSecondary)
-                    Button(recordButtonTitle) { recordButtonTapped() }
-                        .accessibilityIdentifier("heimdal.record")
-                    if recorder.needsManualResume {
-                        Button("Resume Recording") { recorder.resume() }
-                    }
-                    if let error = recorder.lastError {
-                        Text(error).foregroundStyle(.red)
-                    }
-                }
-
-                Section("Staged Items") {
-                    if sessionModel.stagedItems.isEmpty {
-                        Text("No staged recordings yet.")
+                    Section("Capture") {
+                        Text(recorder.configuration.microphonePrePrompt)
+                            .font(YggTheme.Typography.caption)
                             .foregroundStyle(YggTheme.Color.textSecondary)
+                        Button(recordButtonTitle) { recordButtonTapped() }
+                            .accessibilityIdentifier("heimdal.record")
+                        if recorder.needsManualResume {
+                            Button("Resume Recording") { recorder.resume() }
+                        }
+                        if let error = recorder.lastError {
+                            Text(error).foregroundStyle(YggTheme.Color.destructive)
+                        }
                     }
-                    ForEach(sessionModel.stagedItems) { item in
-                        VStack(alignment: .leading) {
-                            Text(item.capturedAt, format: .dateTime.year().month().day().hour().minute())
-                            Text("\(item.duration, format: .number.precision(.fractionLength(1))) seconds")
-                                .font(YggTheme.Typography.caption)
+
+                    Section("Staged Items") {
+                        if sessionModel.stagedItems.isEmpty {
+                            Text("No staged recordings yet.")
                                 .foregroundStyle(YggTheme.Color.textSecondary)
-                            if item.wasRecoveredAfterRestart {
-                                Label("Recovered after restart", systemImage: "arrow.clockwise")
-                                    .font(YggTheme.Typography.caption)
-                                    .foregroundStyle(YggTheme.Color.textSecondary)
-                            }
-                            deliveryStatus(for: item)
                         }
-                    }
-                }
-
-                if !sessionModel.recoveryFailures.isEmpty {
-                    Section("Recovery Issues") {
-                        ForEach(sessionModel.recoveryFailures) { failure in
+                        ForEach(sessionModel.stagedItems) { item in
                             VStack(alignment: .leading) {
-                                Label(
-                                    "Recording needs recovery",
-                                    systemImage: "exclamationmark.triangle.fill"
-                                )
-                                Text(failure.url.lastPathComponent)
-                                    .font(YggTheme.Typography.caption)
-                                Text(failure.reason.message)
+                                Text(item.capturedAt, format: .dateTime.year().month().day().hour().minute())
+                                Text("\(item.duration, format: .number.precision(.fractionLength(1))) seconds")
                                     .font(YggTheme.Typography.caption)
                                     .foregroundStyle(YggTheme.Color.textSecondary)
+                                if item.wasRecoveredAfterRestart {
+                                    Label("Recovered after restart", systemImage: "arrow.clockwise")
+                                        .font(YggTheme.Typography.caption)
+                                        .foregroundStyle(YggTheme.Color.textSecondary)
+                                }
+                                deliveryStatus(for: item)
                             }
-                            .accessibilityIdentifier("heimdal.recoveryFailure")
                         }
                     }
-                }
 
-                // Placed last: this section is new, ephemeral (ADR-0049 §2's
-                // declared bend), and must never push an existing element
-                // (e.g. `heimdal.record`) out of the List's initially
-                // rendered viewport.
-                Section("Device Health") {
-                    DeviceHealthPanelView(healthPanel: healthPanel)
+                    if !sessionModel.recoveryFailures.isEmpty {
+                        Section("Recovery Issues") {
+                            ForEach(sessionModel.recoveryFailures) { failure in
+                                VStack(alignment: .leading) {
+                                    Label(
+                                        "Recording needs recovery",
+                                        systemImage: "exclamationmark.triangle.fill"
+                                    )
+                                    Text(failure.url.lastPathComponent)
+                                        .font(YggTheme.Typography.caption)
+                                    Text(failure.reason.message)
+                                        .font(YggTheme.Typography.caption)
+                                        .foregroundStyle(YggTheme.Color.textSecondary)
+                                }
+                                .accessibilityIdentifier("heimdal.recoveryFailure")
+                            }
+                        }
+                    }
+
+                    // Placed last: this section is new, ephemeral (ADR-0049 §2's
+                    // declared bend), and must never push an existing element
+                    // (e.g. `heimdal.record`) out of the List's initially
+                    // rendered viewport.
+                    Section("Device Health") {
+                        DeviceHealthPanelView(healthPanel: healthPanel)
+                    }
                 }
+                .yggRows()
             }
+            .yggPage()
             .navigationTitle("Heimdal")
             .sheet(isPresented: $isFolderPickerPresented) {
                 CaptureFolderPicker { url in
@@ -210,7 +214,7 @@ struct HeimdalShellView: View {
                 .foregroundStyle(YggTheme.Color.textSecondary)
         case let .failed(message, failedAt):
             Label("Delivery failed — recording kept locally", systemImage: "exclamationmark.circle")
-                .foregroundStyle(.red)
+                .foregroundStyle(YggTheme.Color.destructive)
                 .accessibilityIdentifier("heimdal.delivery.failed")
             Text(failedAt, format: .dateTime.hour().minute().second())
                 .font(YggTheme.Typography.caption)
@@ -321,7 +325,7 @@ private struct DeviceRegistrationStatusView: View {
         switch registration.state {
         case .unavailable:
             Label("No vault selected — captures may be refused", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
+                .foregroundStyle(YggTheme.Color.warning)
                 .accessibilityIdentifier("heimdal.registration.unavailable")
         case .loading:
             ProgressView("Loading device registration")
@@ -330,7 +334,7 @@ private struct DeviceRegistrationStatusView: View {
                 "Registration status unavailable — captures may be refused",
                 systemImage: "exclamationmark.triangle"
             )
-            .foregroundStyle(.orange)
+            .foregroundStyle(YggTheme.Color.warning)
             Text(message).font(YggTheme.Typography.caption)
         case let .loaded(snapshot):
             if let grant = snapshot.standingGrant {
@@ -345,7 +349,7 @@ private struct DeviceRegistrationStatusView: View {
                 }
             } else {
                 Label("No standing grant found", systemImage: "exclamationmark.shield")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(YggTheme.Color.warning)
                     .accessibilityIdentifier("heimdal.consent.empty")
             }
 
@@ -378,7 +382,7 @@ private struct DeviceRegistrationStatusView: View {
                     "Not registered — captures may be refused",
                     systemImage: "exclamationmark.triangle.fill"
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(YggTheme.Color.warning)
                 .accessibilityIdentifier("heimdal.registration.unregistered")
                 Button("Register This Device") {
                     Task { await registration.register() }

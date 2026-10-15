@@ -79,6 +79,7 @@ struct TransferQueueHost: View {
     var body: some View {
         NavigationStack {
             TransferQueueView(model: model)
+                .yggPage()
                 .navigationTitle("Queue")
         }
         .task { await model.loadOnColdLaunch() }

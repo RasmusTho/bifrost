@@ -74,11 +74,6 @@ struct MarkdownRendererView: View {
     }
 
     private func headingFont(for level: Int) -> Font {
-        switch level {
-        case 1: return .title.weight(.bold)
-        case 2: return .title2.weight(.semibold)
-        case 3: return .title3.weight(.semibold)
-        default: return YggTheme.Typography.sectionHeader
-        }
+        YggTheme.Typography.heading(level: level)
     }
 }

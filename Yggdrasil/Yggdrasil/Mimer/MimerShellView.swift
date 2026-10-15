@@ -64,15 +64,19 @@ private struct MimerTabView: View {
         TabView {
             AttentionLensView(fileStore: fileStore)
                 .tabItem { Label("Today", systemImage: "sun.max") }
+                .yggTabChrome()
 
             InterestsLensView(fileStore: fileStore)
                 .tabItem { Label("Interests", systemImage: "slider.horizontal.3") }
+                .yggTabChrome()
 
             EntityConfirmLensView(fileStore: fileStore)
                 .tabItem { Label("Entities", systemImage: "person.crop.circle.badge.questionmark") }
+                .yggTabChrome()
 
             ConsentLensView(fileStore: fileStore)
                 .tabItem { Label("Consent", systemImage: "hand.raised") }
+                .yggTabChrome()
 
             // NoteBrowserView pushes further instances of itself via
             // NavigationLink as the user drills into folders, so the
@@ -83,9 +87,11 @@ private struct MimerTabView: View {
                 NoteBrowserView(fileStore: fileStore)
             }
             .tabItem { Label("Vault", systemImage: "folder") }
+            .yggTabChrome()
 
             SettingsLensView(fileStore: fileStore)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .yggTabChrome()
         }
         .accessibilityIdentifier("mimer.compact.tabView")
     }
@@ -130,6 +136,7 @@ struct MimerCanvasView: View {
                         .accessibilityIdentifier("mimer.canvas.lens.\(lens.rawValue)")
                 }
             }
+            .yggPage()
             .navigationTitle("Mimer")
             .focusable()
             .focused($focusedElement, equals: .sidebar)
@@ -271,58 +278,62 @@ private struct MimerVaultColumnView: View {
 
     var body: some View {
         List {
-            Section {
-                TextField("Filter notes", text: $filter)
-                    .focused(focusedElement, equals: .filter)
-                    .accessibilityIdentifier("mimer.canvas.vault.filter")
-                    .accessibilityValue(focusedElement.wrappedValue == .filter ? "focused" : "unfocused")
-            }
-            if !directory.isEmpty {
-                Button("Back to \(directory.split(separator: "/").dropLast().last.map(String.init) ?? "Vault")") {
-                    directory = directory.split(separator: "/").dropLast().joined(separator: "/")
-                    invalidateNoteSelection()
+            Group {
+                Section {
+                    TextField("Filter notes", text: $filter)
+                        .focused(focusedElement, equals: .filter)
+                        .accessibilityIdentifier("mimer.canvas.vault.filter")
+                        .accessibilityValue(focusedElement.wrappedValue == .filter ? "focused" : "unfocused")
                 }
-                .accessibilityIdentifier("mimer.canvas.vault.back")
-            }
-            if let loadError {
-                Text(loadError).foregroundStyle(.red)
-            }
-            if let failureMessage = appendDraft.failureMessage {
-                Section("Append needs attention") {
-                    Text(failureMessage).foregroundStyle(.red)
-                    if !appendDraft.failureText.isEmpty {
-                        Text(appendDraft.failureText).textSelection(.enabled)
+                if !directory.isEmpty {
+                    Button("Back to \(directory.split(separator: "/").dropLast().last.map(String.init) ?? "Vault")") {
+                        directory = directory.split(separator: "/").dropLast().joined(separator: "/")
+                        invalidateNoteSelection()
                     }
-                    HStack {
-                        Button("Retry Append") {
-                            Task { _ = await appendDraft.retry() }
+                    .accessibilityIdentifier("mimer.canvas.vault.back")
+                }
+                if let loadError {
+                    Text(loadError).foregroundStyle(YggTheme.Color.destructive)
+                }
+                if let failureMessage = appendDraft.failureMessage {
+                    Section("Append needs attention") {
+                        Text(failureMessage).foregroundStyle(YggTheme.Color.destructive)
+                        if !appendDraft.failureText.isEmpty {
+                            Text(appendDraft.failureText).textSelection(.enabled)
                         }
-                        Button("Copy Pending Text") { appendDraft.copyFailureText() }
-                    }
-                }
-            }
-            ForEach(visibleEntries) { entry in
-                Button {
-                    select(entry)
-                } label: {
-                    Label(entry.name, systemImage: entry.isDirectory ? "folder" : "doc.text")
-                }
-                .accessibilityIdentifier("mimer.canvas.vault.entry.\(entry.relativePath)")
-                .draggable(MimerCanvasPromotion(relativePath: entry.relativePath, snippet: entry.name))
-                .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
-                    guard !entry.isDirectory, let promotion = promotions.first else { return false }
-                    Task {
-                        if await appendDraft.submitPromotion(promotion, to: entry.relativePath) {
-                            select(entry)
+                        HStack {
+                            Button("Retry Append") {
+                                Task { _ = await appendDraft.retry() }
+                            }
+                            Button("Copy Pending Text") { appendDraft.copyFailureText() }
                         }
                     }
-                    return true
+                }
+                ForEach(visibleEntries) { entry in
+                    Button {
+                        select(entry)
+                    } label: {
+                        Label(entry.name, systemImage: entry.isDirectory ? "folder" : "doc.text")
+                    }
+                    .accessibilityIdentifier("mimer.canvas.vault.entry.\(entry.relativePath)")
+                    .draggable(MimerCanvasPromotion(relativePath: entry.relativePath, snippet: entry.name))
+                    .dropDestination(for: MimerCanvasPromotion.self) { promotions, _ in
+                        guard !entry.isDirectory, let promotion = promotions.first else { return false }
+                        Task {
+                            if await appendDraft.submitPromotion(promotion, to: entry.relativePath) {
+                                select(entry)
+                            }
+                        }
+                        return true
+                    }
+                }
+                if visibleEntries.isEmpty && loadError == nil {
+                    Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
                 }
             }
-            if visibleEntries.isEmpty && loadError == nil {
-                Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
-            }
+            .yggRows()
         }
+        .yggPage()
         .navigationTitle(directory.isEmpty ? "Vault" : directory.split(separator: "/").last.map(String.init) ?? "Vault")
         .focusable()
         .focused(focusedElement, equals: .content)

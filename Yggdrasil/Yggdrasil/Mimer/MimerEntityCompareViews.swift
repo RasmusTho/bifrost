@@ -6,29 +6,33 @@ struct MimerEntityQueueView: View {
 
     var body: some View {
         List {
-            if let loadError = model.loadError {
-                Text(loadError).foregroundStyle(.red)
-            }
-            if model.isLoading, model.pending.isEmpty {
-                ProgressView("Loading entity review")
-            } else if model.pending.isEmpty {
-                YggEmptyState(
-                    systemImage: "checkmark.circle",
-                    title: "Queue Clear",
-                    message: "No entity mentions waiting for confirmation."
-                )
-            } else {
-                ForEach(model.pending) { entry in
-                    Button {
-                        model.selectEntry(entry.id)
-                    } label: {
-                        queueRow(entry)
+            Group {
+                if let loadError = model.loadError {
+                    Text(loadError).foregroundStyle(YggTheme.Color.destructive)
+                }
+                if model.isLoading, model.pending.isEmpty {
+                    ProgressView("Loading entity review")
+                } else if model.pending.isEmpty {
+                    YggEmptyState(
+                        systemImage: "checkmark.circle",
+                        title: "Queue Clear",
+                        message: "No entity mentions waiting for confirmation."
+                    )
+                } else {
+                    ForEach(model.pending) { entry in
+                        Button {
+                            model.selectEntry(entry.id)
+                        } label: {
+                            queueRow(entry)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("mimer.entity.queue.\(entry.id)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("mimer.entity.queue.\(entry.id)")
                 }
             }
+            .yggRows()
         }
+        .yggPage()
         .navigationTitle("Entity Review")
         .task {
             if model.pending.isEmpty { await model.load() }
@@ -89,6 +93,7 @@ struct MimerEntityCompareDetailView: View {
                     actionBar
                         .padding(YggTheme.Spacing.md)
                 }
+                .yggPage()
                 .navigationTitle(entry.surfaceForm)
             } else {
                 YggEmptyState(
@@ -105,7 +110,7 @@ struct MimerEntityCompareDetailView: View {
             Label("Mention context", systemImage: "text.quote")
                 .font(YggTheme.Typography.sectionHeader)
             Text(entry.surfaceForm)
-                .font(.title2.weight(.semibold))
+                .font(YggTheme.Typography.title)
                 .accessibilityIdentifier("mimer.entity.mention.surface")
             LabeledContent("mention_id", value: entry.mentionId)
             LabeledContent("resolution", value: entry.resolution)

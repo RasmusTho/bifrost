@@ -13,43 +13,47 @@ struct ConsentLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                LensScaffold.errorBanner(loadError)
-                Section("Grants") {
-                    if let grants = note?.grants, !grants.isEmpty {
-                        ForEach(Array(grants.enumerated()), id: \.offset) { _, grant in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(grant.scope ?? "unspecified scope").font(.body.weight(.medium))
-                                if let basis = grant.basis {
-                                    Text("basis: \(basis)")
-                                        .font(YggTheme.Typography.caption)
-                                        .foregroundStyle(YggTheme.Color.textSecondary)
-                                }
-                                if let grantedAt = grant.grantedAt {
-                                    Text("granted \(grantedAt)")
-                                        .font(YggTheme.Typography.caption)
-                                        .foregroundStyle(YggTheme.Color.textSecondary)
+                Group {
+                    LensScaffold.errorBanner(loadError)
+                    Section("Grants") {
+                        if let grants = note?.grants, !grants.isEmpty {
+                            ForEach(Array(grants.enumerated()), id: \.offset) { _, grant in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(grant.scope ?? "unspecified scope").font(YggTheme.Typography.bodyEmphasis)
+                                    if let basis = grant.basis {
+                                        Text("basis: \(basis)")
+                                            .font(YggTheme.Typography.caption)
+                                            .foregroundStyle(YggTheme.Color.textSecondary)
+                                    }
+                                    if let grantedAt = grant.grantedAt {
+                                        Text("granted \(grantedAt)")
+                                            .font(YggTheme.Typography.caption)
+                                            .foregroundStyle(YggTheme.Color.textSecondary)
+                                    }
                                 }
                             }
+                        } else {
+                            Text("No consent grants recorded yet.")
+                                .foregroundStyle(YggTheme.Color.textSecondary)
                         }
-                    } else {
-                        Text("No consent grants recorded yet.")
-                            .foregroundStyle(YggTheme.Color.textSecondary)
+                    }
+                    Section("Dormant in v1") {
+                        let withholdEnabled = note?.withholdReviewEnabled ?? false
+                        Label(
+                            withholdEnabled ? "Withhold-review enabled" : "Withhold-review not enabled",
+                            systemImage: "eye.slash"
+                        )
+                        let erasureSupported = note?.retentionErasureSupported ?? false
+                        Label(
+                            erasureSupported ? "Erasure requests supported" : "Erasure requests not yet supported",
+                            systemImage: "trash"
+                        )
+                        .foregroundStyle(YggTheme.Color.textSecondary)
                     }
                 }
-                Section("Dormant in v1") {
-                    let withholdEnabled = note?.withholdReviewEnabled ?? false
-                    Label(
-                        withholdEnabled ? "Withhold-review enabled" : "Withhold-review not enabled",
-                        systemImage: "eye.slash"
-                    )
-                    let erasureSupported = note?.retentionErasureSupported ?? false
-                    Label(
-                        erasureSupported ? "Erasure requests supported" : "Erasure requests not yet supported",
-                        systemImage: "trash"
-                    )
-                    .foregroundStyle(YggTheme.Color.textSecondary)
-                }
+                .yggRows()
             }
+            .yggPage()
             .navigationTitle("Consent")
             .accessibilityIdentifier("mimer.lens.consent")
             .onAppear(perform: load)

@@ -35,7 +35,7 @@ struct VaultPickerView: View {
                     if let error = vaultManager.lastError {
                         Text(error)
                             .font(YggTheme.Typography.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(YggTheme.Color.destructive)
                     }
 
                     YggPrimaryButton(title: "Choose a Vault Folder") {
@@ -44,6 +44,7 @@ struct VaultPickerView: View {
                 }
                 .padding(YggTheme.Spacing.md)
             }
+            .yggPage()
             .navigationTitle("Yggdrasil")
             .sheet(isPresented: $isPickerPresented) {
                 VaultFolderPicker { url in

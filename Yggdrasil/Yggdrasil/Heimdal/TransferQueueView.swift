@@ -11,28 +11,31 @@ struct TransferQueueView: View {
 
     var body: some View {
         List {
-            Section("Transfer Queue") {
-                if model.items.isEmpty {
-                    Text("No captures in the queue.")
+            Group {
+                Section("Transfer Queue") {
+                    if model.items.isEmpty {
+                        Text("No captures in the queue.")
+                            .foregroundStyle(YggTheme.Color.textSecondary)
+                            .accessibilityIdentifier("transferQueue.empty")
+                    }
+                    ForEach(model.items, id: \.captureID) { item in
+                        row(for: item)
+                    }
+                }
+
+                if !model.hubAnswered {
+                    Text("The hub is not answering. Local states are current; hub states are last known.")
+                        .font(YggTheme.Typography.caption)
                         .foregroundStyle(YggTheme.Color.textSecondary)
-                        .accessibilityIdentifier("transferQueue.empty")
+                        .accessibilityIdentifier("transferQueue.hubUnreachable")
                 }
-                ForEach(model.items, id: \.captureID) { item in
-                    row(for: item)
+
+                Button("Refresh Queue") {
+                    Task { await model.runPendingTransfersAndRefresh() }
                 }
+                .accessibilityIdentifier("transferQueue.refresh")
             }
-
-            if !model.hubAnswered {
-                Text("The hub is not answering. Local states are current; hub states are last known.")
-                    .font(YggTheme.Typography.caption)
-                    .foregroundStyle(YggTheme.Color.textSecondary)
-                    .accessibilityIdentifier("transferQueue.hubUnreachable")
-            }
-
-            Button("Refresh Queue") {
-                Task { await model.runPendingTransfersAndRefresh() }
-            }
-            .accessibilityIdentifier("transferQueue.refresh")
+            .yggRows()
         }
         .accessibilityIdentifier("transferQueue")
         .confirmationDialog(
@@ -76,7 +79,7 @@ struct TransferQueueView: View {
             if let attention = item.attention {
                 Text(attention.reason.displayReason)
                     .font(YggTheme.Typography.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(YggTheme.Color.destructive)
                     .accessibilityIdentifier("transferQueue.reason.\(item.captureID)")
                 HStack {
                     ForEach(attention.actions, id: \.self) { action in

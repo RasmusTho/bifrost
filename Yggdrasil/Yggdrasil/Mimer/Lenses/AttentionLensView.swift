@@ -17,60 +17,64 @@ struct AttentionLensView: View {
     var body: some View {
         NavigationStack {
             List {
-                LensScaffold.errorBanner(loadError)
-                Section("Today's Overrides") {
-                    if let overrides = note?.overrides, !overrides.isEmpty {
-                        ForEach(overrides, id: \.overriddenAt) { override in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(override.itemId).font(.body.weight(.medium))
-                                Text("\(override.originalDecision) → \(override.overriddenDecision)")
-                                    .font(YggTheme.Typography.caption)
-                                    .foregroundStyle(YggTheme.Color.textSecondary)
-                                if !override.note.isEmpty {
-                                    Text(override.note).font(YggTheme.Typography.caption)
+                Group {
+                    LensScaffold.errorBanner(loadError)
+                    Section("Today's Overrides") {
+                        if let overrides = note?.overrides, !overrides.isEmpty {
+                            ForEach(overrides, id: \.overriddenAt) { override in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(override.itemId).font(YggTheme.Typography.bodyEmphasis)
+                                    Text("\(override.originalDecision) → \(override.overriddenDecision)")
+                                        .font(YggTheme.Typography.caption)
+                                        .foregroundStyle(YggTheme.Color.textSecondary)
+                                    if !override.note.isEmpty {
+                                        Text(override.note).font(YggTheme.Typography.caption)
+                                    }
                                 }
-                            }
-                            .draggable(
-                                MimerCanvasPromotion(
-                                    relativePath: relativePath,
-                                    snippet: "\(override.itemId): \(override.note)"
+                                .draggable(
+                                    MimerCanvasPromotion(
+                                        relativePath: relativePath,
+                                        snippet: "\(override.itemId): \(override.note)"
+                                    )
                                 )
-                            )
+                            }
+                        } else {
+                            Text("No overrides recorded yet today.")
+                                .foregroundStyle(YggTheme.Color.textSecondary)
                         }
-                    } else {
-                        Text("No overrides recorded yet today.")
-                            .foregroundStyle(YggTheme.Color.textSecondary)
+                    }
+                    Section("Counts") {
+                        if let counts = note?.counts, !counts.isEmpty {
+                            ForEach(counts, id: \.key) { entry in
+                                HStack {
+                                    Text(entry.key)
+                                    Spacer()
+                                    Text("\(entry.count)").foregroundStyle(YggTheme.Color.textSecondary)
+                                }
+                                .draggable(
+                                    MimerCanvasPromotion(
+                                        relativePath: relativePath,
+                                        snippet: "\(entry.key): \(entry.count)"
+                                    )
+                                )
+                            }
+                        } else {
+                            Text("No attention activity recorded yet today.")
+                                .foregroundStyle(YggTheme.Color.textSecondary)
+                        }
+                    }
+                    Section("Steer Attention") {
+                        TextField("Item id", text: $pendingItemId)
+                        TextField("Reason", text: $pendingNote)
+                        Button("Mark Attended") { addOverride(decision: "attended") }
+                            .disabled(pendingItemId.isEmpty)
+                        Button("Mark Skipped") { addOverride(decision: "skipped") }
+                            .disabled(pendingItemId.isEmpty)
                     }
                 }
-                Section("Counts") {
-                    if let counts = note?.counts, !counts.isEmpty {
-                        ForEach(counts, id: \.key) { entry in
-                            HStack {
-                                Text(entry.key)
-                                Spacer()
-                                Text("\(entry.count)").foregroundStyle(YggTheme.Color.textSecondary)
-                            }
-                            .draggable(
-                                MimerCanvasPromotion(
-                                    relativePath: relativePath,
-                                    snippet: "\(entry.key): \(entry.count)"
-                                )
-                            )
-                        }
-                    } else {
-                        Text("No attention activity recorded yet today.")
-                            .foregroundStyle(YggTheme.Color.textSecondary)
-                    }
-                }
-                Section("Steer Attention") {
-                    TextField("Item id", text: $pendingItemId)
-                    TextField("Reason", text: $pendingNote)
-                    Button("Mark Attended") { addOverride(decision: "attended") }
-                        .disabled(pendingItemId.isEmpty)
-                    Button("Mark Skipped") { addOverride(decision: "skipped") }
-                        .disabled(pendingItemId.isEmpty)
-                }
+                .yggRows()
             }
+            .yggPage()
             .navigationTitle("Today")
             .onAppear(perform: load)
         }

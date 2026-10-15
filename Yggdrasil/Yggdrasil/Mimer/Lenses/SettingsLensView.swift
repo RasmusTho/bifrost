@@ -16,6 +16,8 @@ struct SettingsLensView: View {
     // Guards against onChange firing save() for the value load() itself just
     // set — without this, opening the tab immediately rewrites settings.md.
     @State private var hasLoaded = false
+    // Device-local display preference; never written to the vault.
+    @AppStorage(YggAppearance.storageKey) private var appearanceRawValue = YggAppearance.defaultValue.rawValue
 
     init(fileStore: VaultFileStore, usesCanvasNavigation: Bool = false) {
         self.fileStore = fileStore
@@ -57,29 +59,53 @@ struct SettingsLensView: View {
 
     private var settingsForm: some View {
         Form {
-            LensScaffold.errorBanner(loadError)
-            Section("Retention") {
-                Stepper("Retention window: \(retentionDays) days", value: $retentionDays, in: 1...365)
-                    .onChange(of: retentionDays) { _, newValue in
-                        guard hasLoaded, canEditSettings, !isSaving else { return }
-                        save(retentionDays: newValue)
+            Group {
+                LensScaffold.errorBanner(loadError)
+                Section {
+                    Picker("Theme", selection: appearanceSelection) {
+                        ForEach(YggAppearance.allCases) { appearance in
+                            Text(appearance.title).tag(appearance)
+                        }
                     }
-                    .disabled(!canEditSettings || isSaving)
-            }
-            Section("Vault") {
-                if usesCanvasNavigation {
-                    Button("Browse settings.md") {
-                        isSettingsNotePresented = true
-                    }
-                } else {
-                    NavigationLink("Browse settings.md") {
-                        NoteDetailView(relativePath: HeimdalPaths.settings, fileStore: fileStore)
+                    .accessibilityIdentifier("mimer.settings.theme")
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Yggdrasil Dark is the default. Shell puts porcelain surfaces on a neon night city. "
+                        + "System follows the device: Shell in light mode, Dark otherwise.")
+                }
+                Section("Retention") {
+                    Stepper("Retention window: \(retentionDays) days", value: $retentionDays, in: 1...365)
+                        .onChange(of: retentionDays) { _, newValue in
+                            guard hasLoaded, canEditSettings, !isSaving else { return }
+                            save(retentionDays: newValue)
+                        }
+                        .disabled(!canEditSettings || isSaving)
+                }
+                Section("Vault") {
+                    if usesCanvasNavigation {
+                        Button("Browse settings.md") {
+                            isSettingsNotePresented = true
+                        }
+                    } else {
+                        NavigationLink("Browse settings.md") {
+                            NoteDetailView(relativePath: HeimdalPaths.settings, fileStore: fileStore)
+                        }
                     }
                 }
             }
+            .yggRows()
         }
+        .yggPage()
         .navigationTitle("Settings")
         .onAppear(perform: load)
+    }
+
+    private var appearanceSelection: Binding<YggAppearance> {
+        Binding(
+            get: { YggAppearance(storedValue: appearanceRawValue) },
+            set: { appearanceRawValue = $0.rawValue }
+        )
     }
 
     private func load() {
