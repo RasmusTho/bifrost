@@ -6,8 +6,8 @@ lists every vendored file.
 
 | File | Source | Licence |
 |---|---|---|
-| `bifrost-markdown.js` | `tools/markdown-web/src` bundled with markdown-it 14.1.0, markdown-it-footnote 4.0.0, markdown-it-mark 4.0.0, markdown-it-texmath 1.0.0, KaTeX 0.16.11, highlight.js 11.10.0, js-yaml 4.1.0, DOMPurify 3.1.6 | MIT / BSD-3-Clause / Apache-2.0 (MPL-2.0 option for DOMPurify); notices at end of file |
-| `mermaid.min.js` | mermaid 10.9.1 (`dist/mermaid.min.js`), same version as the web Companion | MIT |
-| `katex/` | KaTeX 0.16.11 stylesheet and woff2 fonts | MIT (fonts: SIL OFL 1.1) |
+| `bifrost-markdown.js` | `tools/markdown-web/src` bundled with markdown-it 14.3.1, markdown-it-footnote 4.0.0, markdown-it-mark 4.0.0, markdown-it-texmath 1.0.0, KaTeX 0.19.0, highlight.js 11.10.0, js-yaml 4.3.2, DOMPurify 3.4.17 | MIT / BSD-3-Clause / Apache-2.0 (MPL-2.0 option for DOMPurify); notices at end of file |
+| `mermaid.min.js` | mermaid 12.2.0 (`dist/mermaid.min.js`) | MIT |
+| `katex/` | KaTeX 0.19.0 stylesheet and woff2 fonts | MIT (fonts: SIL OFL 1.1) |
 | `yggdrasil-tokens.css` | `RasmusTho/agentic-pkm-mvp` `companion-ui/companion-app/yggdrasil-tokens.css`, token VERSION 2.2.1 (byte-identical; its remote `@import` is blocked by the page CSP — the app bundles the faces) | — |
 | `note.css` | Ported from the web Companion note styles (`serve_dev_page.py`, `.vault-markdown-rendered` / `.vault-callout` / `.vault-properties` rules) plus Bifrost additions | — |
