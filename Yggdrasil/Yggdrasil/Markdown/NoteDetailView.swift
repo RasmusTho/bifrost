@@ -10,6 +10,7 @@ struct NoteDetailView: View {
     let fileStore: VaultFileStore
     /// Heading/block anchor from the link that opened this note.
     var anchor: String?
+    var allowsReadAloud = false
 
     @State private var rawText: String = ""
     @State private var isEditing = false
@@ -52,11 +53,19 @@ struct NoteDetailView: View {
                             }
                         }
                     )
+                    if allowsReadAloud {
+                        MimerReadAloudControls(text: rawText)
+                    }
                 }
             }
         }
         .navigationDestination(item: $linkedNote) { link in
-            NoteDetailView(relativePath: link.path, fileStore: fileStore, anchor: link.anchor)
+            NoteDetailView(
+                relativePath: link.path,
+                fileStore: fileStore,
+                anchor: link.anchor,
+                allowsReadAloud: allowsReadAloud
+            )
         }
         .yggPage()
         .navigationTitle(relativePath.split(separator: "/").last.map(String.init) ?? relativePath)

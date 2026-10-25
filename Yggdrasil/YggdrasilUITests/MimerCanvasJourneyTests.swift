@@ -90,6 +90,62 @@ final class MimerCanvasJourneyTests: XCTestCase {
         )
     }
 
+    /// The selected-note journey proves that reviewing the Companion plan is
+    /// a separate action from synthesis/playback, and that automation never
+    /// reaches a live service or emits audio.
+    func testSelectedNoteReadAloudReviewsPlanBeforePlaying() throws {
+        try XCTSkipUnless(
+            UIDevice.current.userInterfaceIdiom == .pad || UIDevice.current.userInterfaceIdiom == .phone,
+            "selected-note read-aloud is verified on iPhone and iPad"
+        )
+        let app = launchMimerShell(withFixture: true, withReadAloudTestSeam: true)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            app.descendants(matching: .any)["mimer.canvas.lens.vault"].tap()
+            app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects"].tap()
+            app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"].tap()
+        } else {
+            selectCompactTab("Vault", in: app)
+            app.buttons["Projects"].tap()
+            app.buttons["fixture.md"].tap()
+        }
+
+        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 5))
+        let review = app.descendants(matching: .any)["mimer.readAloud.review"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        review.tap()
+
+        let planText = app.staticTexts["mimer.readAloud.plan.text"]
+        XCTAssertTrue(planText.waitForExistence(timeout: 5))
+        XCTAssertEqual(planText.label, "Fixture note.")
+        let englishSegmentLanguage = app.staticTexts["mimer.readAloud.segment.0.language"]
+        let swedishSegmentLanguage = app.staticTexts["mimer.readAloud.segment.1.language"]
+        XCTAssertTrue(englishSegmentLanguage.waitForExistence(timeout: 5))
+        XCTAssertTrue(swedishSegmentLanguage.waitForExistence(timeout: 5))
+        XCTAssertEqual(englishSegmentLanguage.label, "Language: en")
+        XCTAssertEqual(swedishSegmentLanguage.label, "Language: sv")
+        XCTAssertEqual(app.staticTexts["mimer.readAloud.segment.0.provider"].label, "Provider: scripted-en")
+        XCTAssertEqual(app.staticTexts["mimer.readAloud.segment.1.voice"].label, "Voice: sv-test")
+        let synthesisCount = app.staticTexts["mimer.readAloud.testSynthesisCount"]
+        XCTAssertTrue(synthesisCount.waitForExistence(timeout: 5))
+        XCTAssertEqual(synthesisCount.label, "Synthesis requests: 0")
+
+        let play = app.descendants(matching: .any)["mimer.readAloud.play"]
+        XCTAssertTrue(play.isEnabled)
+        play.tap()
+        let playing = app.staticTexts["mimer.readAloud.status"]
+        let started = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "Playing server audio."),
+            object: playing
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [started], timeout: 5), .completed)
+        let oneRequest = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "Synthesis requests: 1"),
+            object: synthesisCount
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [oneRequest], timeout: 5), .completed)
+        XCTAssertTrue(app.staticTexts["mimer.readAloud.testSeam"].exists)
+    }
+
     /// Journey: open the entities source → compare candidates → merge with
     /// an explicitly selected candidate → undo, leaving the queue entry
     /// still pending for a future decision.
@@ -225,7 +281,7 @@ private extension MimerCanvasJourneyTests {
         )
     }
 
-    func launchMimerShell(withFixture: Bool = false) -> XCUIApplication {
+    func launchMimerShell(withFixture: Bool = false, withReadAloudTestSeam: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         if app.state != .notRunning {
             app.terminate()
@@ -241,7 +297,20 @@ private extension MimerCanvasJourneyTests {
         if withFixture {
             app.launchArguments.append("-ui-testing-mimer-fixture")
         }
+        if withReadAloudTestSeam {
+            app.launchArguments.append("-ui-testing-read-aloud")
+        }
         app.launch()
         return app
+    }
+
+    func selectCompactTab(_ title: String, in app: XCUIApplication) {
+        let tab = app.tabBars.buttons[title]
+        if tab.exists {
+            tab.tap()
+            return
+        }
+        app.tabBars.buttons["More"].tap()
+        app.staticTexts[title].tap()
     }
 }

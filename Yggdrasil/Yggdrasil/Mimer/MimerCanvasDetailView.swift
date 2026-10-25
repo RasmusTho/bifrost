@@ -12,6 +12,7 @@ struct MimerCanvasDetailView: View {
     @State private var isAnnotationComposerPresented = false
     /// The heading/block a followed link points into, for the note it opened.
     @State private var linkedAnchor: VaultNoteLink?
+    @State private var linkedNoteLoadToken = UUID()
 
     init(
         note: Binding<MimerCanvasNote?>,
@@ -38,6 +39,7 @@ struct MimerCanvasDetailView: View {
                             }
                                 .accessibilityIdentifier("mimer.canvas.annotate")
                             Spacer()
+                            MimerReadAloudControls(text: note.text)
                         }
                         .padding(.horizontal, YggTheme.Spacing.md)
                         if isAnnotationComposerPresented {
@@ -127,6 +129,7 @@ struct MimerCanvasDetailView: View {
             }
         }
         .onChange(of: note?.relativePath) { _, _ in
+            linkedNoteLoadToken = UUID()
             detailCoordinator.selectionChanged()
         }
     }
@@ -150,6 +153,8 @@ struct MimerCanvasDetailView: View {
     /// becomes the canvas selection, exactly as if picked in the Vault column.
     private func openLinkedNote(_ path: String, anchor: String?) {
         linkedAnchor = VaultNoteLink(path: path, anchor: anchor)
+        let loadToken = UUID()
+        linkedNoteLoadToken = loadToken
         guard path != note?.relativePath else { return }
         Task { @MainActor in
             async let text = fileStore.read(path)
@@ -159,6 +164,7 @@ struct MimerCanvasDetailView: View {
                 text: text,
                 modificationDate: modified
             ) else { return }
+            guard linkedNoteLoadToken == loadToken else { return }
             note = linked
         }
     }

@@ -31,7 +31,7 @@ struct NoteBrowserView: View {
                         }
                     } else {
                         NavigationLink(entry.name) {
-                            NoteDetailView(relativePath: entry.relativePath, fileStore: fileStore)
+                        NoteDetailView(relativePath: entry.relativePath, fileStore: fileStore, allowsReadAloud: true)
                         }
                     }
                 }

@@ -18,6 +18,7 @@ struct SettingsLensView: View {
     @State private var hasLoaded = false
     // Device-local display preference; never written to the vault.
     @AppStorage(YggAppearance.storageKey) private var appearanceRawValue = YggAppearance.defaultValue.rawValue
+    @AppStorage(MimerCompanionSettings.baseURLKey) private var companionBaseURL = ""
 
     init(fileStore: VaultFileStore, usesCanvasNavigation: Bool = false) {
         self.fileStore = fileStore
@@ -82,15 +83,31 @@ struct SettingsLensView: View {
                         }
                         .disabled(!canEditSettings || isSaving)
                 }
-                Section("Vault") {
-                    if usesCanvasNavigation {
-                        Button("Browse settings.md") {
-                            isSettingsNotePresented = true
-                        }
-                    } else {
-                        NavigationLink("Browse settings.md") {
-                            NoteDetailView(relativePath: HeimdalPaths.settings, fileStore: fileStore)
-                        }
+            }
+            Section("Mimer Companion") {
+                TextField("Local Companion address", text: $companionBaseURL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .accessibilityIdentifier("mimer.settings.companionBaseURL")
+                Text(companionAddressDescription)
+                    .font(YggTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+                Text(
+                    "This address stays in this device’s app settings; it is not written to the vault. "
+                        + "Read Aloud sends note text only to this local/private Companion."
+                )
+                    .font(YggTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Vault") {
+                if usesCanvasNavigation {
+                    Button("Browse settings.md") {
+                        isSettingsNotePresented = true
+                    }
+                } else {
+                    NavigationLink("Browse settings.md") {
+                        NoteDetailView(relativePath: HeimdalPaths.settings, fileStore: fileStore)
                     }
                 }
             }
@@ -106,6 +123,18 @@ struct SettingsLensView: View {
             get: { YggAppearance(storedValue: appearanceRawValue) },
             set: { appearanceRawValue = $0.rawValue }
         )
+    }
+
+    private var companionAddressDescription: String {
+        guard !companionBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Not configured. Set a loopback, LAN, local, or HTTPS tailnet address to enable Read Aloud."
+        }
+        do {
+            try CompanionTTSClient.validate(baseURL: companionBaseURL)
+            return "Local/private address accepted. Speech audio remains server-generated."
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     private func load() {
