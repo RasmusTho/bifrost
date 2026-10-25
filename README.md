@@ -5,7 +5,7 @@
 
 It hosts the client apps under **topology C** (one shell, two bounded clients):
 - **Heimdal client** — capture / consent / device-health · iPhone + Apple Watch.
-- **Heimdal macOS observer foundation** — macOS platform target and smoke-test seam; screen-observer behavior is not implemented yet.
+- **Heimdal macOS observer** — governed still-frame capture for the frontmost application window, with host-owned pause/exclusions and a bounded durable delivery queue.
 - **Mimer client** — knowledge: chat, review, entity confirmation, settings · iPhone + **iPad-first**.
 
 ## Governance — a governed constituent, not a detached project
@@ -30,7 +30,9 @@ iPad-first canvas and the Heimdal client; delivery status stays in the Epic B sl
 (see `Yggdrasil/README.md` for the app's structure).
 
 App slices: Epic B (#3020) → B1 (#3023) shell + Mimer-iPhone (landed) · B2 (#3024) Mimer-iPad · B3 (#3026)
-Heimdal-iPhone + Watch. The bounded macOS foundation slice is tracked by Bifrost #67 and links to hub #3341.
+Heimdal-iPhone + Watch. The macOS foundation was delivered by Bifrost #67; observer behavior is tracked
+by Bifrost #72, with hub #3341 as the Heimdal validation pointer. Settings, consent, raw admission, and
+sensor allow-list ownership remain with the hub.
 
 ## Repository layout
 - `AGENTS.md` — builder-agent instructions; ecosystem authority inherited from the hub.
@@ -39,7 +41,13 @@ Heimdal-iPhone + Watch. The bounded macOS foundation slice is tracked by Bifrost
 - `docs/adr/` — pointer to the hub ADR record (ecosystem constitution is not forked here).
 - `Yggdrasil/` — the Xcode project: the Yggdrasil shell plus bounded Mimer client surfaces for
   iPhone and iPad, the Heimdal client for iPhone and Apple Watch, and the minimal
-  `HeimdalMacObserver` macOS foundation target.
+  `HeimdalMacObserver` macOS client. It reads fresh accepted screen controls before capture, samples
+  only the current application's onscreen window, and retains offline requests in a private bounded
+  queue until the host returns a durable acknowledgement.
+- The observer defaults to `http://127.0.0.1:8000`. To use a private remote Heimdal host, configure
+  `HEIMDAL_SCREEN_HUB_URL` and provide its `X-API-Key` through `HEIMDAL_SCREEN_API_KEY`; the key is
+  held only in process memory and sent with control and capture requests. The app does not persist it.
+  Missing or invalid remote authentication leaves capture paused and queued frames intact.
 - `Packages/YggdrasilCore/` — the platform-agnostic Swift package (frontmatter/markdown parsing,
   `_heimdal/**` note models, vault path resolution) the app target depends on; `swift test` runs its
   unit tests without needing a simulator.
@@ -48,11 +56,12 @@ Heimdal-iPhone + Watch. The bounded macOS foundation slice is tracked by Bifrost
 
 CI runs on pull requests and pushes to `main`. It preserves the repository-governance checks, applies
 SwiftLint in strict mode to app, package, and test sources, runs the `YggdrasilCore` Swift package tests,
-explicitly builds and tests the `HeimdalMacObserver` foundation scheme on macOS with
+explicitly builds and tests the `HeimdalMacObserver` scheme on `macos-15` with
 `CODE_SIGNING_ALLOWED=NO`, then builds and tests the shared `Yggdrasil` scheme (unit and UI tests) on
-available iPhone and iPad simulators. The macOS foundation lane is a merge gate for the platform target;
-it does not claim screen-observer behavior. The workflow discovers the runner's installed Xcode, iOS
-runtime, and simulators instead of pinning device identifiers. It uses only standard GitHub-hosted runners
+available iPhone and iPad simulators. The macOS lane covers control gating, capture ordering, queue
+durability, FIFO backfill, and the host acknowledgement boundary. The workflow discovers the runner's
+installed Xcode, iOS runtime, and simulators instead of pinning device identifiers. It uses only
+standard GitHub-hosted runners
 and uploads no caches or artifacts, so it is designed for GitHub's public-repository free tier.
 
 To reproduce the code checks locally, install Xcode and SwiftLint, select installed iPhone and iPad

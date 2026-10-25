@@ -110,6 +110,13 @@
 		661D4087FF716F6CB52A808E /* YggdrasilCore in Frameworks */ = {isa = PBXBuildFile; productRef = E57461B6C5A0AAAB703095D2 /* YggdrasilCore */; };
 		F67000010000000000000001 /* HeimdalMacObserverApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000110000000000000001 /* HeimdalMacObserverApp.swift */; };
 		F67000020000000000000002 /* HeimdalMacObserverSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000120000000000000002 /* HeimdalMacObserverSmokeTests.swift */; };
+		F67000030000000000000003 /* ScreenObserverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000130000000000000003 /* ScreenObserverModels.swift */; };
+		F67000040000000000000004 /* ScreenControlAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000140000000000000004 /* ScreenControlAPI.swift */; };
+		F67000050000000000000005 /* DurableScreenBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000150000000000000005 /* DurableScreenBuffer.swift */; };
+		F67000060000000000000006 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000160000000000000006 /* ScreenCapture.swift */; };
+		F67000070000000000000007 /* ScreenObserverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000170000000000000007 /* ScreenObserverCoordinator.swift */; };
+		F67000080000000000000008 /* ScreenControlAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000180000000000000008 /* ScreenControlAPITests.swift */; };
+		F67000090000000000000009 /* DurableScreenBufferPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67000190000000000000009 /* DurableScreenBufferPersistenceTests.swift */; };
 		D0A149FBDB5E2A2AE69B78EE /* EBGaramond-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 43101A01CF066BD10591233D /* EBGaramond-Italic.ttf */; };
 		E4935229CBB6D1E8C0F3BBBE /* EBGaramond-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5030E8FFA536A3E6C57ACB4A /* EBGaramond-Medium.ttf */; };
 		4F4552048AF639A4E34113DA /* EBGaramond-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3D27B26115168E6D2BDEC0F7 /* EBGaramond-Regular.ttf */; };
@@ -259,6 +266,13 @@
 		FD0FBE5B7AA11A58ED447675 /* YggdrasilUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YggdrasilUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F67000110000000000000001 /* HeimdalMacObserverApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalMacObserverApp.swift; sourceTree = "<group>"; };
 		F67000120000000000000002 /* HeimdalMacObserverSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalMacObserverSmokeTests.swift; sourceTree = "<group>"; };
+		F67000130000000000000003 /* ScreenObserverModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenObserverModels.swift; sourceTree = "<group>"; };
+		F67000140000000000000004 /* ScreenControlAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenControlAPI.swift; sourceTree = "<group>"; };
+		F67000150000000000000005 /* DurableScreenBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurableScreenBuffer.swift; sourceTree = "<group>"; };
+		F67000160000000000000006 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
+		F67000170000000000000007 /* ScreenObserverCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenObserverCoordinator.swift; sourceTree = "<group>"; };
+		F67000180000000000000008 /* ScreenControlAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenControlAPITests.swift; sourceTree = "<group>"; };
+		F67000190000000000000009 /* DurableScreenBufferPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurableScreenBufferPersistenceTests.swift; sourceTree = "<group>"; };
 		F67000300000000000000030 /* HeimdalMacObserver.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HeimdalMacObserver.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F67000310000000000000031 /* HeimdalMacObserverTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HeimdalMacObserverTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		43101A01CF066BD10591233D /* EBGaramond-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "EBGaramond-Italic.ttf"; sourceTree = "<group>"; };
@@ -471,6 +485,11 @@
 			isa = PBXGroup;
 			children = (
 				F67000110000000000000001 /* HeimdalMacObserverApp.swift */,
+				F67000130000000000000003 /* ScreenObserverModels.swift */,
+				F67000140000000000000004 /* ScreenControlAPI.swift */,
+				F67000150000000000000005 /* DurableScreenBuffer.swift */,
+				F67000160000000000000006 /* ScreenCapture.swift */,
+				F67000170000000000000007 /* ScreenObserverCoordinator.swift */,
 			);
 			path = HeimdalMacObserver;
 			sourceTree = "<group>";
@@ -479,6 +498,8 @@
 			isa = PBXGroup;
 			children = (
 				F67000120000000000000002 /* HeimdalMacObserverSmokeTests.swift */,
+				F67000180000000000000008 /* ScreenControlAPITests.swift */,
+				F67000190000000000000009 /* DurableScreenBufferPersistenceTests.swift */,
 			);
 			path = HeimdalMacObserverTests;
 			sourceTree = "<group>";
@@ -942,6 +963,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				F67000010000000000000001 /* HeimdalMacObserverApp.swift in Sources */,
+				F67000030000000000000003 /* ScreenObserverModels.swift in Sources */,
+				F67000040000000000000004 /* ScreenControlAPI.swift in Sources */,
+				F67000050000000000000005 /* DurableScreenBuffer.swift in Sources */,
+				F67000060000000000000006 /* ScreenCapture.swift in Sources */,
+				F67000070000000000000007 /* ScreenObserverCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -950,6 +976,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F67000020000000000000002 /* HeimdalMacObserverSmokeTests.swift in Sources */,
+				F67000080000000000000008 /* ScreenControlAPITests.swift in Sources */,
+				F67000090000000000000009 /* DurableScreenBufferPersistenceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
