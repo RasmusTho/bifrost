@@ -97,6 +97,24 @@ final class CompanionTTSClientTests: XCTestCase {
             XCTAssertEqual(error, .untrustedAudioURL)
         }
 
+        let credentialedURLData = try Self.planJSON(
+            cacheKey: key,
+            audioURL: "http://user:pass@127.0.0.1:8765/api/companion/tts/audio/\(key).wav"
+        )
+        CompanionTTSURLProtocol.handler = { request in
+            guard request.url?.path == "/api/companion/tts/plan" else {
+                return CompanionTTSStubResponse(statusCode: 500)
+            }
+            return CompanionTTSStubResponse(statusCode: 200, data: credentialedURLData)
+        }
+        let credentialedURLClient = try Self.client()
+        do {
+            _ = try await credentialedURLClient.plan(text: "A note")
+            XCTFail("Expected audio URL userinfo to fail closed.")
+        } catch let error as CompanionTTSClientError {
+            XCTAssertEqual(error, .untrustedAudioURL)
+        }
+
         let currentPlanData = try Self.planJSON(cacheKey: key)
         let changedReceiptData = try Self.synthesisJSON(cacheKey: String(repeating: "b", count: 64))
         CompanionTTSURLProtocol.handler = { request in

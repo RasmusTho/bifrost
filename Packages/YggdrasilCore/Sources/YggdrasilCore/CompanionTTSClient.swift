@@ -260,6 +260,8 @@ public final class CompanionTTSClient: CompanionTTSServing, @unchecked Sendable 
         return left.scheme?.lowercased() == right.scheme?.lowercased()
             && left.host?.lowercased() == right.host?.lowercased()
             && left.port == right.port
+            && left.user == nil
+            && left.password == nil
     }
 
     private static var decoder: JSONDecoder {

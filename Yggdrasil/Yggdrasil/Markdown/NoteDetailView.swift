@@ -60,7 +60,12 @@ struct NoteDetailView: View {
             }
         }
         .navigationDestination(item: $linkedNote) { link in
-            NoteDetailView(relativePath: link.path, fileStore: fileStore, anchor: link.anchor)
+            NoteDetailView(
+                relativePath: link.path,
+                fileStore: fileStore,
+                anchor: link.anchor,
+                allowsReadAloud: allowsReadAloud
+            )
         }
         .yggPage()
         .navigationTitle(relativePath.split(separator: "/").last.map(String.init) ?? relativePath)
