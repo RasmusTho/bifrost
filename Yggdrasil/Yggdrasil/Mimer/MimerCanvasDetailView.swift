@@ -129,6 +129,7 @@ struct MimerCanvasDetailView: View {
             }
         }
         .onChange(of: note?.relativePath) { _, _ in
+            linkedNoteLoadToken = UUID()
             detailCoordinator.selectionChanged()
         }
     }
@@ -152,9 +153,9 @@ struct MimerCanvasDetailView: View {
     /// becomes the canvas selection, exactly as if picked in the Vault column.
     private func openLinkedNote(_ path: String, anchor: String?) {
         linkedAnchor = VaultNoteLink(path: path, anchor: anchor)
-        guard path != note?.relativePath else { return }
         let loadToken = UUID()
         linkedNoteLoadToken = loadToken
+        guard path != note?.relativePath else { return }
         Task { @MainActor in
             async let text = fileStore.read(path)
             async let modified = fileStore.modificationDate(of: path)
