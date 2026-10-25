@@ -64,6 +64,7 @@ final class CompanionTTSClientTests: XCTestCase {
         XCTAssertEqual(result.data, Self.wavData())
     }
 
+    // swiftlint:disable:next function_body_length
     func testClientRejectsFallbackPlansMismatchedReceiptsAndExternalAudioURLs() async throws {
         let key = String(repeating: "a", count: 64)
         let fallbackData = try Self.planJSON(cacheKey: key, allowCloudFallback: true)
