@@ -120,7 +120,7 @@ jobs:
         run: |
           set -euo pipefail
           swift test --package-path Packages/YggdrasilCore
-      - name: Build Heimdal macOS observer foundation
+      - name: Build Heimdal macOS observer
         shell: bash
         run: |
           set -euo pipefail
@@ -130,7 +130,7 @@ jobs:
             -destination 'platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/HeimdalMacObserverDerivedData" \
             CODE_SIGNING_ALLOWED=NO
-      - name: Test Heimdal macOS observer foundation
+      - name: Test Heimdal macOS observer behavior
         shell: bash
         run: |
           set -euo pipefail
