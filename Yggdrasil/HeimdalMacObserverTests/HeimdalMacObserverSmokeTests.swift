@@ -37,9 +37,12 @@ final class HeimdalMacObserverSmokeTests: XCTestCase {
             return XCTFail("The admitted request must contain a raw screen frame bundle.")
         }
         XCTAssertEqual(raw["cadence_seconds"] as? Double, 12.5)
+        XCTAssertEqual(raw["app"] as? String, "Editor")
         XCTAssertEqual(raw["app_bundle_id"] as? String, appIdentifier)
+        XCTAssertEqual(raw["scope"] as? String, "screen_always_on")
+        XCTAssertEqual(raw["window"] as? String, "Editor")
+        XCTAssertNotNil(raw["frame"] as? String)
         XCTAssertNotNil(raw["captured_at"] as? String)
-        XCTAssertNotNil(raw["frame_png_base64"] as? String)
         capture.isLocked = true
         coordinator.refreshVisibleState()
         XCTAssertEqual(coordinator.status.phase, .idle)
@@ -178,14 +181,23 @@ final class HeimdalMacObserverSmokeTests: XCTestCase {
         XCTAssertEqual(pendingAfterInvalidAcknowledgement, pendingAfterFailure)
 
         shipping.invalidAcknowledgement = false
+        shipping.acknowledgementContentIdentityOverride = "different-content-identity"
+        await coordinator.runCycle()
+        let pendingAfterMismatchedAcknowledgement = await buffer.identities()
+        XCTAssertEqual(pendingAfterMismatchedAcknowledgement, pendingAfterFailure)
+
+        shipping.acknowledgementContentIdentityOverride = nil
+        shipping.invalidAcknowledgement = false
         await coordinator.runCycle()
         XCTAssertEqual(shipping.entries.map(\.contentIdentity), [
+            pendingAfterFailure[0],
             pendingAfterFailure[0],
             pendingAfterFailure[0],
             pendingAfterFailure[0]
         ])
         XCTAssertEqual(shipping.entries[0].payload, shipping.entries[1].payload)
         XCTAssertEqual(shipping.entries[1].payload, shipping.entries[2].payload)
+        XCTAssertEqual(shipping.entries[2].payload, shipping.entries[3].payload)
         let acknowledgedSummary = await buffer.summary()
         XCTAssertEqual(acknowledgedSummary.pendingCount, 0)
     }
@@ -459,42 +471,4 @@ private final class FakeScreenCapture: ScreenCaptureProviding {
         captureCount += 1
         return frameToCapture
     }
-}
-
-@MainActor
-private final class FakeScreenShipping: ScreenBundleShipping {
-    private let buffer: DurableScreenBuffer
-    var failedAttempts = 0
-    var invalidAcknowledgement = false
-    private(set) var entries: [ScreenQueueEntry] = []
-    private(set) var pendingCountAtAdmission: [Int] = []
-
-    init(buffer: DurableScreenBuffer) {
-        self.buffer = buffer
-    }
-
-    func ship(_ entry: ScreenQueueEntry) async throws -> DurableScreenAcknowledgement {
-        entries.append(entry)
-        pendingCountAtAdmission.append(await buffer.summary().pendingCount)
-        if failedAttempts > 0 {
-            failedAttempts -= 1
-            throw FakeScreenError.unavailable
-        }
-        if invalidAcknowledgement {
-            return DurableScreenAcknowledgement(
-                recordIdentifier: "",
-                contentIdentity: "host-content-identity",
-                bundleShape: "raw_capture_bundle"
-            )
-        }
-        return DurableScreenAcknowledgement(
-            recordIdentifier: "record-1",
-            contentIdentity: "host-content-identity",
-            bundleShape: "raw_capture_bundle"
-        )
-    }
-}
-
-private enum FakeScreenError: Error {
-    case unavailable
 }

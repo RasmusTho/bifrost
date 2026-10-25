@@ -263,9 +263,10 @@ final class ScreenObserverCoordinator {
             }
             guard !acknowledgement.recordIdentifier.isEmpty,
                   !acknowledgement.contentIdentity.isEmpty,
+                  acknowledgement.contentIdentity == entry.contentIdentity,
                   acknowledgement.bundleShape == "raw_capture_bundle" else {
                 throw ScreenObserverFailure.deliveryUnavailable(
-                    "The acknowledgement was missing its durable record identity or bundle shape."
+                    "The acknowledgement did not match the queued capture's durable identity or bundle shape."
                 )
             }
             do {

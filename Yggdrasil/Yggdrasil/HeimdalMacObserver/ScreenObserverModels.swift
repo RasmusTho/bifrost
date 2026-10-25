@@ -176,21 +176,21 @@ struct ScreenRawFrame: Encodable {
     let modality = "screen"
     let capturedAt: String
     let cadenceSeconds: TimeInterval
-    let appIdentifier: String
-    let appName: String
-    let windowIdentifier: UInt32
-    let windowTitle: String?
-    let framePNGBase64: String
+    let app: String
+    let appBundleIdentifier: String
+    let window: String?
+    let scope = "screen_always_on"
+    let frame: String
 
     enum CodingKeys: String, CodingKey {
         case modality
         case capturedAt = "captured_at"
         case cadenceSeconds = "cadence_seconds"
-        case appIdentifier = "app_bundle_id"
-        case appName = "app_name"
-        case windowIdentifier = "window_id"
-        case windowTitle = "window_title"
-        case framePNGBase64 = "frame_png_base64"
+        case app
+        case appBundleIdentifier = "app_bundle_id"
+        case window
+        case scope
+        case frame
     }
 }
 
@@ -221,11 +221,10 @@ struct ScreenCaptureBundle: Encodable {
         raw = ScreenRawFrame(
             capturedAt: formatter.string(from: frame.capturedAt),
             cadenceSeconds: cadenceSeconds,
-            appIdentifier: application.bundleIdentifier,
-            appName: application.name,
-            windowIdentifier: frame.windowIdentifier,
-            windowTitle: frame.windowTitle,
-            framePNGBase64: frame.pngData.base64EncodedString()
+            app: application.name,
+            appBundleIdentifier: application.bundleIdentifier,
+            window: frame.windowTitle,
+            frame: frame.pngData.base64EncodedString()
         )
     }
 }

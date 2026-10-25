@@ -146,9 +146,12 @@ struct ScreenControlAPI: ScreenControlProviding, ScreenBundleShipping {
             return true
         }
         let components = lowered.split(separator: ".", omittingEmptySubsequences: false)
-        guard components.count == 4,
-              components.allSatisfy({ UInt8($0) != nil }) else { return false }
-        let octets = components.compactMap { UInt8($0) }
+        guard components.count == 4 else { return false }
+        let octets = components.compactMap { component -> UInt8? in
+            guard let octet = UInt8(component), String(octet) == String(component) else { return nil }
+            return octet
+        }
+        guard octets.count == 4 else { return false }
         switch (octets[0], octets[1]) {
         case (127, _), (10, _), (192, 168), (172, 16...31), (169, 254), (100, 64...127):
             return true

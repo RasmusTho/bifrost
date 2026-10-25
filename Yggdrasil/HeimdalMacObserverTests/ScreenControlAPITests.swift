@@ -10,7 +10,52 @@ final class ScreenControlAPITests: XCTestCase {
 
     func testPrivateIPv4ClassificationRejectsHostnameSuffixes() {
         XCTAssertTrue(ScreenControlAPI.isPrivateHost("127.0.0.1"))
+        XCTAssertTrue(ScreenControlAPI.isPrivateHost("10.0.0.1"))
         XCTAssertFalse(ScreenControlAPI.isPrivateHost("127.0.0.1.example.com"))
+    }
+
+    func testPrivateIPv4ClassificationRejectsAmbiguousNumericSpellings() throws {
+        XCTAssertFalse(ScreenControlAPI.isPrivateHost("010.0.0.1"))
+        XCTAssertFalse(ScreenControlAPI.isPrivateHost("10.000.0.1"))
+
+        let ambiguousURL = try XCTUnwrap(URL(string: "http://010.0.0.1:8000"))
+        XCTAssertThrowsError(try ScreenControlAPI(baseURL: ambiguousURL))
+    }
+
+    func testQueueIdentityMatchesHostCanonicalRawHash() throws {
+        let binding = ScreenControlBinding(vaultIdentifier: "vault-1", localInstanceIdentifier: "instance-1")
+        let raw: [String: Any] = [
+            "app": "Åpp",
+            "cadence_seconds": 12.5,
+            "frame": "abc",
+            "scope": "screen_always_on",
+            "window": "Döc.md"
+        ]
+        let payload = try JSONSerialization.data(withJSONObject: ["raw": raw])
+        let appIdentity = "com.example.Editor"
+        let entry = ScreenQueueEntry(appIdentifier: appIdentity, binding: binding, payload: payload)
+        XCTAssertEqual(
+            entry.contentIdentity,
+            "eed81cb6c8e85554dea1afd1ab88841fc2ae4d439be49790f7b5f835b0a1a36c"
+        )
+    }
+
+    func testQueueIdentityEscapesDELLikeHostCanonicalJSON() throws {
+        let binding = ScreenControlBinding(vaultIdentifier: "vault-1", localInstanceIdentifier: "instance-1")
+        let raw: [String: Any] = [
+            "app": "Editor\u{7F}",
+            "cadence_seconds": 12.5,
+            "frame": "abc",
+            "scope": "screen_always_on",
+            "window": "Döc.md"
+        ]
+        let payload = try JSONSerialization.data(withJSONObject: ["raw": raw])
+        let entry = ScreenQueueEntry(appIdentifier: appIdentifier, binding: binding, payload: payload)
+
+        XCTAssertEqual(
+            entry.contentIdentity,
+            "517e810c18f64ecc9d2691e645bb099961cab1babcdbb80357bd224657358a8c"
+        )
     }
 
     func testConfiguredAPIKeyIsSentWithControlsAndCaptureRequests() async throws {
@@ -199,6 +244,45 @@ private class ScreenAPIURLProtocol: URLProtocol, @unchecked Sendable {
         }
         return body
     }
+}
+
+@MainActor
+final class FakeScreenShipping: ScreenBundleShipping {
+    private let buffer: DurableScreenBuffer
+    var failedAttempts = 0
+    var invalidAcknowledgement = false
+    var acknowledgementContentIdentityOverride: String?
+    private(set) var entries: [ScreenQueueEntry] = []
+    private(set) var pendingCountAtAdmission: [Int] = []
+
+    init(buffer: DurableScreenBuffer) {
+        self.buffer = buffer
+    }
+
+    func ship(_ entry: ScreenQueueEntry) async throws -> DurableScreenAcknowledgement {
+        entries.append(entry)
+        pendingCountAtAdmission.append(await buffer.summary().pendingCount)
+        if failedAttempts > 0 {
+            failedAttempts -= 1
+            throw FakeScreenError.unavailable
+        }
+        if invalidAcknowledgement {
+            return DurableScreenAcknowledgement(
+                recordIdentifier: "",
+                contentIdentity: acknowledgementContentIdentityOverride ?? entry.contentIdentity,
+                bundleShape: "raw_capture_bundle"
+            )
+        }
+        return DurableScreenAcknowledgement(
+            recordIdentifier: "record-1",
+            contentIdentity: acknowledgementContentIdentityOverride ?? entry.contentIdentity,
+            bundleShape: "raw_capture_bundle"
+        )
+    }
+}
+
+enum FakeScreenError: Error {
+    case unavailable
 }
 
 private struct ScreenAPIStubResponse {
