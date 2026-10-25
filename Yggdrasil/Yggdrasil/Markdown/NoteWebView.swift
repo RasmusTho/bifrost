@@ -360,12 +360,17 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         case "openExternal":
             if let raw = body["url"] as? String, let url = URL(string: raw) { onOpenExternal(url) }
         case "openAsset":
-            if let path = body["path"] as? String { onOpenAsset(path) }
+            routeOpenAsset(from: body)
         case "error":
             NSLog("NoteWebView: %@", (body["message"] as? String) ?? "unknown renderer error")
         default:
             break
         }
+    }
+
+    private func routeOpenAsset(from body: [String: Any]) {
+        guard let path = body["path"] as? String else { return }
+        onOpenAsset(path)
     }
 
     // MARK: WKNavigationDelegate
