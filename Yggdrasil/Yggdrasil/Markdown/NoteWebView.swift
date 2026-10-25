@@ -95,6 +95,7 @@ private struct NoteWebRepresentable: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
+        webView.accessibilityIdentifier = "mimer.note.renderer"
         webView.navigationDelegate = context.coordinator
         webView.allowsLinkPreview = false
         #if DEBUG
@@ -234,6 +235,7 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
         }
         renderedKey = key
         renderedTheme = current.theme
+        webView.accessibilityValue = "rendering:\(current.notePath)"
         let snapshot = current
         renderTask?.cancel()
         renderTask = Task { [weak self] in
@@ -347,17 +349,28 @@ final class NoteWebCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageH
             isReady = true
             renderedKey = nil
             renderIfNeeded()
+        case "rendered":
+            // The bundled page posts this only after it has inserted the
+            // rendered note DOM (and finished any Mermaid work). Expose that
+            // boundary so UI automation can synchronize before querying the
+            // WebKit accessibility tree.
+            webView?.accessibilityValue = "rendered:\(current.notePath)"
         case "openNote":
             if let path = body["path"] as? String { onOpenNote(path, body["anchor"] as? String) }
         case "openExternal":
             if let raw = body["url"] as? String, let url = URL(string: raw) { onOpenExternal(url) }
         case "openAsset":
-            if let path = body["path"] as? String { onOpenAsset(path) }
+            routeOpenAsset(from: body)
         case "error":
             NSLog("NoteWebView: %@", (body["message"] as? String) ?? "unknown renderer error")
         default:
             break
         }
+    }
+
+    private func routeOpenAsset(from body: [String: Any]) {
+        guard let path = body["path"] as? String else { return }
+        onOpenAsset(path)
     }
 
     // MARK: WKNavigationDelegate

@@ -40,7 +40,7 @@ final class MimerCanvasJourneyTests: XCTestCase {
         let note = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
         XCTAssertTrue(note.waitForExistence(timeout: 5))
         note.tap()
-        XCTAssertTrue(app.staticTexts["Fixture note"].waitForExistence(timeout: 15))
+        assertRenderedNote("Projects/fixture.md", heading: "Fixture note", in: app)
 
         // 5. Confirm the inspector reflects that note's metadata.
         let inspectorUUID = app.descendants(matching: .any)["mimer.canvas.inspector.uuid"]
@@ -53,7 +53,7 @@ final class MimerCanvasJourneyTests: XCTestCase {
         let plainNote = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/source.md"]
         XCTAssertTrue(plainNote.waitForExistence(timeout: 5))
         plainNote.tap()
-        XCTAssertTrue(app.staticTexts["Source note"].waitForExistence(timeout: 15))
+        assertRenderedNote("Projects/source.md", heading: "Source note", in: app)
         // `LabeledContent` composes its own label into the accessibility
         // label, so match on containment rather than equality (as step 5
         // does). Asserting both halves keeps this honest: the inspector must
@@ -65,6 +65,29 @@ final class MimerCanvasJourneyTests: XCTestCase {
             object: inspectorUUID
         )
         XCTAssertEqual(XCTWaiter.wait(for: [noUUID], timeout: 5), .completed)
+    }
+
+    /// Wait for the WebKit renderer's completion signal before asking
+    /// XCTest to inspect its accessibility tree. The detail-column note
+    /// value changes as soon as selection succeeds, before WebKit finishes
+    /// rendering the markdown DOM.
+    private func assertRenderedNote(_ path: String, heading: String, in app: XCUIApplication) {
+        let renderer = app.descendants(matching: .any)["mimer.note.renderer"]
+        XCTAssertTrue(renderer.waitForExistence(timeout: 5), "Expected the note renderer for \(path).")
+
+        let rendered = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "rendered:\(path)"),
+            object: renderer
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [rendered], timeout: 15),
+            .completed,
+            "Expected WebKit to finish rendering \(path) before checking its visible heading."
+        )
+        XCTAssertTrue(
+            app.staticTexts[heading].waitForExistence(timeout: 5),
+            "Expected the rendered note to expose its \(heading) heading."
+        )
     }
 
     /// Journey: open the entities source → compare candidates → merge with
