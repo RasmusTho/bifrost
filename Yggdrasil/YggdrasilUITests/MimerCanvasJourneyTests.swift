@@ -94,10 +94,10 @@ final class MimerCanvasJourneyTests: XCTestCase {
         XCTAssertLessThan(sidebar.frame.midX, content.frame.midX, "Navigation must lead content: \(frames)")
         XCTAssertLessThan(sidebar.frame.maxX, content.frame.maxX, "Content must show past navigation: \(frames)")
         XCTAssertLessThanOrEqual(content.frame.maxX, detail.frame.minX + 1, "Content must lead detail: \(frames)")
-        XCTAssertGreaterThanOrEqual(
-            inspector.frame.minX, detail.frame.minX + detail.frame.width / 2, "Inspector trails detail: \(frames)"
+        XCTAssertGreaterThan(inspector.frame.minX, detail.frame.minX, "Inspector trails the document: \(frames)")
+        XCTAssertEqual(
+            inspector.frame.maxX, detail.frame.maxX, accuracy: 1, "Inspector sits on detail's trailing edge: \(frames)"
         )
-        XCTAssertLessThanOrEqual(inspector.frame.maxX, detail.frame.maxX + 1, "Inspector trails detail: \(frames)")
 
         // No selection yet: the detail column shows the shared empty state.
         let detailEmpty = app.descendants(matching: .any)["mimer.canvas.detail.empty"]
