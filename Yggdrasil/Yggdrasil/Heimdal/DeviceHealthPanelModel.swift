@@ -65,6 +65,10 @@ final class DeviceHealthPanelModel: ObservableObject {
     /// model. Never cached, never written back.
     var recordingPhase: CaptureSessionModel.Phase { captureSession.phase }
 
+    /// The OS microphone state as last read by the recorder, live from the
+    /// shared session model.
+    var microphone: MicrophoneAvailability { captureSession.microphone }
+
     /// HCAP-03's delivery-queue depth: staged items not yet placed in the
     /// watched folder (a `.deliveredAwaitingSync` item has left the queue).
     var queueDepth: Int { pendingItems.count }

@@ -90,6 +90,11 @@ final class CaptureSessionModel: ObservableObject {
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var stagedItems: [StagedItem] = []
     @Published private(set) var recoveryFailures: [RecoveryFailure] = []
+    @Published private(set) var microphone: MicrophoneAvailability = .undetermined
+
+    func updateMicrophone(_ availability: MicrophoneAvailability) {
+        microphone = availability
+    }
 
     @discardableResult
     func transition(to next: Phase) -> Bool {

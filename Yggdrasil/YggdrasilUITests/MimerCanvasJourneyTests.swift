@@ -67,6 +67,69 @@ final class MimerCanvasJourneyTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [noUUID], timeout: 5), .completed)
     }
 
+    /// Journey: the regular-width canvas lays out navigation → content →
+    /// detail with the inspector trailing the document, and its empty and
+    /// provenance states are the shared Yggdrasil components (tone carried as
+    /// the VoiceOver value), not per-screen styling.
+    func testRegularWidthCanvasUsesSharedHierarchy() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPad-only canvas verification")
+        let app = launchMimerShell(withFixture: true)
+
+        let vaultLens = app.descendants(matching: .any)["mimer.canvas.lens.vault"]
+        XCTAssertTrue(vaultLens.waitForExistence(timeout: 10))
+        vaultLens.tap()
+
+        let sidebar = app.descendants(matching: .any)["mimer.canvas.focus.sidebar"]
+        let content = app.descendants(matching: .any)["mimer.canvas.content.vault"]
+        let detail = app.descendants(matching: .any)["mimer.canvas.detail"]
+        let inspector = app.descendants(matching: .any)["mimer.canvas.inspector"]
+        for column in [sidebar, content, detail, inspector] {
+            XCTAssertTrue(column.waitForExistence(timeout: 10), "Missing canvas column \(column)")
+        }
+        // Side by side, in reading order. On iPadOS 26 the sidebar floats over
+        // the leading edge of the content column, so order by centre and by
+        // the trailing edges rather than requiring disjoint frames. One point
+        // of slack absorbs hairlines.
+        let frames = [sidebar, content, detail, inspector].map { "\($0.identifier)=\($0.frame)" }
+        XCTAssertLessThan(sidebar.frame.midX, content.frame.midX, "Navigation must lead content: \(frames)")
+        XCTAssertLessThan(sidebar.frame.maxX, content.frame.maxX, "Content must show past navigation: \(frames)")
+        XCTAssertLessThanOrEqual(content.frame.maxX, detail.frame.minX + 1, "Content must lead detail: \(frames)")
+        XCTAssertGreaterThan(inspector.frame.minX, detail.frame.minX, "Inspector trails the document: \(frames)")
+        XCTAssertEqual(
+            inspector.frame.maxX, detail.frame.maxX, accuracy: 1, "Inspector sits on detail's trailing edge: \(frames)"
+        )
+
+        // No selection yet: the detail column shows the shared empty state.
+        let detailEmpty = app.descendants(matching: .any)["mimer.canvas.detail.empty"]
+        XCTAssertTrue(detailEmpty.waitForExistence(timeout: 5))
+        XCTAssertTrue(detailEmpty.label.contains("Select an Item"), detailEmpty.label)
+        XCTAssertEqual(detailEmpty.value as? String, "Empty")
+
+        // A note with agent_provenance: the inspector uses the shared marker.
+        let projects = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects"]
+        XCTAssertTrue(projects.waitForExistence(timeout: 10))
+        projects.tap()
+        let note = app.descendants(matching: .any)["mimer.canvas.vault.entry.Projects/fixture.md"]
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        note.tap()
+        let provenance = app.descendants(matching: .any)["mimer.canvas.inspector.provenance"]
+        let agentContributed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS[c] %@", "agent-contributed"),
+            object: provenance
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [agentContributed], timeout: 10), .completed)
+
+        // A filter with no match: the content column shows the shared empty state.
+        let filter = app.textFields["mimer.canvas.vault.filter"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5))
+        filter.tap()
+        filter.typeText("zz-no-such-note")
+        let contentEmpty = app.descendants(matching: .any)["mimer.canvas.vault.empty"]
+        XCTAssertTrue(contentEmpty.waitForExistence(timeout: 5))
+        XCTAssertTrue(contentEmpty.label.contains("No Matching Notes"), contentEmpty.label)
+        XCTAssertEqual(contentEmpty.value as? String, "Empty")
+    }
+
     /// Wait for the WebKit renderer's completion signal before asking
     /// XCTest to inspect its accessibility tree. The detail-column note
     /// value changes as soon as selection succeeds, before WebKit finishes

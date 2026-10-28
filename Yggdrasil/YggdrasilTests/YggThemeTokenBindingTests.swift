@@ -42,6 +42,60 @@ final class YggThemeTokenBindingTests: XCTestCase {
         XCTAssertEqual(hex(YggTheme.Color.primaryFill, .light), 0x0F1014)
     }
 
+    /// The semantic roles are names for canonical tokens, not a second palette:
+    /// each resolves to the pinned Dark value under dark and the Shell value
+    /// under light, and every state tone draws only from those roles.
+    func testSemanticRolesResolveForBothColorSchemes() {
+        struct Role {
+            let name: String
+            let color: SwiftUI.Color
+            let dark: UInt32
+            let shell: UInt32
+
+            init(_ name: String, _ color: SwiftUI.Color, _ dark: UInt32, _ shell: UInt32) {
+                (self.name, self.color, self.dark, self.shell) = (name, color, dark, shell)
+            }
+        }
+        let roles: [Role] = [
+            Role("background", YggTheme.Color.background, 0x070B12, 0xE4E6EB),
+            Role("surface", YggTheme.Color.surface, 0x0C1220, 0xF1F2F5),
+            Role("border", YggTheme.Color.border, 0x152030, 0xD3D6DC),
+            Role("focus", YggTheme.Color.focus, 0x00D4E8, 0x007F8C),
+            Role("provenance", YggTheme.Color.provenance, 0x4A9EFF, 0x1A3999),
+            Role("pending", YggTheme.Color.pending, 0xF09030, 0x6A3400),
+            Role("healthy", YggTheme.Color.healthy, 0x39E87D, 0x094D29),
+            Role("failure", YggTheme.Color.failure, 0xFF3D3D, 0x841021),
+            Role("provenanceMark", YggTheme.Color.provenanceMark, 0x4A9EFF, 0x2F6BFF),
+            Role("pendingMark", YggTheme.Color.pendingMark, 0xF09030, 0xFF8A1A),
+            Role("healthyMark", YggTheme.Color.healthyMark, 0x39E87D, 0x16C95E),
+            Role("failureMark", YggTheme.Color.failureMark, 0xFF3D3D, 0xFF1F4B)
+        ]
+        for role in roles {
+            XCTAssertEqual(hex(role.color, .dark), role.dark, "\(role.name) under Yggdrasil Dark")
+            XCTAssertEqual(hex(role.color, .light), role.shell, "\(role.name) under Yggdrasil Light Shell")
+        }
+
+        let canonicalInk: [YggStateTone: SwiftUI.Color] = [
+            .empty: YggTheme.Color.textSecondary,
+            .pending: YggTheme.Color.pending,
+            .healthy: YggTheme.Color.healthy,
+            .attention: YggTheme.Color.warning,
+            .failure: YggTheme.Color.failure,
+            .provenance: YggTheme.Color.provenance
+        ]
+        XCTAssertEqual(Set(canonicalInk.keys), Set(YggStateTone.allCases))
+        for tone in YggStateTone.allCases {
+            let expected = canonicalInk[tone] ?? .clear
+            for style in [UIUserInterfaceStyle.dark, .light] {
+                XCTAssertEqual(hex(tone.ink, style), hex(expected, style), "\(tone) ink, style \(style.rawValue)")
+            }
+        }
+        let spoken = YggStateTone.allCases.map(\.accessibilityLabel)
+        XCTAssertEqual(Set(spoken).count, spoken.count, "Tones that share a colour must still be told apart.")
+        let glyphs = YggStateTone.allCases.map(\.systemImage)
+        XCTAssertEqual(Set(glyphs).count, glyphs.count)
+    }
+
     func testSpacingAndRadiusResolveToYggdrasilTokens() {
         XCTAssertEqual(YggTheme.Spacing.xs, 4)
         XCTAssertEqual(YggTheme.Spacing.sm, 8)

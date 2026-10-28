@@ -171,7 +171,13 @@ struct MimerCanvasView: View {
                         .accessibilityValue(focusValue(for: .content))
                 }
             } else {
-                ContentUnavailableView("Choose a Lens", systemImage: "sidebar.left")
+                YggStatePanel(
+                    tone: .empty,
+                    systemImage: "sidebar.left",
+                    title: "Choose a Lens",
+                    message: "Pick a lens in the sidebar to open it here.",
+                    identifier: "mimer.canvas.content.empty"
+                )
             }
         } detail: {
             Group {
@@ -269,6 +275,9 @@ private struct MimerVaultColumnView: View {
     @State private var entries: [VaultEntry] = []
     @State private var filter = ""
     @State private var loadError: String?
+    /// The note whose read produced `loadError`, so Try Again retries that
+    /// read rather than only re-listing the folder.
+    @State private var failedEntry: VaultEntry?
     @State private var noteSelectionID = UUID()
 
     private var visibleEntries: [VaultEntry] {
@@ -293,11 +302,16 @@ private struct MimerVaultColumnView: View {
                     .accessibilityIdentifier("mimer.canvas.vault.back")
                 }
                 if let loadError {
-                    Text(loadError).foregroundStyle(YggTheme.Color.destructive)
+                    YggStateBanner(tone: .failure, message: loadError)
+                        .accessibilityIdentifier("mimer.canvas.vault.error")
+                    Button("Try Again") {
+                        if let failedEntry { select(failedEntry) } else { load() }
+                    }
+                        .accessibilityIdentifier("mimer.canvas.vault.error.retry")
                 }
                 if let failureMessage = appendDraft.failureMessage {
                     Section("Append needs attention") {
-                        Text(failureMessage).foregroundStyle(YggTheme.Color.destructive)
+                        YggStateBanner(tone: .attention, message: failureMessage)
                         if !appendDraft.failureText.isEmpty {
                             Text(appendDraft.failureText).textSelection(.enabled)
                         }
@@ -328,7 +342,15 @@ private struct MimerVaultColumnView: View {
                     }
                 }
                 if visibleEntries.isEmpty && loadError == nil {
-                    Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
+                    YggStatePanel(
+                        tone: .empty,
+                        systemImage: filter.isEmpty ? "folder" : "line.3.horizontal.decrease.circle",
+                        title: filter.isEmpty ? "No Files Here Yet" : "No Matching Notes",
+                        message: filter.isEmpty
+                            ? "This folder is empty in the vault."
+                            : "Nothing in this folder matches \u{201C}\(filter)\u{201D}.",
+                        identifier: "mimer.canvas.vault.empty"
+                    )
                 }
             }
             .yggRows()
@@ -370,9 +392,11 @@ private struct MimerVaultColumnView: View {
                 guard selectionID == noteSelectionID else { return }
                 selectedNote = note
                 loadError = nil
+                failedEntry = nil
             } catch {
                 guard selectionID == noteSelectionID else { return }
                 loadError = error.localizedDescription
+                failedEntry = entry
             }
         }
     }
@@ -388,9 +412,11 @@ private struct MimerVaultColumnView: View {
                 guard currentDirectory == directory else { return }
                 entries = loadedEntries
                 loadError = nil
+                failedEntry = nil
             } catch {
                 guard currentDirectory == directory else { return }
                 loadError = error.localizedDescription
+                failedEntry = nil
             }
         }
     }

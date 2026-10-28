@@ -248,25 +248,142 @@ struct YggSectionHeader: View {
     }
 }
 
+/// Semantic screen-state tones shared by the shell and every hosted client.
+/// Each tone names an existing Yggdrasil role (`YggTheme.Color`); none adds a
+/// colour. Pending and attention both use the canonical amber, so a tone is
+/// always carried by its glyph and spoken label too, never by colour alone.
+enum YggStateTone: String, CaseIterable {
+    /// Nothing here yet, or no selection.
+    case empty
+    /// Staged / uncommitted: held locally, not yet confirmed anywhere else.
+    case pending
+    /// Vault-connected / committed.
+    case healthy
+    /// Needs the operator to act before work can continue.
+    case attention
+    /// Something failed; the copy says what was kept and what to do.
+    case failure
+    /// Agent-contributed content.
+    case provenance
+
+    var ink: Color {
+        switch self {
+        case .empty: YggTheme.Color.textSecondary
+        case .pending: YggTheme.Color.pending
+        case .healthy: YggTheme.Color.healthy
+        case .attention: YggTheme.Color.warning
+        case .failure: YggTheme.Color.failure
+        case .provenance: YggTheme.Color.provenance
+        }
+    }
+
+    var mark: Color {
+        switch self {
+        case .empty: YggTheme.Color.textDisabled
+        case .pending: YggTheme.Color.pendingMark
+        case .healthy: YggTheme.Color.healthyMark
+        case .attention: YggTheme.Color.warningMark
+        case .failure: YggTheme.Color.failureMark
+        case .provenance: YggTheme.Color.provenanceMark
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .empty: "tray"
+        case .pending: "clock.arrow.circlepath"
+        case .healthy: "checkmark.circle"
+        case .attention: "exclamationmark.triangle"
+        case .failure: "xmark.octagon"
+        case .provenance: "cpu"
+        }
+    }
+
+    /// Spoken as the state's VoiceOver value, after its title.
+    var accessibilityLabel: String {
+        switch self {
+        case .empty: "Empty"
+        case .pending: "Pending"
+        case .healthy: "Healthy"
+        case .attention: "Needs attention"
+        case .failure: "Failed"
+        case .provenance: "Agent-contributed"
+        }
+    }
+}
+
+/// A whole-pane state: empty, failure, attention-needed, and so on. Title and
+/// message read as one VoiceOver element whose value is the tone; the optional
+/// action stays its own button.
+struct YggStatePanel: View {
+    let tone: YggStateTone
+    var systemImage: String?
+    let title: String
+    let message: String
+    var identifier: String?
+    var actionTitle: String?
+    var action: (() -> Void)?
+
+    @ScaledMetric(relativeTo: .largeTitle) private var glyphSize: CGFloat = 32
+
+    var body: some View {
+        VStack(spacing: YggTheme.Spacing.md) {
+            VStack(spacing: YggTheme.Spacing.sm) {
+                Image(systemName: systemImage ?? tone.systemImage)
+                    .font(.system(size: glyphSize))
+                    .foregroundStyle(tone == .empty ? YggTheme.Color.textSecondary : tone.mark)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(YggTheme.Typography.sectionHeader)
+                    .foregroundStyle(tone == .empty ? YggTheme.Color.textPrimary : tone.ink)
+                Text(message)
+                    .font(YggTheme.Typography.caption)
+                    .foregroundStyle(YggTheme.Color.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(tone.accessibilityLabel)
+            .accessibilityIdentifier(identifier ?? "ygg.state.\(tone.rawValue)")
+            if let actionTitle, let action {
+                YggPrimaryButton(title: actionTitle, action: action)
+                    .frame(maxWidth: 320)
+                    .accessibilityIdentifier("\(identifier ?? "ygg.state.\(tone.rawValue)").action")
+            }
+        }
+        .padding(YggTheme.Spacing.xl)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// The empty tone of `YggStatePanel`, kept for existing call sites.
 struct YggEmptyState: View {
     let systemImage: String
     let title: String
     let message: String
+    var identifier: String?
 
     var body: some View {
-        VStack(spacing: YggTheme.Spacing.sm) {
-            Image(systemName: systemImage)
-                .font(.system(size: 32))
-                .foregroundStyle(YggTheme.Color.textSecondary)
-            Text(title)
-                .font(YggTheme.Typography.sectionHeader)
-            Text(message)
-                .font(YggTheme.Typography.caption)
-                .foregroundStyle(YggTheme.Color.textSecondary)
-                .multilineTextAlignment(.center)
+        YggStatePanel(
+            tone: .empty, systemImage: systemImage, title: title, message: message, identifier: identifier
+        )
+    }
+}
+
+/// An inline, row-sized state line: glyph in the tone's mark, text in its ink.
+struct YggStateBanner: View {
+    let tone: YggStateTone
+    let message: String
+    var systemImage: String?
+
+    var body: some View {
+        Label {
+            Text(message).foregroundStyle(tone.ink)
+        } icon: {
+            Image(systemName: systemImage ?? tone.systemImage).foregroundStyle(tone.mark)
         }
-        .padding(YggTheme.Spacing.xl)
-        .frame(maxWidth: .infinity)
+        .font(YggTheme.Typography.body)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(tone.accessibilityLabel)
     }
 }
 
@@ -306,6 +423,16 @@ struct YggStatusMarker: View {
     let label: String
     let ink: Color
     let mark: Color
+
+    init(label: String, ink: Color, mark: Color) {
+        self.label = label
+        self.ink = ink
+        self.mark = mark
+    }
+
+    init(label: String, tone: YggStateTone) {
+        self.init(label: label, ink: tone.ink, mark: tone.mark)
+    }
 
     var body: some View {
         HStack(spacing: YggTheme.Spacing.xs + 2) {

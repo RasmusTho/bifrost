@@ -65,6 +65,25 @@ enum YggTheme {
             dark: YggdrasilTokens.Dark.destructiveMark, shell: YggdrasilTokens.Shell.destructiveMark
         )
 
+        // Semantic state roles (hub `docs/YGGDRASIL_DESIGN_SYSTEM_V2` domain
+        // meaning). These are names for existing tokens, never new colours:
+        // `surface` is `bg-surface`, `provenance` is `agent` (agent-contributed),
+        // `pending` is `amber` (staged / uncommitted), `healthy` is `vault`
+        // (vault-connected / committed), and `failure` is `destructive`.
+        static let surface = secondaryBackground
+        static let provenance = agent
+        static let pending = warning
+        static let healthy = vault
+        static let failure = destructive
+        static let provenanceMark = role(
+            dark: YggdrasilTokens.Dark.agentMark, shell: YggdrasilTokens.Shell.agentMark
+        )
+        static let pendingMark = warningMark
+        static let healthyMark = role(
+            dark: YggdrasilTokens.Dark.vaultMark, shell: YggdrasilTokens.Shell.vaultMark
+        )
+        static let failureMark = destructiveMark
+
         /// Primary-button fill: gold in Dark, solid graphite in Shell.
         static let primaryFill = role(dark: YggdrasilTokens.Dark.accent, shell: YggdrasilTokens.Shell.fg1)
         static let onPrimaryFill = role(
