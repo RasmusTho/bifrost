@@ -194,8 +194,9 @@ extension CaptureRecorder {
                 guard let recorder = self else { return }
                 Task { @MainActor [recorder] in
                     await recorder.refreshMicrophoneAvailability()
-                    if recorder.sessionModel.microphone == .granted {
-                        recorder.start()
+                    switch recorder.sessionModel.microphone {
+                    case .granted, .unavailable: recorder.start()
+                    case .undetermined, .denied, .restricted: break
                     }
                 }
             }

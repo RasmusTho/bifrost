@@ -275,6 +275,9 @@ private struct MimerVaultColumnView: View {
     @State private var entries: [VaultEntry] = []
     @State private var filter = ""
     @State private var loadError: String?
+    /// The note whose read produced `loadError`, so Try Again retries that
+    /// read rather than only re-listing the folder.
+    @State private var failedEntry: VaultEntry?
     @State private var noteSelectionID = UUID()
 
     private var visibleEntries: [VaultEntry] {
@@ -301,7 +304,9 @@ private struct MimerVaultColumnView: View {
                 if let loadError {
                     YggStateBanner(tone: .failure, message: loadError)
                         .accessibilityIdentifier("mimer.canvas.vault.error")
-                    Button("Try Again", action: load)
+                    Button("Try Again") {
+                        if let failedEntry { select(failedEntry) } else { load() }
+                    }
                         .accessibilityIdentifier("mimer.canvas.vault.error.retry")
                 }
                 if let failureMessage = appendDraft.failureMessage {
@@ -387,9 +392,11 @@ private struct MimerVaultColumnView: View {
                 guard selectionID == noteSelectionID else { return }
                 selectedNote = note
                 loadError = nil
+                failedEntry = nil
             } catch {
                 guard selectionID == noteSelectionID else { return }
                 loadError = error.localizedDescription
+                failedEntry = entry
             }
         }
     }
@@ -405,9 +412,11 @@ private struct MimerVaultColumnView: View {
                 guard currentDirectory == directory else { return }
                 entries = loadedEntries
                 loadError = nil
+                failedEntry = nil
             } catch {
                 guard currentDirectory == directory else { return }
                 loadError = error.localizedDescription
+                failedEntry = nil
             }
         }
     }
