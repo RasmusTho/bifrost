@@ -171,7 +171,13 @@ struct MimerCanvasView: View {
                         .accessibilityValue(focusValue(for: .content))
                 }
             } else {
-                ContentUnavailableView("Choose a Lens", systemImage: "sidebar.left")
+                YggStatePanel(
+                    tone: .empty,
+                    systemImage: "sidebar.left",
+                    title: "Choose a Lens",
+                    message: "Pick a lens in the sidebar to open it here.",
+                    identifier: "mimer.canvas.content.empty"
+                )
             }
         } detail: {
             Group {
@@ -293,11 +299,14 @@ private struct MimerVaultColumnView: View {
                     .accessibilityIdentifier("mimer.canvas.vault.back")
                 }
                 if let loadError {
-                    Text(loadError).foregroundStyle(YggTheme.Color.destructive)
+                    YggStateBanner(tone: .failure, message: loadError)
+                        .accessibilityIdentifier("mimer.canvas.vault.error")
+                    Button("Try Again", action: load)
+                        .accessibilityIdentifier("mimer.canvas.vault.error.retry")
                 }
                 if let failureMessage = appendDraft.failureMessage {
                     Section("Append needs attention") {
-                        Text(failureMessage).foregroundStyle(YggTheme.Color.destructive)
+                        YggStateBanner(tone: .attention, message: failureMessage)
                         if !appendDraft.failureText.isEmpty {
                             Text(appendDraft.failureText).textSelection(.enabled)
                         }
@@ -328,7 +337,15 @@ private struct MimerVaultColumnView: View {
                     }
                 }
                 if visibleEntries.isEmpty && loadError == nil {
-                    Text("No files here yet.").foregroundStyle(YggTheme.Color.textSecondary)
+                    YggStatePanel(
+                        tone: .empty,
+                        systemImage: filter.isEmpty ? "folder" : "line.3.horizontal.decrease.circle",
+                        title: filter.isEmpty ? "No Files Here Yet" : "No Matching Notes",
+                        message: filter.isEmpty
+                            ? "This folder is empty in the vault."
+                            : "Nothing in this folder matches \u{201C}\(filter)\u{201D}.",
+                        identifier: "mimer.canvas.vault.empty"
+                    )
                 }
             }
             .yggRows()

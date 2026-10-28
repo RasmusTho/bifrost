@@ -58,11 +58,17 @@ struct HeimdalShellView: View {
                 Group {
                     Section("Capture Folder") {
                         if let folderURL = folderManager.boundFolderURL {
-                            Label(folderURL.lastPathComponent, systemImage: "checkmark.circle.fill")
-                                .accessibilityIdentifier("heimdal.captureFolder.bound")
+                            YggStateBanner(
+                                tone: .healthy, message: folderURL.lastPathComponent,
+                                systemImage: "checkmark.circle.fill"
+                            )
+                            .accessibilityIdentifier("heimdal.captureFolder.bound")
                         } else {
-                            Label("No capture folder selected", systemImage: "folder.badge.questionmark")
-                                .accessibilityIdentifier("heimdal.captureFolder.unbound")
+                            YggStateBanner(
+                                tone: .attention, message: "No capture folder selected",
+                                systemImage: "folder.badge.questionmark"
+                            )
+                            .accessibilityIdentifier("heimdal.captureFolder.unbound")
                         }
 
                         Button("Choose Capture Folder") {
@@ -71,7 +77,7 @@ struct HeimdalShellView: View {
                         .accessibilityIdentifier("heimdal.chooseCaptureFolder")
 
                         if let error = folderManager.lastError {
-                            Text(error).foregroundStyle(YggTheme.Color.destructive)
+                            YggStateBanner(tone: .failure, message: error)
                         }
                     }
 
@@ -84,12 +90,14 @@ struct HeimdalShellView: View {
                             .font(YggTheme.Typography.caption)
                             .foregroundStyle(YggTheme.Color.textSecondary)
                         Button(recordButtonTitle) { recordButtonTapped() }
+                            .disabled(!canPressRecord)
                             .accessibilityIdentifier("heimdal.record")
+                        CaptureStatusView(status: sessionModel.captureStatus, onRecovery: perform)
                         if recorder.needsManualResume {
                             Button("Resume Recording") { recorder.resume() }
                         }
                         if let error = recorder.lastError {
-                            Text(error).foregroundStyle(YggTheme.Color.destructive)
+                            YggStateBanner(tone: .failure, message: error)
                         }
                     }
 
@@ -153,10 +161,13 @@ struct HeimdalShellView: View {
                 }
             }
             .task {
+                await recorder.refreshMicrophoneAvailability()
                 await retryUndelivered()
                 await registration.load()
             }
             .onChange(of: scenePhase) { _, newPhase in
+                // Microphone access changes in Settings, outside the app.
+                if newPhase == .active { Task { await recorder.refreshMicrophoneAvailability() } }
                 Task {
                     await refreshHeimdalStateOnActivation(
                         newPhase,
@@ -177,26 +188,11 @@ struct HeimdalShellView: View {
         }
     }
 
-    private var recordButtonTitle: String {
-        switch sessionModel.phase {
-        case .recording, .paused: "Stop Recording"
-        default: "Record"
-        }
-    }
-
-    private func recordButtonTapped() {
-        switch sessionModel.phase {
-        case .recording, .paused:
-            Task { await recorder.stop() }
-        default: recorder.requestMicrophonePermissionAndStart()
-        }
-    }
-
     @ViewBuilder
     private func deliveryStatus(for item: CaptureSessionModel.StagedItem) -> some View {
         switch item.deliveryState {
         case .staged:
-            Label("Staged locally", systemImage: "internaldrive")
+            YggStateBanner(tone: .pending, message: "Staged locally", systemImage: "internaldrive")
                 .accessibilityIdentifier("heimdal.delivery.staged")
         case let .delivering(startedAt):
             Label("Placing in capture folder", systemImage: "arrow.up.doc")
@@ -213,9 +209,12 @@ struct HeimdalShellView: View {
                 .font(YggTheme.Typography.caption)
                 .foregroundStyle(YggTheme.Color.textSecondary)
         case let .failed(message, failedAt):
-            Label("Delivery failed — recording kept locally", systemImage: "exclamationmark.circle")
-                .foregroundStyle(YggTheme.Color.destructive)
-                .accessibilityIdentifier("heimdal.delivery.failed")
+            YggStateBanner(
+                tone: .failure,
+                message: "Delivery failed — recording kept locally",
+                systemImage: "exclamationmark.circle"
+            )
+            .accessibilityIdentifier("heimdal.delivery.failed")
             Text(failedAt, format: .dateTime.hour().minute().second())
                 .font(YggTheme.Typography.caption)
                 .foregroundStyle(YggTheme.Color.textSecondary)
@@ -289,6 +288,44 @@ struct HeimdalShellView: View {
     }
 }
 
+/// The record control and its capture-status recovery actions.
+private extension HeimdalShellView {
+    var recordButtonTitle: String {
+        switch sessionModel.phase {
+        case .recording, .paused: "Stop Recording"
+        default: "Record"
+        }
+    }
+
+    var canPressRecord: Bool {
+        switch sessionModel.phase {
+        case .recording, .paused: true
+        default: sessionModel.captureStatus.canStartRecording
+        }
+    }
+
+    func perform(_ recovery: CaptureStatus.Recovery) {
+        switch recovery {
+        case .openSettings:
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        case .checkAgain:
+            Task { await recorder.refreshMicrophoneAvailability() }
+        case .recordAgain:
+            Task { await recorder.requestMicrophonePermissionAndStart() }
+        }
+    }
+
+    func recordButtonTapped() {
+        switch sessionModel.phase {
+        case .recording, .paused:
+            Task { await recorder.stop() }
+        default: Task { await recorder.requestMicrophonePermissionAndStart() }
+        }
+    }
+}
+
 /// ADR-0049 §2's declared UI-only bend, rendered: every value here comes
 /// straight from live runtime state and is never written anywhere.
 private struct DeviceHealthPanelView: View {
@@ -310,9 +347,30 @@ private struct DeviceHealthPanelView: View {
             } else {
                 Text("Battery: unknown")
             }
-            Text("Mic permission: \(String(describing: healthPanel.micPermission))")
+            Text("Mic permission: \(String(describing: healthPanel.microphone))")
                 .font(YggTheme.Typography.caption)
                 .foregroundStyle(YggTheme.Color.textSecondary)
+        }
+    }
+}
+
+/// The capture status line and, where iOS permits one, its recovery action.
+private struct CaptureStatusView: View {
+    let status: CaptureStatus
+    let onRecovery: (CaptureStatus.Recovery) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: YggTheme.Spacing.xs) {
+            YggStateBanner(tone: status.tone, message: status.title, systemImage: status.systemImage)
+            Text(status.message)
+                .font(YggTheme.Typography.caption)
+                .foregroundStyle(YggTheme.Color.textSecondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("heimdal.capture.status")
+        if let recovery = status.recovery {
+            Button(recovery.title) { onRecovery(recovery) }
+                .accessibilityIdentifier("heimdal.capture.recovery")
         }
     }
 }
@@ -324,17 +382,12 @@ private struct DeviceRegistrationStatusView: View {
     var body: some View {
         switch registration.state {
         case .unavailable:
-            Label("No vault selected — captures may be refused", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(YggTheme.Color.warning)
+            YggStateBanner(tone: .attention, message: "No vault selected — captures may be refused")
                 .accessibilityIdentifier("heimdal.registration.unavailable")
         case .loading:
             ProgressView("Loading device registration")
         case let .failed(message):
-            Label(
-                "Registration status unavailable — captures may be refused",
-                systemImage: "exclamationmark.triangle"
-            )
-            .foregroundStyle(YggTheme.Color.warning)
+            YggStateBanner(tone: .attention, message: "Registration status unavailable — captures may be refused")
             Text(message).font(YggTheme.Typography.caption)
         case let .loaded(snapshot):
             if let grant = snapshot.standingGrant {
@@ -348,13 +401,16 @@ private struct DeviceRegistrationStatusView: View {
                         .foregroundStyle(YggTheme.Color.textSecondary)
                 }
             } else {
-                Label("No standing grant found", systemImage: "exclamationmark.shield")
-                    .foregroundStyle(YggTheme.Color.warning)
+                YggStateBanner(
+                    tone: .attention, message: "No standing grant found", systemImage: "exclamationmark.shield"
+                )
                     .accessibilityIdentifier("heimdal.consent.empty")
             }
 
             if snapshot.isRegistered {
-                Label("This device is registered", systemImage: "checkmark.circle.fill")
+                YggStateBanner(
+                    tone: .healthy, message: "This device is registered", systemImage: "checkmark.circle.fill"
+                )
                     .accessibilityIdentifier("heimdal.registration.registered")
                 if let deviceNote = snapshot.deviceNote {
                     Text("Device ID: \(deviceNote.deviceID ?? "missing")")
@@ -378,11 +434,10 @@ private struct DeviceRegistrationStatusView: View {
                         .accessibilityIdentifier("heimdal.registration.gapLogCount")
                 }
             } else {
-                Label(
-                    "Not registered — captures may be refused",
+                YggStateBanner(
+                    tone: .attention, message: "Not registered — captures may be refused",
                     systemImage: "exclamationmark.triangle.fill"
                 )
-                .foregroundStyle(YggTheme.Color.warning)
                 .accessibilityIdentifier("heimdal.registration.unregistered")
                 Button("Register This Device") {
                     Task { await registration.register() }

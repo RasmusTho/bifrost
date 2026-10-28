@@ -59,7 +59,7 @@ struct MimerCanvasDetailView: View {
                             .accessibilityIdentifier("mimer.canvas.annotation.commit")
                         }
                         if let failureMessage = appendDraft.failureMessage {
-                            Text(failureMessage).foregroundStyle(YggTheme.Color.destructive)
+                            YggStateBanner(tone: .attention, message: failureMessage)
                             if !appendDraft.failureText.isEmpty {
                                 Text(appendDraft.failureText).textSelection(.enabled)
                             }
@@ -109,7 +109,8 @@ struct MimerCanvasDetailView: View {
                     YggEmptyState(
                         systemImage: "rectangle.on.rectangle",
                         title: "Select an Item",
-                        message: "Choose a note from the Vault column to inspect it here."
+                        message: "Choose a note from the Vault column to inspect it here.",
+                        identifier: "mimer.canvas.detail.empty"
                     )
                 }
             }

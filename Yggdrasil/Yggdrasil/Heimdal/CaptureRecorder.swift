@@ -45,6 +45,7 @@ final class CaptureRecorder: ObservableObject {
     private let now: () -> Date
     private let observeSessionNotifications: Bool
     private let mediaValidator: CaptureMediaValidating
+    let microphoneProbe: MicrophoneAvailabilityProbe
     /// Receipt-gated outbox intake. `nil` on builds that still use the legacy
     /// watched-folder lane alone.
     private let outboxIntake: CaptureOutboxIntake?
@@ -66,7 +67,8 @@ final class CaptureRecorder: ObservableObject {
         configuration: Configuration = .production,
         observeInterruptions: Bool = true,
         mediaValidator: CaptureMediaValidating = AVFoundationCaptureMediaValidator(),
-        outboxIntake: CaptureOutboxIntake? = nil
+        outboxIntake: CaptureOutboxIntake? = nil,
+        microphoneProbe: MicrophoneAvailabilityProbe = .system
     ) {
         self.outboxIntake = outboxIntake
         self.sessionModel = sessionModel ?? CaptureSessionModel()
@@ -81,24 +83,12 @@ final class CaptureRecorder: ObservableObject {
         self.configuration = configuration
         observeSessionNotifications = observeInterruptions
         self.mediaValidator = mediaValidator
+        self.microphoneProbe = microphoneProbe
         reconcileStagingDirectory()
     }
 
     deinit {
         sessionObservers.forEach(NotificationCenter.default.removeObserver)
-    }
-
-    func requestMicrophonePermissionAndStart() {
-        AVAudioApplication.requestRecordPermission { [weak self] granted in
-            guard let recorder = self else { return }
-            Task { @MainActor [recorder, granted] in
-                if granted {
-                    recorder.start()
-                } else {
-                    recorder.lastError = "Microphone access is needed to record your own spoken thoughts."
-                }
-            }
-        }
     }
 
     func start() {

@@ -46,6 +46,7 @@
 		45F25DB01F135581112A58D4 /* YggdrasilUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */; };
 		A14000010000000000000001 /* CaptureFolderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000110000000000000001 /* CaptureFolderManager.swift */; };
 		A14000020000000000000002 /* CaptureSessionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000120000000000000002 /* CaptureSessionModel.swift */; };
+		C47730020000000000000001 /* CaptureStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47730120000000000000001 /* CaptureStatus.swift */; };
 		A14000030000000000000003 /* HeimdalShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14000130000000000000003 /* HeimdalShellView.swift */; };
 		A17000010000000000000001 /* DeviceRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17000110000000000000001 /* DeviceRegistration.swift */; };
 		A17000020000000000000002 /* DeviceRegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17000120000000000000002 /* DeviceRegistrationTests.swift */; };
@@ -204,6 +205,7 @@
 		75804FB49C7822EB6089BA56 /* YggdrasilUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YggdrasilUITests.swift; sourceTree = "<group>"; };
 		A14000110000000000000001 /* CaptureFolderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFolderManager.swift; sourceTree = "<group>"; };
 		A14000120000000000000002 /* CaptureSessionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionModel.swift; sourceTree = "<group>"; };
+		C47730120000000000000001 /* CaptureStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureStatus.swift; sourceTree = "<group>"; };
 		A14000130000000000000003 /* HeimdalShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeimdalShellView.swift; sourceTree = "<group>"; };
 		A17000110000000000000001 /* DeviceRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistration.swift; sourceTree = "<group>"; };
 		A17000120000000000000002 /* DeviceRegistrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistrationTests.swift; sourceTree = "<group>"; };
@@ -439,6 +441,7 @@
 			children = (
 				A14000110000000000000001 /* CaptureFolderManager.swift */,
 				A14000120000000000000002 /* CaptureSessionModel.swift */,
+				C47730120000000000000001 /* CaptureStatus.swift */,
 				A14000130000000000000003 /* HeimdalShellView.swift */,
 				A17000110000000000000001 /* DeviceRegistration.swift */,
 				AA1000110000000000000001 /* DeviceHealthPanelModel.swift */,
@@ -864,6 +867,7 @@
 				D84DDF3D1BA800003034C73E /* NoteBrowserView.swift in Sources */,
 				A14000010000000000000001 /* CaptureFolderManager.swift in Sources */,
 				A14000020000000000000002 /* CaptureSessionModel.swift in Sources */,
+				C47730020000000000000001 /* CaptureStatus.swift in Sources */,
 				A14000030000000000000003 /* HeimdalShellView.swift in Sources */,
 				A17000010000000000000001 /* DeviceRegistration.swift in Sources */,
 				AA1000010000000000000001 /* DeviceHealthPanelModel.swift in Sources */,
