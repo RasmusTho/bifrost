@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Physical capture preflight tests
+        run: python3 -m unittest discover -s tests/acceptance -p 'test_*.py'
       - name: Required governance files present
         shell: bash
         run: |
