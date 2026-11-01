@@ -98,8 +98,21 @@ class PhysicalPreflightTests(unittest.TestCase):
         nested_result = subprocess.CompletedProcess([], 0, stdout=nested_json, stderr=b"")
         with patch.object(preflight.subprocess, "run", return_value=nested_result):
             parsed, issue = preflight.inspect_inventory()
+        nested_report = preflight.build_report(parsed, [], inventory_problem=issue)
+        self.assertEqual(nested_report["status"], "BLOCKED")
+        self.assertTrue(
+            {"inventory_unavailable", "inventory_malformed"} & set(nested_report["blockers"])
+        )
+        with patch.object(preflight.subprocess, "run", return_value=nested_result):
+            with patch.object(preflight.json, "loads", side_effect=RecursionError):
+                parsed, issue = preflight.inspect_inventory()
         self.assertIsNone(parsed)
         self.assertEqual(issue, "unavailable")
+        with patch.object(preflight.subprocess, "run", return_value=nested_result):
+            with patch.object(preflight.json, "loads", return_value=[[]]):
+                parsed, issue = preflight.inspect_inventory()
+        parsed_report = preflight.build_report(parsed, [], inventory_problem=issue)
+        self.assertIn("inventory_malformed", parsed_report["blockers"])
 
     def test_ambiguous_old_and_simulated_devices_do_not_qualify(self) -> None:
         devices = pair()
